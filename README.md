@@ -12,6 +12,8 @@ this slice does not build them.
 
 ## What works now
 
+- **Dictation:** Wispr Flow is the default input. The app just receives text, so
+  native keyboard dictation or typing work too.
 - **Sign in** with a name + email; the identity is stored on-device and attached to
   every evaluation, and it survives connectivity gaps.
 - **Schedule-aware capture**: the home screen suggests the activity nearest to the
@@ -48,7 +50,8 @@ npm run dev        # http://localhost:5173  — runs local-only with a seeded sa
 
 1. Create a project at supabase.com.
 2. In the SQL editor, run `supabase/migrations/0001_foundation_schema.sql`, then
-   `supabase/seed.sql` (the Bali sample workshop + placeholder KSAs).
+   `supabase/seed.sql` (the Psalms Workshop, Bali 2026 — real 6-area KSA framework;
+   draft 0–3 evidence levels; placeholder CIT roster).
 3. Copy `.env.example` to `.env` and fill in `VITE_SUPABASE_URL` and
    `VITE_SUPABASE_ANON_KEY` from Project Settings → API.
 4. Restart `npm run dev`. The app now syncs the outbox and loads reference data from

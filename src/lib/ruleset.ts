@@ -6,6 +6,11 @@
 
 export const RULESET_VERSION = '2026-06-draft-1'
 
+// Wispr Flow is the default dictation method for the workshop. The app is agnostic
+// to the input source (it just receives text), so this is guidance, not a dependency.
+export const DICTATION_HINT =
+  'Dictate with Wispr Flow (the default input for this workshop). Typed text works too.'
+
 export const INPUT_RULES: string[] = [
   'Name each participant you are referring to (use the names as registered).',
   'Mark whether an observation is about one person or the whole group.',

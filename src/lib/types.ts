@@ -1,11 +1,13 @@
 // Shared entity types. Mirror the Postgres schema (supabase/migrations/0001_foundation_schema.sql).
 
+// The six KSA areas of the Psalms Workshop (OBT CDT Workshop 3, Bali 2026).
 export const KSA_AREAS = [
-  'Orality',
-  'OBT Workflow & Team Composition',
-  'OBT Exegesis, Internalization, and Drafting',
-  'Interpersonal Interactions',
-  'Technology & Resources',
+  'The CLAT Process and Translation of Aesthetic Language',
+  'Aesthetic Language, Ethnopoetics, and the Biblical Function of the Psalms',
+  'Genre Theory, Discovery, and Matching',
+  'Psalms Exegesis and Internalization',
+  'Checking Artistic Translations',
+  'Advocacy and Community Integration',
 ] as const
 
 export type KsaArea = (typeof KSA_AREAS)[number]

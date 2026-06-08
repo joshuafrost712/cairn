@@ -5,7 +5,7 @@ import { db } from '../db/local'
 import { ksasForActivity } from '../db/reference'
 import { saveAnswers, submitEvaluation, undoLastEdit } from '../db/evaluations'
 import { composeSourceText } from '../lib/compose'
-import { INPUT_RULES } from '../lib/ruleset'
+import { INPUT_RULES, DICTATION_HINT } from '../lib/ruleset'
 import { RubricPanel } from '../components/RubricPanel'
 import type { Ksa, Participant, ParticipantScopeEntry } from '../lib/types'
 
@@ -104,6 +104,7 @@ export function CaptureActivity() {
     <main>
       <div className="card">
         <h1>{activity?.title ?? 'Activity'}</h1>
+        <div className="banner info">{DICTATION_HINT}</div>
         {alreadySubmitted && (
           <div className="banner info">
             Submitted. You can edit, add to, or correct this evaluation; changes save instantly.
