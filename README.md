@@ -150,9 +150,13 @@ only when all of their observations are verified or adjusted; a verified/adjuste
 counts (at its agreed value) even if routing flagged it, and a disputed item drops out.
 `npm run report:preview` and `npm run gate:preview` exercise this headlessly.
 
-> Verdicts are stored per evaluator on-device (Dexie). Aggregating across evaluators on
-> separate devices needs the shared store (Supabase) or the GitHub round-trip, wired in
-> a later pass; a single-device or `VITE_REQUIRED_CONFIRMATIONS=1` deployment works now.
+**Cross-device sync.** Evaluators confirm on their own phones, so verdicts sync through
+the routing repo — conflict-free because each evaluator owns exactly one file,
+`routing/verdicts/<evaluator>.json`, and a device only ever writes its own. On the
+Observations screen, **Sync now** pulls the latest observations, pushes this device's
+verdicts, and pulls everyone else's (replacing each other evaluator's set wholesale, so
+their deletions propagate); the gate then aggregates the union. A copy/paste path does
+the same without a token. `src/routing/verdicts.ts` holds the logic.
 
 ## Project map
 
@@ -163,20 +167,22 @@ counts (at its agreed value) even if routing flagged it, and a disputed item dro
 - `src/ai/` — the routing **contract** (`contract.ts`: rules + schema + validator) and
   workspace generators (`workspace.ts`); `synthetic.ts` field-like test captures.
 - `src/routing/` — GitHub round-trip: `config.ts`, Contents API client (`github.ts`),
-  push/pull + copy-paste operations (`operations.ts`).
+  capture/observation push/pull + copy-paste (`operations.ts`), cross-device verdict
+  sync (`verdicts.ts`).
 - `src/reports/` — `build.ts` (rollup, verification-aware), `markdown.ts` (export),
   `verification.ts` (the gate logic).
 - `src/auth/` — lightweight, offline-tolerant identity.
 - `src/pages/` — SignIn, EvaluatorHome, CaptureActivity, MyEvaluations, Routing,
   Observations (+ verify controls), Reports, Admin.
-- `src/components/` — RubricPanel (focus-safe), SyncStatusBar, useOnline, VerifyControls.
-- `routing/` — the generated routing workspace (ROUTING.md + reference/ + inbox/outbox).
+- `src/components/` — RubricPanel (focus-safe), SyncStatusBar, useOnline, VerifyControls,
+  VerdictSync.
+- `routing/` — the generated routing workspace (ROUTING.md + reference/ + inbox/outbox/
+  + app-managed verdicts/).
 - `supabase/` — schema migration + seed SQL.
 
 ## Deferred (later phases)
 
 - Author the real 0–3 evidence-level descriptors per KSA (currently draft placeholders).
-- Sync verdicts/observations across evaluators' devices (shared store or GitHub round-trip).
 - Optional narrative report layer: Claude (Max) writes participant-facing prose from the rollup.
 - Report delivery (email) + a daily-vs-final report distinction.
 - CBC competency-platform export pipeline (Phase 2, with the org programmer).

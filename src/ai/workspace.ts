@@ -133,6 +133,9 @@ Do not modify anything in \`inbox/\`. Commit the new \`outbox/\` files. The app 
 imports \`outbox/\` and clears its sent queue. An empty \`observations\` array is a
 valid result when a capture contains nothing routable.
 
+Ignore the \`verdicts/\` folder if present: it is app-managed (evaluators' confirmations
+synced between devices) and is not part of routing.
+
 > Evidence-level descriptors are DRAFT placeholders pending facilitator authoring.
 > Apply them as written; when they are too thin to rate confidently, set
 > \`needs_review\` true rather than guessing.

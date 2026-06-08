@@ -35,6 +35,7 @@ write('routing/reference/roster.md', renderRosterDoc(seedParticipants, teamName)
 write('routing/reference/schema.json', renderSchemaJson())
 write('routing/inbox/.gitkeep', '')
 write('routing/outbox/.gitkeep', '')
+write('routing/verdicts/.gitkeep', '') // app-managed: evaluators' verdicts, synced between devices
 
 if (process.argv.includes('--synthetic')) {
   console.log('Seeding inbox with synthetic captures...')

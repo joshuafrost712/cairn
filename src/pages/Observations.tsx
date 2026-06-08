@@ -5,6 +5,7 @@ import { db } from '../db/local'
 import { useAuth } from '../auth/AuthContext'
 import { annotateObservations, participantGate, type AnnotatedObservation } from '../reports/verification'
 import { VerifyControls } from '../components/VerifyControls'
+import { VerdictSync } from '../components/VerdictSync'
 import type { ObservationRecord, VerificationVerdict } from '../lib/types'
 
 // Observations + verification gate: each routed observation is shown with its
@@ -41,6 +42,8 @@ export function Observations() {
         </p>
         {!email && <p className="banner warn">Sign in to record verdicts.</p>}
       </div>
+
+      {email && <VerdictSync evaluatorEmail={email} />}
 
       {annotated.length === 0 && (
         <div className="banner">
