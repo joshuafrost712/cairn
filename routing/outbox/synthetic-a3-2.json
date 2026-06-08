@@ -1,0 +1,79 @@
+{
+  "schema": "cairn.observations/v1",
+  "capture_client_id": "synthetic-a3-2",
+  "routed_at": "2026-06-08T20:00:00.000Z",
+  "observations": [
+    {
+      "participant_name": "CIT Three",
+      "participant_id": "33333333-0000-0000-0000-000000000003",
+      "ksa_code": "EXEG",
+      "text": "Facilitated MTT internalization patiently without rushing the team (whole-group remark covering both CITs).",
+      "source_excerpt": "Both of them facilitated internalization patiently and didn't rush the team.",
+      "evidence_designation": 2,
+      "sentiment_flag": "strong",
+      "confidence": "high",
+      "needs_review": false,
+      "origin": "group"
+    },
+    {
+      "participant_name": "CIT Four",
+      "participant_id": "33333333-0000-0000-0000-000000000004",
+      "ksa_code": "EXEG",
+      "text": "Facilitated MTT internalization patiently without rushing the team (whole-group remark covering both CITs).",
+      "source_excerpt": "Both of them facilitated internalization patiently and didn't rush the team.",
+      "evidence_designation": 2,
+      "sentiment_flag": "strong",
+      "confidence": "high",
+      "needs_review": false,
+      "origin": "group"
+    },
+    {
+      "participant_name": "CIT Three",
+      "participant_id": "33333333-0000-0000-0000-000000000003",
+      "ksa_code": "EXEG",
+      "text": "Facilitated internalization skillfully using the Four Es: walked the MTT through engaging and embodying the psalm before any drafting.",
+      "source_excerpt": "CIT Three used the Four Es well, walking the MTT through engaging and embodying the psalm before any drafting.",
+      "evidence_designation": 3,
+      "sentiment_flag": "strong",
+      "confidence": "high",
+      "needs_review": false,
+      "origin": "individual"
+    },
+    {
+      "participant_name": "CIT Three",
+      "participant_id": "33333333-0000-0000-0000-000000000003",
+      "ksa_code": "CLAT",
+      "text": "Sequenced internalization before drafting in line with the CLAT workflow. CLAT facilitation quality is inferred from the internalization step rather than directly described.",
+      "source_excerpt": "walking the MTT through engaging and embodying the psalm before any drafting",
+      "evidence_designation": 2,
+      "sentiment_flag": "neutral",
+      "confidence": "medium",
+      "needs_review": false,
+      "origin": "individual"
+    },
+    {
+      "participant_name": "CIT Four",
+      "participant_id": "33333333-0000-0000-0000-000000000004",
+      "ksa_code": "EXEG",
+      "text": "Demonstrated deep personal internalization of Psalm 1: recited it from memory with feeling.",
+      "source_excerpt": "CIT Four had clearly internalized Psalm 1 deeply himself, recited it from memory with feeling",
+      "evidence_designation": 3,
+      "sentiment_flag": "strong",
+      "confidence": "high",
+      "needs_review": false,
+      "origin": "individual"
+    },
+    {
+      "participant_name": "CIT Four",
+      "participant_id": "33333333-0000-0000-0000-000000000004",
+      "ksa_code": "CLAT",
+      "text": "CLAT facilitation slipped: pushed the team straight into drafting before they had internalized the psalm.",
+      "source_excerpt": "he jumped the team straight to drafting before they had internalized it, so the CLAT facilitation slipped there.",
+      "evidence_designation": 1,
+      "sentiment_flag": "weak",
+      "confidence": "high",
+      "needs_review": false,
+      "origin": "individual"
+    }
+  ]
+}

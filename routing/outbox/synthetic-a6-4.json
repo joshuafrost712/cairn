@@ -1,0 +1,19 @@
+{
+  "schema": "cairn.observations/v1",
+  "capture_client_id": "synthetic-a6-4",
+  "routed_at": "2026-06-08T20:00:00.000Z",
+  "observations": [
+    {
+      "participant_name": "CIT Two or CIT Three (unresolved)",
+      "participant_id": null,
+      "ksa_code": "CHECK",
+      "text": "Evaluator noted that one of the two CITs seemed lost during the check but could not tell which; the consulting questions were described only vaguely. Too thin and ambiguous to attribute to a person or rate confidently.",
+      "source_excerpt": "One of them seemed a bit lost during the check but I couldn't tell which from where I was sitting. Questions were okay I guess.",
+      "evidence_designation": 1,
+      "sentiment_flag": "weak",
+      "confidence": "low",
+      "needs_review": true,
+      "origin": "individual"
+    }
+  ]
+}

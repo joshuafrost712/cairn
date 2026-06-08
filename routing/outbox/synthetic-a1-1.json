@@ -1,0 +1,43 @@
+{
+  "schema": "cairn.observations/v1",
+  "capture_client_id": "synthetic-a1-1",
+  "routed_at": "2026-06-08T20:00:00.000Z",
+  "observations": [
+    {
+      "participant_name": "CIT One",
+      "participant_id": "33333333-0000-0000-0000-000000000001",
+      "ksa_code": "GENRE",
+      "text": "Led genre repertoire mapping skillfully: asked open functional questions (which songs are used for mourning vs. celebration) and elicited five distinct local genres with their functions from the artists.",
+      "source_excerpt": "CIT One led the genre mapping really well. She asked open questions about which songs the community uses for mourning versus celebration and got the artists to list five distinct genres with their functions.",
+      "evidence_designation": 3,
+      "sentiment_flag": "strong",
+      "confidence": "high",
+      "needs_review": false,
+      "origin": "individual"
+    },
+    {
+      "participant_name": "CIT One",
+      "participant_id": "33333333-0000-0000-0000-000000000001",
+      "ksa_code": "AESTH",
+      "text": "Showed an appreciative stance toward local forms (treated them as resources, not problems), consistent with valuing aesthetic language. No direct evidence she explained ethnopoetics or its biblical/ANE function, so the AESTH mapping is a stretch.",
+      "source_excerpt": "She clearly treated the local forms as resources, not problems.",
+      "evidence_designation": 2,
+      "sentiment_flag": "strong",
+      "confidence": "low",
+      "needs_review": true,
+      "origin": "individual"
+    },
+    {
+      "participant_name": "CIT Two",
+      "participant_id": "33333333-0000-0000-0000-000000000002",
+      "ksa_code": "GENRE",
+      "text": "Flattened a local chant form by treating it as a simpler version of a hymn rather than mapping its distinct function: thin genre-matching reasoning.",
+      "source_excerpt": "at one point framed a chant form as just a simpler version of a hymn, which flattened the genre rather than mapping its real function.",
+      "evidence_designation": 1,
+      "sentiment_flag": "weak",
+      "confidence": "high",
+      "needs_review": false,
+      "origin": "individual"
+    }
+  ]
+}

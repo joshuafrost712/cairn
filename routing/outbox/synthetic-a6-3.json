@@ -1,0 +1,19 @@
+{
+  "schema": "cairn.observations/v1",
+  "capture_client_id": "synthetic-a6-3",
+  "routed_at": "2026-06-08T20:00:00.000Z",
+  "observations": [
+    {
+      "participant_name": "CIT One",
+      "participant_id": "33333333-0000-0000-0000-000000000001",
+      "ksa_code": "CHECK",
+      "text": "Excellent consultant checking: open-ended, inferential questions suited to the song form; led the community check from issue identification through to a resolution the team owned, staying humble throughout.",
+      "source_excerpt": "CIT One's consulting questions were excellent. Open-ended, inferential, suited to the song form. She led the community check from issue identification right through to a resolution the team owned, and stayed humble throughout.",
+      "evidence_designation": 3,
+      "sentiment_flag": "strong",
+      "confidence": "high",
+      "needs_review": false,
+      "origin": "individual"
+    }
+  ]
+}
