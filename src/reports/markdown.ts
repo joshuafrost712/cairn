@@ -3,6 +3,7 @@
 // dividers, a sentence of body text between heading levels, em dashes used sparingly.
 
 import type { ParticipantReport, KsaRollup } from './build'
+import type { Gate } from './verification'
 
 const LEVEL_WORD: Record<number, string> = {
   0: 'not yet demonstrated',
@@ -20,13 +21,26 @@ function designationLine(r: KsaRollup): string {
   return `**Designation: ${r.representative}/3 (${word}).**${spread}${conflict}`
 }
 
-export function renderParticipantReportMarkdown(report: ParticipantReport, workshopName: string, generatedOn: string): string {
+export function renderParticipantReportMarkdown(
+  report: ParticipantReport,
+  workshopName: string,
+  generatedOn: string,
+  gate?: Gate,
+): string {
   const lines: string[] = []
   lines.push(`# Participant evaluation: ${report.participant_name}`)
   lines.push('')
   const teamBit = report.team_name ? `, ${report.team_name}` : ''
   lines.push(`${workshopName}${teamBit}. Draft evidence summary generated ${generatedOn} from facilitator observations. Numbers are draft 0–3 designations and the evidence levels behind them are still being finalized, so treat this as input to a human judgment rather than a final score.`)
   lines.push('')
+  if (gate) {
+    const verdict =
+      gate.status === 'ready'
+        ? `Verified: all ${gate.total} observations confirmed by at least ${gate.required} evaluators. This report is cleared to finalize.`
+        : `Not yet verified: ${gate.verified} of ${gate.total} observations confirmed (needs ${gate.required} evaluators each)${gate.pending ? `, ${gate.pending} pending` : ''}${gate.disputed ? `, ${gate.disputed} disputed` : ''}. This report is locked until those are resolved.`
+    lines.push(`**Verification status.** ${verdict}`)
+    lines.push('')
+  }
   lines.push(
     `Evidence has been recorded against ${report.totals.evidencedKsas} of ${report.totals.totalKsas} competency areas${report.totals.needsReviewCount ? `, with ${report.totals.needsReviewCount} item(s) flagged for review` : ''}.`,
   )
@@ -48,8 +62,10 @@ export function renderParticipantReportMarkdown(report: ParticipantReport, works
     lines.push(designationLine(r))
     lines.push('')
     for (const o of r.contributing) {
+      const eff = (o as { effective_designation?: number }).effective_designation ?? o.evidence_designation
+      const adjusted = eff !== o.evidence_designation ? ` (adjusted from ${o.evidence_designation})` : ''
       const tag = o.origin === 'group' ? ' [group observation]' : ''
-      lines.push(`- ${o.evidence_designation}/3${tag}: ${o.text}`)
+      lines.push(`- ${eff}/3${adjusted}${tag}: ${o.text}`)
       if (o.source_excerpt) lines.push(`  > "${o.source_excerpt}"`)
     }
     lines.push('')

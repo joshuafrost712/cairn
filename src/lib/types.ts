@@ -135,3 +135,18 @@ export interface ObservationRecord {
   origin: 'individual' | 'group'
   imported_at: string
 }
+
+/** One evaluator's verdict on one observation (the multi-evaluator gate). */
+export type VerificationDecision = 'confirm' | 'adjust' | 'reject'
+
+export interface VerificationVerdict {
+  id: string // `${observation_id}::${evaluator_email}` — one current verdict per evaluator per observation
+  observation_id: string
+  capture_client_id: string // for grouping + future sync
+  evaluator_email: string
+  decision: VerificationDecision
+  /** the designation this evaluator believes is correct, when decision === 'adjust' */
+  adjusted_designation?: 0 | 1 | 2 | 3 | null
+  note?: string | null
+  at: string
+}

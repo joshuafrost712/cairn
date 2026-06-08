@@ -10,7 +10,8 @@
     "preview": "vite preview",
     "routing:prepare": "tsx scripts/routing-prepare.ts",
     "routing:verify": "tsx scripts/routing-verify.ts",
-    "report:preview": "tsx scripts/report-preview.ts"
+    "report:preview": "tsx scripts/report-preview.ts",
+    "gate:preview": "tsx scripts/gate-preview.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.108.0",

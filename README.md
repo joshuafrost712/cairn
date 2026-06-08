@@ -131,28 +131,55 @@ npm run dev        # http://localhost:5173  — runs local-only with a seeded sa
    commit, then route it with Claude (Max) on the repo per `routing/ROUTING.md`; or in
    the app, "Copy pending captures" → paste to Claude → paste the reply into "Import
    observations" and confirm rows appear on the Observations screen.
+6. **Verify + finalize** — on Observations, Confirm/Adjust/Reject each observation as an
+   evaluator; a participant's report stays **locked** on Reports until every observation
+   is confirmed by the required number of evaluators (`VITE_REQUIRED_CONFIRMATIONS`,
+   default 2), then "Finalize: copy report" produces the verified markdown.
+
+## Reports and the verification gate
+
+Reports are a **deterministic rollup** (no AI): per participant, per KSA, the
+representative 0–3 is the max of the counting designations, with quotes behind every
+number, a conflict flag when designations spread by 2+, and a CBC sub-point view.
+
+The **multi-evaluator gate** sits on top: each observation collects evaluator verdicts
+(confirm / adjust to a different 0–3 / reject). An observation is `verified` once N
+evaluators confirm, `adjusted` when they agree on a different value, `disputed` on any
+reject or disagreement, else `pending`. A participant's report is **ready to finalize**
+only when all of their observations are verified or adjusted; a verified/adjusted item
+counts (at its agreed value) even if routing flagged it, and a disputed item drops out.
+`npm run report:preview` and `npm run gate:preview` exercise this headlessly.
+
+> Verdicts are stored per evaluator on-device (Dexie). Aggregating across evaluators on
+> separate devices needs the shared store (Supabase) or the GitHub round-trip, wired in
+> a later pass; a single-device or `VITE_REQUIRED_CONFIRMATIONS=1` deployment works now.
 
 ## Project map
 
 - `src/lib/` — Supabase client, shared types, input ruleset, source-text composer.
-- `src/db/` — Dexie schema (`local.ts`, incl. `observations`), reference-data cache
-  (`reference.ts`), evaluations repo (`evaluations.ts`), outbox sync worker (`sync.ts`).
+- `src/db/` — Dexie schema (`local.ts`, incl. `observations` + `verifications`),
+  reference cache (`reference.ts`), evaluations (`evaluations.ts`), verdicts
+  (`verifications.ts`), outbox sync worker (`sync.ts`).
 - `src/ai/` — the routing **contract** (`contract.ts`: rules + schema + validator) and
   workspace generators (`workspace.ts`); `synthetic.ts` field-like test captures.
 - `src/routing/` — GitHub round-trip: `config.ts`, Contents API client (`github.ts`),
   push/pull + copy-paste operations (`operations.ts`).
+- `src/reports/` — `build.ts` (rollup, verification-aware), `markdown.ts` (export),
+  `verification.ts` (the gate logic).
 - `src/auth/` — lightweight, offline-tolerant identity.
 - `src/pages/` — SignIn, EvaluatorHome, CaptureActivity, MyEvaluations, Routing,
-  Observations, Admin.
-- `src/components/` — RubricPanel (focus-safe), SyncStatusBar, useOnline.
+  Observations (+ verify controls), Reports, Admin.
+- `src/components/` — RubricPanel (focus-safe), SyncStatusBar, useOnline, VerifyControls.
 - `routing/` — the generated routing workspace (ROUTING.md + reference/ + inbox/outbox).
 - `supabase/` — schema migration + seed SQL.
 
 ## Deferred (later phases)
 
 - Author the real 0–3 evidence-level descriptors per KSA (currently draft placeholders).
-- Daily / final report generation + email; multi-evaluator verification gate.
-- CBC competency-platform export pipeline.
+- Sync verdicts/observations across evaluators' devices (shared store or GitHub round-trip).
+- Optional narrative report layer: Claude (Max) writes participant-facing prose from the rollup.
+- Report delivery (email) + a daily-vs-final report distinction.
+- CBC competency-platform export pipeline (Phase 2, with the org programmer).
 - Server-side translation (only if non-English capture is needed; Bali runs in English).
 - On-device STT / translation for true offline (only if a deployment needs it).
 - Raster PWA icons (192/512 png); a real auth method (password / magic link).

@@ -7,6 +7,7 @@ import type {
   ObservationRecord,
   Participant,
   Team,
+  VerificationVerdict,
   Workshop,
 } from '../lib/types'
 
@@ -27,6 +28,7 @@ class CairnDB extends Dexie {
   ksas!: EntityTable<Ksa, 'id'>
   activityKsas!: EntityTable<ActivityKsa & { pk: string }, 'pk'>
   observations!: EntityTable<ObservationRecord, 'id'>
+  verifications!: EntityTable<VerificationVerdict, 'id'>
 
   constructor() {
     super('cairn')
@@ -44,6 +46,10 @@ class CairnDB extends Dexie {
     this.version(2).stores({
       evaluations: 'client_id, sync_status, routing_status, activity_id, workshop_id, updated_at',
       observations: 'id, capture_client_id, participant_id, ksa_code',
+    })
+    // v3: evaluator verdicts for the multi-evaluator verification gate.
+    this.version(3).stores({
+      verifications: 'id, observation_id, capture_client_id, evaluator_email',
     })
   }
 }
