@@ -39,6 +39,28 @@ this slice does not build them.
 - The app runs **local-only** when Supabase isn't configured: capture + offline
   persistence work; nothing syncs. This keeps it runnable before a backend exists.
 
+## AI routing layer (built; needs an API key to run)
+
+The routing layer turns each free-form capture into **individual-level observations** —
+one per (participant, KSA) claim, with a 0–3 evidence designation, sentiment, a
+confidence level, and a `needs_review` flag (low-confidence or unmatched-participant
+observations are never guessed silently). This is what turns stored text into the
+structured evidence reports and CBC submission draw on.
+
+- `src/ai/prompt.ts` — runtime-agnostic: frozen instructions + the activity's KSA
+  rubric and roster as **prompt-cached** system blocks, the JSON-schema for structured
+  output, and the model/pricing. Shared by both runtimes below.
+- `src/ai/route.ts` — Node routing function (Anthropic SDK, `claude-opus-4-8`,
+  adaptive thinking, structured output). Resolves participant names against the roster.
+- `src/ai/cost.ts` — per-call cost logging + a configurable **spend cap**.
+- `scripts/calibrate.ts` — runs synthetic field-like evaluations through routing and
+  prints the structured observations (the start of the calibration workstream). Run:
+  `ANTHROPIC_API_KEY=sk-... npm run calibrate` (cap via `CLAUDE_SPEND_CAP_USD`,
+  default 5; per-call log written to `calibration-log.jsonl`).
+- `supabase/functions/route-evaluation/` — Deno Edge Function wrapping the same
+  contract for deployment: fetches an evaluation, routes it, inserts `observation`
+  rows, logs the call to `claude_call_log`, and enforces a monthly cap. Deferred-deploy.
+
 ## Setup
 
 ```bash
