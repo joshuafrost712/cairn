@@ -111,4 +111,27 @@ export interface EvaluationRecord {
   updated_at: string
   sync_status: SyncStatus
   sync_error?: string | null
+  /**
+   * GitHub routing state (no metered API — routing runs on a repo via Claude Max):
+   * absent = not yet sent to the routing repo; 'sent' = capture pushed to inbox/;
+   * 'routed' = observations imported back from outbox/.
+   */
+  routing_status?: 'sent' | 'routed'
+}
+
+/** An individual-level observation imported from routing/outbox/ (Claude-produced). */
+export interface ObservationRecord {
+  id: string // `${capture_client_id}::${index}`
+  capture_client_id: string
+  participant_id: string | null
+  participant_name: string
+  ksa_code: string
+  text: string
+  source_excerpt: string
+  evidence_designation: 0 | 1 | 2 | 3
+  sentiment_flag: 'strong' | 'weak' | 'neutral'
+  confidence: 'low' | 'medium' | 'high'
+  needs_review: boolean
+  origin: 'individual' | 'group'
+  imported_at: string
 }

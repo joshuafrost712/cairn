@@ -1,0 +1,38 @@
+{
+  "schema": "cairn.capture/v1",
+  "capture_client_id": "synthetic-a6-3",
+  "workshop": {
+    "id": "11111111-1111-1111-1111-111111111111",
+    "name": "Psalms Workshop — OBT CDT Workshop 3 (Bali 2026)"
+  },
+  "activity": {
+    "id": "44444444-0000-0000-0000-000000000006",
+    "title": "Community Check of Psalm 1",
+    "day": "2026-08-31"
+  },
+  "evaluator_email": "evaluator@example.org",
+  "source_language": "English",
+  "participant_scope": [
+    {
+      "name": "CIT One",
+      "participant_id": "33333333-0000-0000-0000-000000000001"
+    }
+  ],
+  "ksas_in_scope": [
+    {
+      "code": "CHECK",
+      "area": "Checking Artistic Translations",
+      "evaluator_facing_prompt": "Checking: good consulting questions/plan; humble, skilled facilitation leading from issue identification through resolution?",
+      "ai_facing_rubric": "Knowledge: best practices for community and consultant checking of artistic translations; open-ended/inferential questions for aesthetic content; the Concise Handbook framework as shared vocabulary. Attitude: treats checking as collaborative, humble, servant-hearted (not adversarial or purely technical); recognizes MTTs/artists as co-laborers. Skill: can prepare consulting questions and plans suited to the genre/content, facilitate community and consultant checking, lead a conversation from issue identification to resolution, and give/receive peer feedback. Evaluation: quality of preparation and execution of the Psalm 1 and 13 checks, quality of consulting questions, peer reports, and facilitator observation notes.",
+      "evidence_levels": {
+        "0": "No usable consulting questions/plan; cannot lead a check.",
+        "1": "Questions/plan thin; leads only with support.",
+        "2": "Prepares suitable questions/plan; facilitates community and consultant checks competently.",
+        "3": "Excellent questions/plan; leads from issue identification through resolution with humility and skill."
+      }
+    }
+  ],
+  "source_text": "CIT One's consulting questions were excellent. Open-ended, inferential, suited to the song form. She led the community check from issue identification right through to a resolution the team owned, and stayed humble throughout.",
+  "ruleset_version": "synthetic",
+  "created_at": "2026-06-08T19:37:33.417Z"
+}

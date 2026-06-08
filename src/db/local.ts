@@ -4,6 +4,7 @@ import type {
   ActivityKsa,
   EvaluationRecord,
   Ksa,
+  ObservationRecord,
   Participant,
   Team,
   Workshop,
@@ -25,6 +26,7 @@ class CairnDB extends Dexie {
   activities!: EntityTable<Activity, 'id'>
   ksas!: EntityTable<Ksa, 'id'>
   activityKsas!: EntityTable<ActivityKsa & { pk: string }, 'pk'>
+  observations!: EntityTable<ObservationRecord, 'id'>
 
   constructor() {
     super('cairn')
@@ -37,6 +39,11 @@ class CairnDB extends Dexie {
       ksas: 'id, code',
       // composite key flattened into pk so we can upsert cleanly
       activityKsas: 'pk, activity_id, ksa_id',
+    })
+    // v2: routing_status index on evaluations + the imported observations table.
+    this.version(2).stores({
+      evaluations: 'client_id, sync_status, routing_status, activity_id, workshop_id, updated_at',
+      observations: 'id, capture_client_id, participant_id, ksa_code',
     })
   }
 }

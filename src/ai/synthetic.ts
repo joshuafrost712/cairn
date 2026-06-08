@@ -1,7 +1,8 @@
-// Synthetic field-like evaluations for the calibration workstream (brief step 6).
+// Synthetic field-like evaluations for exercising routing end-to-end.
 // Each pins to a seeded activity by sort_order and resembles real dictated input:
 // multi-participant, free-form, sometimes a group remark, sometimes a thin/ambiguous
-// note that should come back needs_review. Used by scripts/calibrate.ts.
+// note that should come back needs_review. Used by scripts/routing-prepare.ts
+// (--synthetic) to seed routing/inbox/ so the Claude-via-Max routing can be tested.
 
 import { seedActivities, seedActivityKsas, seedKsas } from '../data/seed'
 import type { Ksa } from '../lib/types'

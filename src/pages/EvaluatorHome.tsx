@@ -102,6 +102,8 @@ export function EvaluatorHome() {
       <div className="card row">
         <Link to="/evaluations">View my evaluations</Link>
         <span className="spacer" />
+        <Link to="/routing">Routing</Link>
+        <span className="spacer" />
         <Link className="small muted" to="/admin">Admin</Link>
       </div>
     </main>

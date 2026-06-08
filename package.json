@@ -8,10 +8,9 @@
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "calibrate": "tsx scripts/calibrate.ts"
+    "routing:prepare": "tsx scripts/routing-prepare.ts"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.102.0",
     "@supabase/supabase-js": "^2.108.0",
     "dexie": "^4.4.3",
     "dexie-react-hooks": "^4.4.0",

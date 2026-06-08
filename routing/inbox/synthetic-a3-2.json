@@ -1,0 +1,54 @@
+{
+  "schema": "cairn.capture/v1",
+  "capture_client_id": "synthetic-a3-2",
+  "workshop": {
+    "id": "11111111-1111-1111-1111-111111111111",
+    "name": "Psalms Workshop — OBT CDT Workshop 3 (Bali 2026)"
+  },
+  "activity": {
+    "id": "44444444-0000-0000-0000-000000000003",
+    "title": "Facilitating MTT Internalization & Crafting (Psalm 1)",
+    "day": "2026-08-26"
+  },
+  "evaluator_email": "evaluator@example.org",
+  "source_language": "English",
+  "participant_scope": [
+    {
+      "name": "CIT Three",
+      "participant_id": "33333333-0000-0000-0000-000000000003"
+    },
+    {
+      "name": "CIT Four",
+      "participant_id": "33333333-0000-0000-0000-000000000004"
+    }
+  ],
+  "ksas_in_scope": [
+    {
+      "code": "CLAT",
+      "area": "The CLAT Process and Translation of Aesthetic Language",
+      "evaluator_facing_prompt": "CLAT facilitation: are they leading the conversations well and producing a draft that is both faithful and excellent in the local genre?",
+      "ai_facing_rubric": "Knowledge: knows the CLAT conversations and how they adapt into a workflow for translating aesthetic Scripture via the macro principles. Attitude: values CLAT as a disciplined, community-rooted process; trusts local artists as essential partners; committed to capturing aesthetic qualities because they shape emotion, identity, worship, and clarity of meaning. Skill: can lead a team and local artists through a contextualized CLAT process and facilitate translating Psalms into a functionally matched local genre with attention to both fidelity and genre excellence. Evaluation: quality of CLAT facilitation with MTTs/artists, how the Psalm 1 and 13 drafts function as both faithful renderings and excellent genre examples (esp. at community check and mentored consulting), and clarity of documented reasoning.",
+      "evidence_levels": {
+        "0": "Cannot lead the CLAT conversations; drafts ignore source fidelity or genre.",
+        "1": "Leads parts with heavy support; draft weak on fidelity or on genre excellence.",
+        "2": "Leads the CLAT conversations competently; draft is faithful and fits the genre.",
+        "3": "Leads fluently; draft is faithful AND an excellent example of the local genre, with clear documented reasoning."
+      }
+    },
+    {
+      "code": "EXEG",
+      "area": "Psalms Exegesis and Internalization",
+      "evaluator_facing_prompt": "Exegesis/internalization: deep personal internalization, and skilled facilitation of MTT internalization using the Four Es / SENSES?",
+      "ai_facing_rubric": "Knowledge: exegesis of Psalms 1 and 13 (genre, structure, rhetoric, theology); relevant Hebrew poetic conventions; internalization frameworks (Four Es, SENSES). Attitude: treats exegesis as the foundation for faithful translation and internalization as the essential bridge to drafting; does not rush either. Skill: can exegete and internalize a psalm deeply, facilitate internalization for an MTT using the frameworks, and draw on Scripture-as-Resources, spoken English Bible materials, FIA materials, and AI exegetical tools. Evaluation: depth of demonstrated internalization, effectiveness facilitating MTT internalization per best practices, and use of exegetical resources. A pre-workshop exegetical write-up, if assigned, is a baseline indicator (not pass/fail).",
+      "evidence_levels": {
+        "0": "Exegesis / internalization absent or superficial.",
+        "1": "Some exegesis; internalization shallow or facilitation weak.",
+        "2": "Solid personal internalization; facilitates MTT internalization per the frameworks.",
+        "3": "Deep internalization; facilitates skillfully using the Four Es / SENSES and the exegetical resources."
+      }
+    }
+  ],
+  "source_text": "Both of them facilitated internalization patiently and didn't rush the team. CIT Three used the Four Es well, walking the MTT through engaging and embodying the psalm before any drafting. CIT Four had clearly internalized Psalm 1 deeply himself, recited it from memory with feeling, but he jumped the team straight to drafting before they had internalized it, so the CLAT facilitation slipped there.",
+  "ruleset_version": "synthetic",
+  "created_at": "2026-06-08T19:37:33.417Z"
+}

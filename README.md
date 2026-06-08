@@ -1,12 +1,12 @@
 # Cairn — OBT Participant Evaluation (foundation slice)
 
 A mobile-first field tool for capturing observer-led participant evaluation during
-Oral Bible Translation (OBT) consulting workshops. This repo is the **foundation
-slice** of the Participant Evaluation MVP: data model + minimal admin + the evaluator
-capture flow with offline-first local persistence. The AI layer (translation,
-routing-to-individuals, report generation), the multi-evaluator verification gate,
-and CBC export are **deferred to later phases** — the schema accommodates them but
-this slice does not build them.
+Oral Bible Translation (OBT) consulting workshops. It covers the data model, minimal
+admin, the offline-first evaluator capture flow, and **routing** captures into
+per-individual observations via Claude on a GitHub repo (no metered API — see below).
+Report generation, the multi-evaluator verification gate, and CBC export are
+**deferred to later phases** — the schema accommodates them but this repo does not
+build them yet.
 
 "Cairn" is a working codename, renamable.
 
@@ -39,27 +39,58 @@ this slice does not build them.
 - The app runs **local-only** when Supabase isn't configured: capture + offline
   persistence work; nothing syncs. This keeps it runnable before a backend exists.
 
-## AI routing layer (built; needs an API key to run)
+## Routing (Claude Max on a GitHub repo — no metered API)
 
-The routing layer turns each free-form capture into **individual-level observations** —
-one per (participant, KSA) claim, with a 0–3 evidence designation, sentiment, a
-confidence level, and a `needs_review` flag (low-confidence or unmatched-participant
-observations are never guessed silently). This is what turns stored text into the
-structured evidence reports and CBC submission draw on.
+Routing turns each free-form capture into **individual-level observations** — one per
+(participant, KSA) claim, with a 0–3 evidence designation, sentiment, a confidence
+level, and a `needs_review` flag (low-confidence or unmatched-participant observations
+are never guessed silently). This is what turns stored text into the structured
+evidence reports and CBC submission draw on.
 
-- `src/ai/prompt.ts` — runtime-agnostic: frozen instructions + the activity's KSA
-  rubric and roster as **prompt-cached** system blocks, the JSON-schema for structured
-  output, and the model/pricing. Shared by both runtimes below.
-- `src/ai/route.ts` — Node routing function (Anthropic SDK, `claude-opus-4-8`,
-  adaptive thinking, structured output). Resolves participant names against the roster.
-- `src/ai/cost.ts` — per-call cost logging + a configurable **spend cap**.
-- `scripts/calibrate.ts` — runs synthetic field-like evaluations through routing and
-  prints the structured observations (the start of the calibration workstream). Run:
-  `ANTHROPIC_API_KEY=sk-... npm run calibrate` (cap via `CLAUDE_SPEND_CAP_USD`,
-  default 5; per-call log written to `calibration-log.jsonl`).
-- `supabase/functions/route-evaluation/` — Deno Edge Function wrapping the same
-  contract for deployment: fetches an evaluation, routes it, inserts `observation`
-  rows, logs the call to `claude_call_log`, and enforces a monthly cap. Deferred-deploy.
+**It does not call a metered Claude API.** Routing is performed by Claude through a
+Claude Max subscription, operating directly on a private GitHub repo. There is no
+per-transaction cost. The flow:
+
+```
+app  →  routing/inbox/<id>.json   (a self-contained capture: text + in-scope KSAs + roster)
+you  →  open Claude on the repo, "route the inbox per routing/ROUTING.md"
+Claude → routing/outbox/<id>.json (observations matching routing/reference/schema.json)
+app  →  imports outbox/ back into the device store → the Observations screen
+```
+
+Two ways to drive it, same file shapes:
+
+- **Manual (no setup, fully phone-native).** On the **Routing** screen, "Copy pending
+  captures" puts the captures on your clipboard; paste them to Claude (Max) with the
+  repo's `ROUTING.md`, then paste Claude's JSON reply back into "Import observations."
+  No credentials, no API.
+- **Automated (optional).** Set `VITE_ROUTING_REPO` and enter a fine-grained GitHub
+  token (Contents: read & write, scoped to that one private repo) on the Routing
+  screen — stored on-device only. Then "Push pending → repo" and "Pull observations ←
+  repo" are one tap each.
+
+The contract is generated from the seed so what Claude sees always matches the app:
+
+- `src/ai/contract.ts` — the routing rules, the output JSON schema, and a runtime
+  validator for the (Claude-authored) observations the app imports.
+- `src/ai/workspace.ts` — renders `routing/ROUTING.md` + `routing/reference/*` and
+  defines the capture/observation file shapes.
+- `src/routing/` — in-app config, a minimal GitHub Contents API client, and the
+  push/pull + copy/paste operations.
+- `npm run routing:prepare` regenerates `routing/`. Add `--synthetic` to seed
+  `routing/inbox/` with field-like captures so you can test the Claude-via-Max routing
+  end to end before any real data exists.
+
+**Setting up the routing repo (automated path).** Create a **private** repo (e.g.
+`you/cairn-routing`), run `npm run routing:prepare` and copy the generated `routing/`
+contents into it (it holds `ROUTING.md`, `reference/`, and empty `inbox/`+`outbox/`),
+push, then set `VITE_ROUTING_REPO` to it. The app then pushes real captures into that
+private repo's `inbox/` — not into this code repo. The `routing/` folder committed
+here is the scaffold plus synthetic example captures.
+
+> Captures are low-sensitivity workshop notes, but the routing repo should be
+> **private** and the GitHub token is a real credential — treat both like the Supabase
+> keys: fine for the pilot, revisit before any wider rollout.
 
 ## Setup
 
@@ -96,22 +127,32 @@ npm run dev        # http://localhost:5173  — runs local-only with a seeded sa
    Save changes, then Undo last edit and confirm the prior text returns.
 4. **Install** — add to home screen on iOS and Android; confirm dictation inserts into
    fields on both.
+5. **Routing (manual)** — `npm run routing:prepare --synthetic` to seed `routing/inbox/`,
+   commit, then route it with Claude (Max) on the repo per `routing/ROUTING.md`; or in
+   the app, "Copy pending captures" → paste to Claude → paste the reply into "Import
+   observations" and confirm rows appear on the Observations screen.
 
 ## Project map
 
 - `src/lib/` — Supabase client, shared types, input ruleset, source-text composer.
-- `src/db/` — Dexie schema (`local.ts`), reference-data cache (`reference.ts`),
-  evaluations repo (`evaluations.ts`), outbox sync worker (`sync.ts`).
+- `src/db/` — Dexie schema (`local.ts`, incl. `observations`), reference-data cache
+  (`reference.ts`), evaluations repo (`evaluations.ts`), outbox sync worker (`sync.ts`).
+- `src/ai/` — the routing **contract** (`contract.ts`: rules + schema + validator) and
+  workspace generators (`workspace.ts`); `synthetic.ts` field-like test captures.
+- `src/routing/` — GitHub round-trip: `config.ts`, Contents API client (`github.ts`),
+  push/pull + copy-paste operations (`operations.ts`).
 - `src/auth/` — lightweight, offline-tolerant identity.
-- `src/pages/` — SignIn, EvaluatorHome, CaptureActivity, MyEvaluations, Admin.
+- `src/pages/` — SignIn, EvaluatorHome, CaptureActivity, MyEvaluations, Routing,
+  Observations, Admin.
 - `src/components/` — RubricPanel (focus-safe), SyncStatusBar, useOnline.
+- `routing/` — the generated routing workspace (ROUTING.md + reference/ + inbox/outbox).
 - `supabase/` — schema migration + seed SQL.
 
 ## Deferred (later phases)
 
-- AI layer: server-side translation, routing free-form captures into per-individual
-  observations (0–3 against CBC sub-points), sentiment lexicon + needs-review path.
+- Author the real 0–3 evidence-level descriptors per KSA (currently draft placeholders).
 - Daily / final report generation + email; multi-evaluator verification gate.
 - CBC competency-platform export pipeline.
+- Server-side translation (only if non-English capture is needed; Bali runs in English).
 - On-device STT / translation for true offline (only if a deployment needs it).
 - Raster PWA icons (192/512 png); a real auth method (password / magic link).

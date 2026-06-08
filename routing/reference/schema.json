@@ -1,0 +1,88 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "observations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "participant_name": {
+            "type": "string",
+            "description": "Name exactly as the evaluator wrote it"
+          },
+          "participant_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Roster id if the name matches a participant, else null"
+          },
+          "ksa_code": {
+            "type": "string",
+            "description": "One of the in-scope KSA codes"
+          },
+          "text": {
+            "type": "string",
+            "description": "Concise English summary of the observation"
+          },
+          "source_excerpt": {
+            "type": "string",
+            "description": "Verbatim span from the source text"
+          },
+          "evidence_designation": {
+            "type": "integer",
+            "enum": [
+              0,
+              1,
+              2,
+              3
+            ]
+          },
+          "sentiment_flag": {
+            "type": "string",
+            "enum": [
+              "strong",
+              "weak",
+              "neutral"
+            ]
+          },
+          "confidence": {
+            "type": "string",
+            "enum": [
+              "low",
+              "medium",
+              "high"
+            ]
+          },
+          "needs_review": {
+            "type": "boolean"
+          },
+          "origin": {
+            "type": "string",
+            "enum": [
+              "individual",
+              "group"
+            ]
+          }
+        },
+        "required": [
+          "participant_name",
+          "participant_id",
+          "ksa_code",
+          "text",
+          "source_excerpt",
+          "evidence_designation",
+          "sentiment_flag",
+          "confidence",
+          "needs_review",
+          "origin"
+        ]
+      }
+    }
+  },
+  "required": [
+    "observations"
+  ]
+}

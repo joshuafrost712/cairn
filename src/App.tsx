@@ -8,6 +8,8 @@ import { SignIn } from './pages/SignIn'
 import { EvaluatorHome } from './pages/EvaluatorHome'
 import { CaptureActivity } from './pages/CaptureActivity'
 import { MyEvaluations } from './pages/MyEvaluations'
+import { Routing } from './pages/Routing'
+import { Observations } from './pages/Observations'
 import { Admin } from './pages/Admin'
 
 function Header() {
@@ -57,6 +59,8 @@ function Shell() {
         <Route path="/" element={<EvaluatorHome />} />
         <Route path="/capture/:clientId" element={<CaptureActivity />} />
         <Route path="/evaluations" element={<MyEvaluations />} />
+        <Route path="/routing" element={<Routing />} />
+        <Route path="/observations" element={<Observations />} />
         <Route path="/admin" element={<Admin />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
