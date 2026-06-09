@@ -133,8 +133,9 @@ npm run dev        # http://localhost:5173  — runs local-only with a seeded sa
    observations" and confirm rows appear on the Observations screen.
 6. **Verify + finalize** — on Observations, Confirm/Adjust/Reject each observation as an
    evaluator; a participant's report stays **locked** on Reports until every observation
-   is confirmed by the required number of evaluators (`VITE_REQUIRED_CONFIRMATIONS`,
-   default 2), then "Finalize: copy report" produces the verified markdown.
+   is confirmed by the required number of evaluators (set in Admin → Verification, or
+   `VITE_REQUIRED_CONFIRMATIONS`; default 2), then "Finalize: copy report" produces the
+   verified markdown.
 
 ## Reports and the verification gate
 
@@ -188,4 +189,4 @@ the same without a token. `src/routing/verdicts.ts` holds the logic.
 - CBC competency-platform export pipeline (Phase 2, with the org programmer).
 - Server-side translation (only if non-English capture is needed; Bali runs in English).
 - On-device STT / translation for true offline (only if a deployment needs it).
-- Raster PWA icons (192/512 png); a real auth method (password / magic link).
+- A real auth method (password / magic link) + verdict provenance/trust.

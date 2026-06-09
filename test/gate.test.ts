@@ -1,11 +1,11 @@
 import { describe, it, expect } from 'vitest'
-import { observationStatus, annotateObservations, participantGate, REQUIRED_CONFIRMATIONS } from '../src/reports/verification'
+import { observationStatus, annotateObservations, participantGate, getRequiredConfirmations } from '../src/reports/verification'
 import { buildParticipantReport } from '../src/reports/build'
 import { obs, verdict, ksa, participant, team } from './factories'
 
 // Tests assume the default threshold (2). Guard so they remain meaningful.
-describe('REQUIRED_CONFIRMATIONS', () => {
-  it('defaults to 2 in tests', () => expect(REQUIRED_CONFIRMATIONS).toBe(2))
+describe('getRequiredConfirmations', () => {
+  it('defaults to 2 in tests', () => expect(getRequiredConfirmations()).toBe(2))
 })
 
 describe('observationStatus', () => {

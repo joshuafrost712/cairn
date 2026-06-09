@@ -13,6 +13,7 @@ import {
   updateWorkshop,
 } from '../db/admin'
 import { exportAll, importAll } from '../db/backup'
+import { getRequiredConfirmations, setRequiredConfirmations } from '../reports/verification'
 import { downloadText } from '../lib/download'
 import type { Activity, Ksa, Participant, Team, Workshop } from '../lib/types'
 
@@ -32,6 +33,7 @@ export function Admin() {
   const [newName, setNewName] = useState('')
   const [restore, setRestore] = useState('')
   const [backupMsg, setBackupMsg] = useState<string | null>(null)
+  const [required, setRequired] = useState(() => getRequiredConfirmations())
 
   const withBusy = async (fn: () => Promise<unknown>) => {
     setBusy(true)
@@ -145,6 +147,29 @@ export function Admin() {
           </div>
         </>
       )}
+
+      <div className="card">
+        <h2>Verification</h2>
+        <label htmlFor="reqconf" className="small muted">
+          Evaluators who must confirm each observation before it counts toward a finalized report.
+        </label>
+        <div className="row">
+          <input
+            id="reqconf"
+            type="number"
+            min={1}
+            max={5}
+            value={required}
+            onChange={(e) => {
+              const n = Math.max(1, Math.min(5, Number(e.target.value) || 1))
+              setRequired(n)
+              setRequiredConfirmations(n)
+            }}
+            style={{ width: '5rem' }}
+          />
+          <span className="small muted">1 = solo review · 2 = dual review (default)</span>
+        </div>
+      </div>
 
       <div className="card">
         <h2>Backup &amp; restore</h2>

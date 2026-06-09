@@ -9,10 +9,31 @@
 
 import type { ObservationRecord, VerificationVerdict } from '../lib/types'
 
-export const REQUIRED_CONFIRMATIONS: number = (() => {
+const REQUIRED_KEY = 'cairn.required_confirmations'
+
+function envDefault(): number {
   const raw = typeof import.meta !== 'undefined' ? Number((import.meta as { env?: Record<string, string> }).env?.VITE_REQUIRED_CONFIRMATIONS) : NaN
   return Number.isFinite(raw) && raw >= 1 ? Math.floor(raw) : 2
-})()
+}
+
+/**
+ * How many evaluators must confirm an observation. Runtime-configurable on-device
+ * (localStorage), falling back to VITE_REQUIRED_CONFIRMATIONS, then 2. Read live so
+ * a change takes effect without a rebuild.
+ */
+export function getRequiredConfirmations(): number {
+  try {
+    const stored = Number(localStorage.getItem(REQUIRED_KEY))
+    if (Number.isFinite(stored) && stored >= 1) return Math.floor(stored)
+  } catch {
+    /* no localStorage (e.g. tests) */
+  }
+  return envDefault()
+}
+
+export function setRequiredConfirmations(n: number): void {
+  localStorage.setItem(REQUIRED_KEY, String(Math.max(1, Math.floor(n))))
+}
 
 export type VerificationStatus = 'pending' | 'verified' | 'adjusted' | 'disputed'
 
@@ -40,7 +61,7 @@ export function observationStatus(
   if (rejects.length > 0) {
     return { status: 'disputed', effective_designation: obs.evidence_designation, confirmCount: confirms.length, rejectCount: rejects.length }
   }
-  if (confirms.length < REQUIRED_CONFIRMATIONS) {
+  if (confirms.length < getRequiredConfirmations()) {
     return { status: 'pending', effective_designation: obs.evidence_designation, confirmCount: confirms.length, rejectCount: 0 }
   }
   const allAgree = intended.every((d) => d === intended[0])
@@ -98,6 +119,6 @@ export function participantGate(annotated: AnnotatedObservation[]): Gate {
     verified,
     pending,
     disputed,
-    required: REQUIRED_CONFIRMATIONS,
+    required: getRequiredConfirmations(),
   }
 }

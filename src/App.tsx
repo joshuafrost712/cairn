@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { BrowserRouter, Routes, Route, Navigate, Link, useLocation } from 'react-router-dom'
 import { AuthProvider, useAuth } from './auth/AuthContext'
+import { ErrorBoundary } from './components/ErrorBoundary'
 import { loadReferenceData } from './db/reference'
 import { startSyncLoop } from './db/sync'
 import { SyncStatusBar } from './components/SyncStatusBar'
@@ -74,10 +75,12 @@ function Shell() {
 
 export default function App() {
   return (
-    <AuthProvider>
-      <BrowserRouter>
-        <Shell />
-      </BrowserRouter>
-    </AuthProvider>
+    <ErrorBoundary>
+      <AuthProvider>
+        <BrowserRouter>
+          <Shell />
+        </BrowserRouter>
+      </AuthProvider>
+    </ErrorBoundary>
   )
 }

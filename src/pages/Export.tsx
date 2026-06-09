@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '../db/local'
 import { buildAllReports } from '../reports/build'
-import { annotateObservations, participantGate, REQUIRED_CONFIRMATIONS, type Gate } from '../reports/verification'
+import { annotateObservations, participantGate, getRequiredConfirmations, type Gate } from '../reports/verification'
 import { buildCbcExport, cbcKsaCsv, cbcSubpointCsv } from '../reports/cbcExport'
 import { downloadText } from '../lib/download'
 import type { Ksa, ObservationRecord, Participant, Team, VerificationVerdict } from '../lib/types'
@@ -40,7 +40,7 @@ export function Export() {
       buildCbcExport(reports, (id) => gates.get(id) ?? participantGate([]), {
         workshop: { id: workshop?.id ?? null, name: workshop?.name ?? null },
         generatedOn,
-        requiredConfirmations: REQUIRED_CONFIRMATIONS,
+        requiredConfirmations: getRequiredConfirmations(),
         onlyFinalized,
       }),
     [reports, gates, workshop, generatedOn, onlyFinalized],
