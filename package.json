@@ -11,7 +11,8 @@
     "routing:prepare": "tsx scripts/routing-prepare.ts",
     "routing:verify": "tsx scripts/routing-verify.ts",
     "report:preview": "tsx scripts/report-preview.ts",
-    "gate:preview": "tsx scripts/gate-preview.ts"
+    "gate:preview": "tsx scripts/gate-preview.ts",
+    "test": "vitest run"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.108.0",
@@ -35,6 +36,7 @@
     "typescript": "~6.0.2",
     "typescript-eslint": "^8.59.2",
     "vite": "^8.0.12",
-    "vite-plugin-pwa": "^1.3.0"
+    "vite-plugin-pwa": "^1.3.0",
+    "vitest": "^4.1.8"
   }
 }

@@ -32,7 +32,7 @@ function myVerdictsFile(myEmail: string, verdicts: VerificationVerdict[]): Verdi
   return { schema: VERDICTS_FILE_SCHEMA_ID, evaluator_email: myEmail, updated_at: new Date().toISOString(), verdicts }
 }
 
-function asVerdictsFiles(parsed: unknown): VerdictsFile[] {
+export function asVerdictsFiles(parsed: unknown): VerdictsFile[] {
   const isFile = (x: unknown): x is VerdictsFile => {
     if (typeof x !== 'object' || x === null) return false
     const o = x as Record<string, unknown>
