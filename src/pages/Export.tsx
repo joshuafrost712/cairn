@@ -5,16 +5,8 @@ import { db } from '../db/local'
 import { buildAllReports } from '../reports/build'
 import { annotateObservations, participantGate, REQUIRED_CONFIRMATIONS, type Gate } from '../reports/verification'
 import { buildCbcExport, cbcKsaCsv, cbcSubpointCsv } from '../reports/cbcExport'
+import { downloadText } from '../lib/download'
 import type { Ksa, ObservationRecord, Participant, Team, VerificationVerdict } from '../lib/types'
-
-function download(filename: string, text: string, type: string) {
-  const url = URL.createObjectURL(new Blob([text], { type }))
-  const a = document.createElement('a')
-  a.href = url
-  a.download = filename
-  a.click()
-  URL.revokeObjectURL(url)
-}
 
 // CBC export: the interchange artifact for the (deferred) platform submission adapter.
 // Only verified evidence drives designations; "only finalized" limits to reports whose
@@ -94,11 +86,11 @@ export function Export() {
         <div className="card">
           <h2>Download or copy</h2>
           <div className="row">
-            <button className="primary" onClick={() => download('cbc-export.json', JSON.stringify(cbc, null, 2), 'application/json')}>
+            <button className="primary" onClick={() => downloadText('cbc-export.json', JSON.stringify(cbc, null, 2))}>
               Download JSON
             </button>
-            <button onClick={() => download('cbc-by-ksa.csv', cbcKsaCsv(cbc), 'text/csv')}>CSV by KSA</button>
-            <button onClick={() => download('cbc-by-subpoint.csv', cbcSubpointCsv(cbc), 'text/csv')}>CSV by sub-point</button>
+            <button onClick={() => downloadText('cbc-by-ksa.csv', cbcKsaCsv(cbc), 'text/csv')}>CSV by KSA</button>
+            <button onClick={() => downloadText('cbc-by-subpoint.csv', cbcSubpointCsv(cbc), 'text/csv')}>CSV by sub-point</button>
           </div>
           <div className="row" style={{ marginTop: '0.4rem' }}>
             <button className="ghost small" onClick={() => copy(JSON.stringify(cbc, null, 2), 'JSON')}>Copy JSON</button>

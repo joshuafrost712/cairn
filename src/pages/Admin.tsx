@@ -3,90 +3,193 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '../db/local'
 import { loadReferenceData, primeFromSeed } from '../db/reference'
 import { isSupabaseConfigured } from '../lib/supabase'
-import type { Activity, Ksa, Participant, Workshop } from '../lib/types'
+import {
+  addParticipant,
+  addTeam,
+  deleteParticipant,
+  deleteTeam,
+  updateParticipant,
+  updateTeam,
+  updateWorkshop,
+} from '../db/admin'
+import { exportAll, importAll } from '../db/backup'
+import { downloadText } from '../lib/download'
+import type { Activity, Ksa, Participant, Team, Workshop } from '../lib/types'
 
-/**
- * Minimal admin: shows what reference content is loaded on this device and lets you
- * (re)load it. A full admin authoring UI for workshops/schedules/KSAs is a later
- * step; for the foundation slice, content is loaded from Supabase (if configured)
- * or primed from the local seed.
- */
+// Admin: load/seed reference content, edit the workshop meta + roster (teams and
+// participants) so a real workshop can be entered without code edits. KSAs and the
+// schedule are authored content and shown read-only here.
 export function Admin() {
   const [busy, setBusy] = useState(false)
   const workshops = useLiveQuery(() => db.workshops.toArray(), [], [] as Workshop[])
   const activities = useLiveQuery(() => db.activities.toArray(), [], [] as Activity[])
+  const teams = useLiveQuery(() => db.teams.toArray(), [], [] as Team[])
   const participants = useLiveQuery(() => db.participants.toArray(), [], [] as Participant[])
   const ksas = useLiveQuery(() => db.ksas.toArray(), [], [] as Ksa[])
 
-  const reload = async () => {
+  const workshop = (workshops ?? [])[0] ?? null
+  const [newTeam, setNewTeam] = useState('')
+  const [newName, setNewName] = useState('')
+  const [restore, setRestore] = useState('')
+  const [backupMsg, setBackupMsg] = useState<string | null>(null)
+
+  const withBusy = async (fn: () => Promise<unknown>) => {
     setBusy(true)
     try {
-      await loadReferenceData()
+      await fn()
     } finally {
       setBusy(false)
     }
   }
 
-  const seed = async () => {
-    setBusy(true)
-    try {
-      await primeFromSeed()
-    } finally {
-      setBusy(false)
-    }
-  }
+  const myTeams = (teams ?? []).filter((t) => t.workshop_id === workshop?.id)
+  const myParticipants = (participants ?? []).filter((p) => p.workshop_id === workshop?.id)
+  const teamName = (id: string | null) => myTeams.find((t) => t.id === id)?.name ?? 'Unassigned'
 
   return (
     <main>
       <div className="card">
         <h1>Admin</h1>
-        <p className="muted small">
-          Backend: {isSupabaseConfigured ? 'Supabase configured' : 'local-only (no Supabase)'}
-        </p>
+        <p className="muted small">Backend: {isSupabaseConfigured ? 'Supabase configured' : 'local-only (no Supabase)'}</p>
         <div className="row">
-          <button onClick={reload} disabled={busy}>
+          <button onClick={() => withBusy(loadReferenceData)} disabled={busy}>
             {isSupabaseConfigured ? 'Reload from backend' : 'Reload reference'}
           </button>
-          <button className="ghost" onClick={seed} disabled={busy}>
+          <button className="ghost" onClick={() => withBusy(primeFromSeed)} disabled={busy}>
             Load sample workshop
           </button>
         </div>
+        {isSupabaseConfigured && (
+          <p className="small muted" style={{ marginTop: '0.4rem' }}>
+            Note: reloading from the backend overwrites local edits. Manage the roster in the backend when Supabase is on.
+          </p>
+        )}
       </div>
+
+      {!workshop ? (
+        <div className="banner warn">No workshop loaded. Use "Load sample workshop" to start, then edit it below.</div>
+      ) : (
+        <>
+          <div className="card">
+            <h2>Workshop</h2>
+            <label htmlFor="wname">Name</label>
+            <input id="wname" defaultValue={workshop.name ?? ''} onBlur={(e) => updateWorkshop(workshop.id, { name: e.target.value })} />
+            <label htmlFor="wloc">Location</label>
+            <input id="wloc" defaultValue={workshop.location ?? ''} onBlur={(e) => updateWorkshop(workshop.id, { location: e.target.value })} />
+            <div className="row">
+              <span>
+                <label htmlFor="wstart">Start</label>
+                <input id="wstart" type="date" defaultValue={workshop.start_date ?? ''} onBlur={(e) => updateWorkshop(workshop.id, { start_date: e.target.value })} />
+              </span>
+              <span>
+                <label htmlFor="wend">End</label>
+                <input id="wend" type="date" defaultValue={workshop.end_date ?? ''} onBlur={(e) => updateWorkshop(workshop.id, { end_date: e.target.value })} />
+              </span>
+            </div>
+          </div>
+
+          <div className="card">
+            <h2>Teams</h2>
+            {myTeams.map((t) => (
+              <div className="row" key={t.id} style={{ marginBottom: '0.4rem' }}>
+                <input defaultValue={t.name} onBlur={(e) => updateTeam(t.id, { name: e.target.value })} style={{ flex: 1 }} />
+                <button className="ghost small" disabled={busy} onClick={() => withBusy(() => deleteTeam(t.id))}>delete</button>
+              </div>
+            ))}
+            <div className="row">
+              <input placeholder="New team name" value={newTeam} onChange={(e) => setNewTeam(e.target.value)} style={{ flex: 1 }} />
+              <button
+                disabled={busy || !newTeam.trim()}
+                onClick={() => withBusy(async () => { await addTeam(workshop.id, newTeam.trim()); setNewTeam('') })}
+              >
+                Add team
+              </button>
+            </div>
+          </div>
+
+          <div className="card">
+            <h2>Participants ({myParticipants.length})</h2>
+            {myParticipants.map((p) => (
+              <div key={p.id} className="activity-item" style={{ display: 'block', cursor: 'default' }}>
+                <div className="row">
+                  <input defaultValue={p.name} onBlur={(e) => updateParticipant(p.id, { name: e.target.value })} style={{ flex: 1 }} />
+                  <button className="ghost small" disabled={busy} onClick={() => withBusy(() => deleteParticipant(p.id))}>delete</button>
+                </div>
+                <div className="row" style={{ marginTop: '0.3rem' }}>
+                  <input
+                    type="email"
+                    defaultValue={p.registered_email ?? ''}
+                    placeholder="email"
+                    onBlur={(e) => updateParticipant(p.id, { registered_email: e.target.value || null })}
+                    style={{ flex: 1 }}
+                  />
+                  <select value={p.team_id ?? ''} onChange={(e) => updateParticipant(p.id, { team_id: e.target.value || null })}>
+                    <option value="">Unassigned</option>
+                    {myTeams.map((t) => (
+                      <option key={t.id} value={t.id}>{t.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="muted small" style={{ marginTop: '0.2rem' }}>{teamName(p.team_id)}</div>
+              </div>
+            ))}
+            <div className="row" style={{ marginTop: '0.4rem' }}>
+              <input placeholder="New participant name" value={newName} onChange={(e) => setNewName(e.target.value)} style={{ flex: 1 }} />
+              <button
+                disabled={busy || !newName.trim()}
+                onClick={() => withBusy(async () => { await addParticipant(workshop.id, { name: newName.trim() }); setNewName('') })}
+              >
+                Add participant
+              </button>
+            </div>
+          </div>
+        </>
+      )}
 
       <div className="card">
-        <h2>Loaded content</h2>
-        <ul className="small">
-          <li>{workshops?.length ?? 0} workshop(s)</li>
-          <li>{activities?.length ?? 0} activities</li>
-          <li>{participants?.length ?? 0} participants</li>
-          <li>{ksas?.length ?? 0} KSAs</li>
-        </ul>
-      </div>
-
-      {(workshops ?? []).map((w) => (
-        <div className="card" key={w.id}>
-          <h2>{w.name}</h2>
-          <p className="muted small">{w.location}</p>
-          <p className="small">
-            <strong>Activities:</strong>{' '}
-            {(activities ?? [])
-              .filter((a) => a.workshop_id === w.id)
-              .sort((x, y) => x.sort_order - y.sort_order)
-              .map((a) => a.title)
-              .join(' · ')}
-          </p>
-          <p className="small">
-            <strong>Participants:</strong>{' '}
-            {(participants ?? []).filter((p) => p.workshop_id === w.id).map((p) => p.name).join(', ')}
-          </p>
+        <h2>Backup &amp; restore</h2>
+        <p className="small muted">
+          Everything on this device (reference, captures, observations, verdicts) as one JSON file.
+          Restore merges (upserts) into the current store.
+        </p>
+        <div className="row">
+          <button
+            disabled={busy}
+            onClick={() => withBusy(async () => { downloadText('cairn-backup.json', JSON.stringify(await exportAll(), null, 2)) })}
+          >
+            Download backup
+          </button>
         </div>
-      ))}
+        <label htmlFor="restore" className="small muted">Paste a backup to restore:</label>
+        <textarea id="restore" className="mono" rows={4} value={restore} onChange={(e) => setRestore(e.target.value)} placeholder='{"schema":"cairn.backup/v1", ...}' />
+        <button
+          disabled={busy || !restore.trim()}
+          onClick={() =>
+            withBusy(async () => {
+              try {
+                const r = await importAll(restore)
+                setRestore('')
+                setBackupMsg(`Restored ${r.rows} row(s) across ${r.tables} table(s).`)
+              } catch (err) {
+                setBackupMsg(`Error: ${err instanceof Error ? err.message : String(err)}`)
+              }
+            })
+          }
+        >
+          Restore from paste
+        </button>
+        {backupMsg && <div className="banner">{backupMsg}</div>}
+      </div>
 
       <div className="card">
-        <h2>KSAs</h2>
+        <h2>Schedule &amp; KSAs (read-only)</h2>
+        <p className="small muted">
+          {(activities ?? []).length} activities · {(ksas ?? []).length} KSAs. These are authored content,
+          seeded from the workshop plan.
+        </p>
         {(ksas ?? []).map((k) => (
           <p className="small" key={k.id}>
-            <strong>{k.code}</strong> ({k.area}) — {k.evaluator_facing_prompt}
+            <strong>{k.code}</strong> ({k.area})
           </p>
         ))}
       </div>
