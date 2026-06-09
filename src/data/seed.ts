@@ -5,7 +5,8 @@ import type { Activity, ActivityKsa, Ksa, Participant, Team, Workshop } from '..
 //
 // Content is the real KSA framework from the Psalms Workshop plan (OBT CDT
 // Workshop 3, Bali, 24 Aug – 4 Sep 2026). The 0–3 evidence_levels are DRAFT
-// scaffolding derived from each Skill statement, pending facilitator authoring.
+// scaffolding derived from each Skill statement, and guiding_questions are MOCK
+// "look/listen for" prompts for trying the app — both pending facilitator authoring.
 // Participants/teams are placeholders (the real CIT roster is TBD).
 
 export const seedWorkshops: Workshop[] = [
@@ -62,6 +63,12 @@ export const seedKsas: Ksa[] = [
       '3': 'Leads fluently; draft is faithful AND an excellent example of the local genre, with clear documented reasoning.',
     },
     cbc_subpoint_refs: ['Guiding Translation Teams', 'Translation Practice', 'Adult Education'],
+    guiding_questions: [
+      'Are they leading the CLAT conversations in order, or skipping steps?',
+      'Does the draft they produce stay faithful to the source meaning?',
+      'Does the draft sound like an excellent example of the local genre, not a flattened one?',
+      'Can they explain why they made a given rendering choice?',
+    ],
   },
   {
     id: '55555555-0000-0000-0000-000000000002',
@@ -79,6 +86,11 @@ export const seedKsas: Ksa[] = [
       '3': 'Explains fluently and uses the framework to inform interactions with the MTTs.',
     },
     cbc_subpoint_refs: ['Hermeneutics', 'Modes of Communication'],
+    guiding_questions: [
+      'Can they explain, in their own words, what aesthetic language and ethnopoetics are?',
+      'Do they connect aesthetic forms to their function in the Hebrew Bible and the ancient Near East?',
+      'Do they treat aesthetic language as valuable, or as decoration to strip away?',
+    ],
   },
   {
     id: '55555555-0000-0000-0000-000000000003',
@@ -96,6 +108,12 @@ export const seedKsas: Ksa[] = [
       '3': 'Facilitates rich mapping; feature analysis is coherent; the match argument is convincing and well-documented.',
     },
     cbc_subpoint_refs: ['Guiding Translation Teams', 'Modes of Communication', 'Multicultural Environment'],
+    guiding_questions: [
+      'Are their mapping questions culturally appropriate and open-ended?',
+      'Do they identify the function of each local genre, not just its form?',
+      'Do they force a biblical form onto a local one, or find a true functional match?',
+      'Is their proposed match between the psalm and a local genre well-reasoned?',
+    ],
   },
   {
     id: '55555555-0000-0000-0000-000000000004',
@@ -113,6 +131,12 @@ export const seedKsas: Ksa[] = [
       '3': 'Deep internalization; facilitates skillfully using the Four Es / SENSES and the exegetical resources.',
     },
     cbc_subpoint_refs: ['Hermeneutics', 'Translation Practice'],
+    guiding_questions: [
+      'How deeply have they internalized the psalm themselves (recall, feeling, understanding)?',
+      'Do they facilitate MTT internalization using the Four Es / SENSES before any drafting?',
+      'Do they rush to drafting, or let internalization happen first?',
+      'Do they draw on exegetical resources (Scripture-as-Resources, FIA, AI tools)?',
+    ],
   },
   {
     id: '55555555-0000-0000-0000-000000000005',
@@ -130,6 +154,12 @@ export const seedKsas: Ksa[] = [
       '3': 'Excellent questions/plan; leads from issue identification through resolution with humility and skill.',
     },
     cbc_subpoint_refs: ['Consulting Process Skills', 'Translation Practice', 'Interpersonal Skills'],
+    guiding_questions: [
+      'Are their consulting questions open-ended and inferential, suited to the song form?',
+      'Do they lead from issue identification through to a resolution the team owns?',
+      'Is their posture humble and collaborative rather than adversarial?',
+      'Do they give and receive peer feedback well?',
+    ],
   },
   {
     id: '55555555-0000-0000-0000-000000000006',
@@ -147,6 +177,11 @@ export const seedKsas: Ksa[] = [
       '3': 'Compelling inductive case; culturally sensitive, well-scoped plan with follow-up.',
     },
     cbc_subpoint_refs: ['Interpersonal Skills', 'Multicultural Environment', 'Adult Education'],
+    guiding_questions: [
+      'Can they make a compelling, inductive case that a local-art-form psalm is still faithful?',
+      'Is their community-integration plan realistic and culturally sensitive?',
+      'Do they plan for follow-up, not just a one-time presentation?',
+    ],
   },
 ]
 

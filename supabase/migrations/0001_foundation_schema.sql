@@ -61,7 +61,8 @@ create table ksa (
   evaluator_facing_prompt text not null,          -- concise, expert-brevity, shown while recording
   ai_facing_rubric        text,                   -- fuller rubric, used later by the AI layer
   evidence_levels         jsonb,                  -- { "0": "...", "1": "...", "2": "...", "3": "..." }
-  cbc_subpoint_refs       text[] default '{}'     -- CBC matrix sub-points this KSA maps to
+  cbc_subpoint_refs       text[] default '{}',    -- CBC matrix sub-points this KSA maps to
+  guiding_questions       text[] default '{}'     -- "look/listen for" prompts shown under the question
 );
 
 -- Which KSAs (questions) belong to which activity.

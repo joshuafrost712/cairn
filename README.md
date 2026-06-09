@@ -99,6 +99,39 @@ npm install
 npm run dev        # http://localhost:5173  — runs local-only with a seeded sample workshop
 ```
 
+On first load you create a profile (name, email, role) stored on the device; everything
+else runs local-only with the seeded Psalms Workshop, so a solo trial needs no backend.
+
+## Put it on your phone
+
+Two paths. Both run fully local (capture, routing by copy/paste with Claude, reports,
+the verification gate) — no backend needed.
+
+**Try it now over your wifi (no install).** On your computer:
+
+```bash
+npm run dev -- --host    # prints a Network URL like http://192.168.x.x:5173
+```
+
+Open that Network URL in your phone's browser (same wifi). You can use the whole app in
+the browser. Note: installing to the home screen and true offline need HTTPS, so for the
+real installable app use Pages below.
+
+**Install for real (HTTPS, installable, offline-capable).** Deploy to GitHub Pages —
+the workflow in `.github/workflows/deploy.yml` is ready:
+
+1. Push this repo to GitHub (`git remote add origin … && git push -u origin main`).
+2. In the repo: Settings → Pages → Source: **GitHub Actions**.
+3. Wait for the "Deploy to GitHub Pages" action to finish; it prints an
+   `https://<you>.github.io/<repo>/` URL.
+4. Open that URL on your phone → browser menu → **Add to Home Screen**. It installs as
+   the "Cairn" app and works offline.
+
+To route observations from the phone with no setup, use the copy/paste path: on
+Observations/Routing, "Copy pending captures" → paste into the Claude app (Max) with the
+routing instructions → paste the JSON reply back. (A private routing repo + token, below,
+makes this one-tap but isn't required to try the app.)
+
 ### Connect Supabase (optional for local dev, required for sync)
 
 1. Create a project at supabase.com.

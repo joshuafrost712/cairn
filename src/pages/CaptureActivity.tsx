@@ -139,6 +139,13 @@ export function CaptureActivity() {
           <p className="muted small" style={{ marginTop: -4 }}>
             {k.code} · {k.area}
           </p>
+          {k.guiding_questions && k.guiding_questions.length > 0 && (
+            <ul className="muted small" style={{ marginTop: 0 }}>
+              {k.guiding_questions.map((q) => (
+                <li key={q}>{q}</li>
+              ))}
+            </ul>
+          )}
           <RubricPanel levels={k.evidence_levels} />
           <textarea
             id={`ksa-${k.id}`}

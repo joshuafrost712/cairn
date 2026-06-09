@@ -59,6 +59,8 @@ export interface Ksa {
   ai_facing_rubric: string | null
   evidence_levels: EvidenceLevels | null
   cbc_subpoint_refs: string[]
+  /** Concrete "look/listen for" prompts shown under the question during capture. */
+  guiding_questions?: string[]
 }
 
 export interface ActivityKsa {

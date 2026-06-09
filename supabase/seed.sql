@@ -38,7 +38,9 @@ insert into activity (id, workshop_id, title, day, start_time, end_time, sort_or
   ('44444444-0000-0000-0000-000000000009', '11111111-1111-1111-1111-111111111111', 'Integration Conversations (CLAT Step 7) & APPLY with Artists', '2026-09-04', '2026-09-04T09:00:00+08', '2026-09-04T12:00:00+08', 9, 'Week 2 · Integration')
 on conflict (id) do nothing;
 
--- KSAs (the 6 Psalms Workshop areas; evidence_levels are DRAFT 0–3 scaffolding)
+-- KSAs (the 6 Psalms Workshop areas; evidence_levels are DRAFT 0–3 scaffolding).
+-- guiding_questions (mock "look/listen for" prompts) live in the app seed
+-- (src/data/seed.ts) for the local-only trial; backfill them here when standing up Supabase.
 insert into ksa (id, code, area, description, evaluator_facing_prompt, ai_facing_rubric, evidence_levels, cbc_subpoint_refs) values
   ('55555555-0000-0000-0000-000000000001', 'CLAT', 'The CLAT Process and Translation of Aesthetic Language',
    'Knows the Creating Local Arts Together (CLAT) conversations and how to adapt them as a workflow for translating aesthetic portions of Scripture using the macro translation principles for aesthetic language.',

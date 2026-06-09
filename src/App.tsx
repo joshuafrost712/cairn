@@ -30,7 +30,8 @@ function Header() {
         <SyncStatusBar />
         {identity && (
           <div className="small">
-            {identity.name} · <button className="ghost small" onClick={signOut}>Sign out</button>
+            {identity.name} <span className="muted">({identity.role})</span> ·{' '}
+            <button className="ghost small" onClick={signOut}>Sign out</button>
           </div>
         )}
       </div>
@@ -77,7 +78,7 @@ export default function App() {
   return (
     <ErrorBoundary>
       <AuthProvider>
-        <BrowserRouter>
+        <BrowserRouter basename={import.meta.env.BASE_URL}>
           <Shell />
         </BrowserRouter>
       </AuthProvider>
