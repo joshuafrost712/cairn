@@ -166,6 +166,8 @@ export function Reports() {
       <div className="card row">
         <Link to="/routing">Routing</Link>
         <span className="spacer" />
+        <Link to="/export">CBC export</Link>
+        <span className="spacer" />
         <Link className="small muted" to="/">Home</Link>
       </div>
     </main>
