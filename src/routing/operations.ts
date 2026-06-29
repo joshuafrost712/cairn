@@ -17,6 +17,7 @@ import {
   type ObservationsFile,
 } from '../ai/workspace'
 import { listDir, getFile, putFile } from './github'
+import { getRoutingToken } from './config'
 import type { EvaluationRecord, ObservationRecord } from '../lib/types'
 
 export const CAPTURE_BUNDLE_SCHEMA_ID = 'cairn.capture-bundle/v1'
@@ -156,10 +157,31 @@ function isObservationsFile(x: unknown): x is ObservationsFile {
   return typeof o.capture_client_id === 'string' && Array.isArray(o.observations)
 }
 
+/**
+ * Who produced this capture, so the end-of-day email can attribute observations to
+ * an evaluator. The router's own captures are in local Dexie; another evaluator's
+ * capture lives only in the routing inbox file (which carries evaluator_email), so
+ * fall back to that. Resolved before the write transaction because the inbox fetch
+ * is network IO. Best-effort: null when neither source is reachable.
+ */
+async function resolveEvaluatorEmail(captureId: string): Promise<string | null> {
+  const local = await db.evaluations.get(captureId)
+  if (local) return local.evaluator_email
+  if (!getRoutingToken()) return null
+  try {
+    const got = await getFile(inboxPath(captureId))
+    if (got) return (JSON.parse(got.text) as CaptureFile).evaluator_email ?? null
+  } catch {
+    /* offline / not found — fall through to null */
+  }
+  return null
+}
+
 /** Replace any prior observations for this capture with the validated set. */
 async function storeObservationsFile(file: ObservationsFile): Promise<{ stored: number; rejected: number }> {
   const captureId = file.capture_client_id
   const importedAt = new Date().toISOString()
+  const evaluatorEmail = await resolveEvaluatorEmail(captureId)
   const records: ObservationRecord[] = []
   let rejected = 0
   file.observations.forEach((raw, i) => {
@@ -168,7 +190,13 @@ async function storeObservationsFile(file: ObservationsFile): Promise<{ stored: 
       rejected++
       return
     }
-    records.push({ id: `${captureId}::${i}`, capture_client_id: captureId, imported_at: importedAt, ...v.value })
+    records.push({
+      id: `${captureId}::${i}`,
+      capture_client_id: captureId,
+      imported_at: importedAt,
+      evaluator_email: evaluatorEmail,
+      ...v.value,
+    })
   })
   await db.transaction('rw', [db.observations, db.evaluations], async () => {
     const old = await db.observations.where('capture_client_id').equals(captureId).primaryKeys()

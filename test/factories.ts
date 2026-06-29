@@ -19,6 +19,7 @@ export function obs(partial: Partial<ObservationRecord> = {}): ObservationRecord
     needs_review: partial.needs_review ?? false,
     origin: partial.origin ?? 'individual',
     imported_at: partial.imported_at ?? 'test',
+    evaluator_email: partial.evaluator_email ?? null,
   }
 }
 

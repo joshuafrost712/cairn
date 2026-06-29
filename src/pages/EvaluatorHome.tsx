@@ -106,6 +106,8 @@ export function EvaluatorHome() {
         <span className="spacer" />
         <Link to="/reports">Reports</Link>
         <span className="spacer" />
+        <Link to="/day-email">End-of-day email</Link>
+        <span className="spacer" />
         <Link className="small muted" to="/admin">Admin</Link>
       </div>
     </main>

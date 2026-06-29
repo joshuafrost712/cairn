@@ -12,6 +12,7 @@ import { MyEvaluations } from './pages/MyEvaluations'
 import { Routing } from './pages/Routing'
 import { Observations } from './pages/Observations'
 import { Reports } from './pages/Reports'
+import { DayEmail } from './pages/DayEmail'
 import { Export } from './pages/Export'
 import { Admin } from './pages/Admin'
 
@@ -66,6 +67,7 @@ function Shell() {
         <Route path="/routing" element={<Routing />} />
         <Route path="/observations" element={<Observations />} />
         <Route path="/reports" element={<Reports />} />
+        <Route path="/day-email" element={<DayEmail />} />
         <Route path="/export" element={<Export />} />
         <Route path="/admin" element={<Admin />} />
         <Route path="*" element={<Navigate to="/" replace />} />

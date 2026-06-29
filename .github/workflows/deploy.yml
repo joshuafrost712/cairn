@@ -4,6 +4,9 @@ name: Deploy to GitHub Pages
 # installable on a phone over HTTPS. One-time setup: repo Settings → Pages →
 # Source: "GitHub Actions". VITE_BASE is set to /<repo>/ so asset + router paths
 # work under a project page; index.html is copied to 404.html for SPA deep links.
+# VITE_ROUTING_REPO (and optional VITE_ROUTING_BRANCH) come from repo Actions
+# variables (Settings → Secrets and variables → Actions → Variables) so the hosted
+# build knows the private routing repo to exchange captures with Claude.
 
 on:
   push:
@@ -29,7 +32,7 @@ jobs:
           node-version: 20
           cache: npm
       - run: npm ci
-      - run: VITE_BASE="/${{ github.event.repository.name }}/" npm run build
+      - run: VITE_BASE="/${{ github.event.repository.name }}/" VITE_ROUTING_REPO="${{ vars.VITE_ROUTING_REPO }}" VITE_ROUTING_BRANCH="${{ vars.VITE_ROUTING_BRANCH }}" npm run build
       - run: cp dist/index.html dist/404.html
       - uses: actions/upload-pages-artifact@v3
         with:

@@ -136,6 +136,13 @@ export interface ObservationRecord {
   needs_review: boolean
   origin: 'individual' | 'group'
   imported_at: string
+  /**
+   * Email of the evaluator whose capture produced this observation, resolved at
+   * ingest from the local evaluation or the routing inbox capture file. Lets the
+   * end-of-day email attribute who said what when several evaluators score the
+   * same participant. Best-effort: null when the originating capture can't be found.
+   */
+  evaluator_email?: string | null
 }
 
 /** One evaluator's verdict on one observation (the multi-evaluator gate). */
