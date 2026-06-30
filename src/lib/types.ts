@@ -54,7 +54,10 @@ export interface Ksa {
   id: string
   code: string
   area: string
+  /** Short scannable heading for the capture card (e.g. "CLAT facilitation & drafting"). */
+  short_label: string
   description: string
+  /** Reframed as a neutral observation cue ("How did they…?"), not a yes/no verdict. */
   evaluator_facing_prompt: string
   ai_facing_rubric: string | null
   evidence_levels: EvidenceLevels | null
@@ -62,6 +65,9 @@ export interface Ksa {
   /** Concrete "look/listen for" prompts shown under the question during capture. */
   guiding_questions?: string[]
 }
+
+/** An evaluator's optional quick 0-3 read on a KSA, keyed by ksa_id. */
+export type QuickRatings = Record<string, 0 | 1 | 2 | 3>
 
 export interface ActivityKsa {
   activity_id: string
@@ -103,6 +109,17 @@ export interface EvaluationRecord {
   source_language: string
   /** per-question capture, keyed by ksa_id -> text */
   answers: Record<string, string>
+  /**
+   * Optional per-KSA quick read the evaluator can tap during capture. A prior the
+   * AI routing reads, not a final score; the multi-evaluator gate still rules.
+   * Keyed by ksa_id; absent entries mean "no read".
+   */
+  quick_ratings?: QuickRatings
+  /**
+   * When focus mode is on during capture, the single CIT the evaluator chose to
+   * watch. Null/absent = multi-person capture (the default).
+   */
+  focus_participant_id?: string | null
   /** readable free-form composed from answers; what the (deferred) AI routing reads */
   source_text: string
   participant_scope: ParticipantScopeEntry[]

@@ -25,7 +25,8 @@ Rules:
 - Produce one observation per (participant, KSA) claim. Split compound statements.
 - Attribute every observation to a single participant by the name the evaluator used. If the evaluator made a whole-group remark, emit one observation per named participant in scope, each with origin "group".
 - Only use the KSA codes provided in the reference. If a statement does not map to any provided KSA, omit it (do not invent a KSA).
-- Assign evidence_designation 0-3 strictly from that KSA's evidence levels. The evaluator's text is the only evidence; do not infer beyond it. (The evidence-level descriptors are currently DRAFT placeholders pending facilitator authoring — apply them as written and lean on needs_review when they are too thin to rate confidently.)
+- Assign evidence_designation 0-3 strictly from that KSA's evidence levels. The evaluator's text is the only evidence; do not infer beyond it.
+- A line like "(Evaluator quick read, prior only: 2/3)" is the evaluator's own optional read, NOT ground truth. Treat it as a weak prior: rate from the observation text, and when the text clearly disagrees with the prior, follow the text and set needs_review true so the gate can reconcile.
 - Quote the relevant span of the source in source_excerpt; put your own concise English summary in text.
 - sentiment_flag: "strong" for clearly strong performance, "weak" for clearly weak, else "neutral".
 - confidence: "high" only when the attribution and designation are clearly supported; "low" when the participant is ambiguous, the KSA mapping is a stretch, or the evidence is too thin to rate.
@@ -40,7 +41,7 @@ export function buildReferenceBlock(ksas: Ksa[], participants: Participant[]): s
       const levelText = (['0', '1', '2', '3'] as const)
         .map((n) => `    ${n}: ${levels[n] ?? '(unspecified)'}`)
         .join('\n')
-      return `- ${k.code} — ${k.area}\n  Prompt: ${k.evaluator_facing_prompt}\n  Rubric: ${k.ai_facing_rubric ?? ''}\n  Evidence levels (0-3, DRAFT placeholders):\n${levelText}`
+      return `- ${k.code} — ${k.area}\n  Prompt: ${k.evaluator_facing_prompt}\n  Rubric: ${k.ai_facing_rubric ?? ''}\n  Evidence levels (0-3):\n${levelText}`
     })
     .join('\n\n')
 

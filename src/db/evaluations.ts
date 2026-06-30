@@ -1,7 +1,7 @@
 import { db } from './local'
 import { pushOutbox } from './sync'
 import { RULESET_VERSION } from '../lib/ruleset'
-import type { EvaluationRecord, ParticipantScopeEntry } from '../lib/types'
+import type { EvaluationRecord, ParticipantScopeEntry, QuickRatings } from '../lib/types'
 
 // Stable client id without depending on crypto.randomUUID availability quirks.
 function newClientId(): string {
@@ -25,6 +25,8 @@ export async function createDraft(input: DraftInput): Promise<EvaluationRecord> 
     workshop_id: input.workshopId,
     source_language: 'English',
     answers: {},
+    quick_ratings: {},
+    focus_participant_id: null,
     source_text: '',
     participant_scope: [],
     attestation: false,
@@ -46,7 +48,13 @@ export async function createDraft(input: DraftInput): Promise<EvaluationRecord> 
 export async function saveAnswers(
   clientId: string,
   answers: Record<string, string>,
-  opts: { recordEdit?: boolean; participant_scope?: ParticipantScopeEntry[]; source_language?: string } = {},
+  opts: {
+    recordEdit?: boolean
+    participant_scope?: ParticipantScopeEntry[]
+    source_language?: string
+    quick_ratings?: QuickRatings
+    focus_participant_id?: string | null
+  } = {},
 ): Promise<void> {
   const existing = await db.evaluations.get(clientId)
   if (!existing) return
@@ -59,6 +67,8 @@ export async function saveAnswers(
     edit_history,
     ...(opts.participant_scope ? { participant_scope: opts.participant_scope } : {}),
     ...(opts.source_language ? { source_language: opts.source_language } : {}),
+    ...(opts.quick_ratings ? { quick_ratings: opts.quick_ratings } : {}),
+    ...(opts.focus_participant_id !== undefined ? { focus_participant_id: opts.focus_participant_id } : {}),
     updated_at: new Date().toISOString(),
     // a synced row that gets edited rejoins the outbox
     sync_status: existing.sync_status === 'synced' ? 'queued' : existing.sync_status,
@@ -90,6 +100,8 @@ export async function submitEvaluation(
     source_text: string
     participant_scope: ParticipantScopeEntry[]
     source_language: string
+    quick_ratings?: QuickRatings
+    focus_participant_id?: string | null
   },
 ): Promise<void> {
   await db.evaluations.update(clientId, {

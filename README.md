@@ -18,11 +18,19 @@ build them yet.
   every evaluation, and it survives connectivity gaps.
 - **Schedule-aware capture**: the home screen suggests the activity nearest to the
   current time; the evaluator can pick any other.
-- **Per-question capture**: each activity shows its KSA questions, each with a
-  collapsible **evidence-levels (0–3) rubric panel** that opens *without stealing
-  focus* from the text field (so dictation's word-by-word cursor insertion is never
-  interrupted).
-- **Participant tagging**: mark who an observation is about (individual or group).
+- **Per-question capture**: each activity shows its KSA questions as a short title
+  plus an observation cue and "look/listen for" guiding questions. The evaluator
+  dictates what they observed.
+- **Optional quick read (0–3)**: per KSA, the evaluator can tap an optional 0–3
+  (or leave it unset); the selected level's anchor shows inline and "All levels"
+  reveals the full rubric. It is a *prior* the AI routing weighs against the text,
+  not a final score; the multi-evaluator gate still rules. The buttons open
+  *without stealing focus* from the text field, so dictation's word-by-word cursor
+  insertion is never interrupted.
+- **Glossary**: a focus-safe "Terms" popover defines the shared vocabulary
+  (MTT, CLAT, ANE, Four Es / SENSES, FIA, ethnopoetics, …).
+- **Participant tagging**: mark who an observation is about (individual or group),
+  or switch on **focus mode** to attribute everything to one CIT for a clean capture.
 - **Submission attestation**: confirm the text and that the input rules were followed;
   the ruleset version is stored on the evaluation.
 - **Offline-first**: every change is written to IndexedDB immediately. Submissions
@@ -136,8 +144,9 @@ makes this one-tap but isn't required to try the app.)
 
 1. Create a project at supabase.com.
 2. In the SQL editor, run `supabase/migrations/0001_foundation_schema.sql`, then
+   `supabase/migrations/0002_quick_ratings_focus_short_label.sql`, then
    `supabase/seed.sql` (the Psalms Workshop, Bali 2026 — real 6-area KSA framework;
-   draft 0–3 evidence levels; placeholder CIT roster).
+   authored 0–3 evidence levels; placeholder CIT roster).
 3. Copy `.env.example` to `.env` and fill in `VITE_SUPABASE_URL` and
    `VITE_SUPABASE_ANON_KEY` from Project Settings → API.
 4. Restart `npm run dev`. The app now syncs the outbox and loads reference data from
@@ -149,9 +158,9 @@ makes this one-tap but isn't required to try the app.)
 ## Verifying (manual, in a browser)
 
 1. **Capture happy path** — sign in, pick an activity, type/dictate into a question
-   field, toggle the rubric panel *while a field is focused* and confirm the cursor
-   isn't disturbed, tag a participant, check the attestation box, submit. The
-   evaluation appears in "My evaluations".
+   field, tap a quick-read level and toggle "All levels" *while a field is focused*
+   and confirm the cursor isn't disturbed, tag a participant, check the attestation
+   box, submit. The evaluation appears in "My evaluations".
 2. **Offline path** — open DevTools → Network → Offline. Create and submit an
    evaluation; it shows status "to sync". Reload the page mid-entry and confirm
    nothing is lost. Go back online and (with Supabase configured) confirm it flips to
@@ -208,11 +217,12 @@ the same without a token. `src/routing/verdicts.ts` holds the logic.
 - `src/auth/` — lightweight, offline-tolerant identity.
 - `src/pages/` — SignIn, EvaluatorHome, CaptureActivity, MyEvaluations, Routing,
   Observations (+ verify controls), Reports, Admin.
-- `src/components/` — RubricPanel (focus-safe), SyncStatusBar, useOnline, VerifyControls,
-  VerdictSync.
+- `src/components/` — QuickRating (focus-safe 0–3 + inline anchors), Glossary
+  (focus-safe terms), RubricPanel (legacy full-rubric panel), SyncStatusBar,
+  useOnline, VerifyControls, VerdictSync.
 - `routing/` — the generated routing workspace (ROUTING.md + reference/ + inbox/outbox/
   + app-managed verdicts/).
-- `supabase/` — schema migration + seed SQL.
+- `supabase/` — schema migrations + seed SQL.
 
 ## Deferred (later phases)
 

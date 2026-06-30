@@ -6,7 +6,7 @@ import { useAuth } from '../auth/AuthContext'
 import { annotateObservations, participantGate, type AnnotatedObservation } from '../reports/verification'
 import { VerifyControls } from '../components/VerifyControls'
 import { VerdictSync } from '../components/VerdictSync'
-import type { ObservationRecord, VerificationVerdict } from '../lib/types'
+import type { EvaluationRecord, Ksa, ObservationRecord, VerificationVerdict } from '../lib/types'
 
 // Observations + verification gate: each routed observation is shown with its
 // per-evaluator verdicts and a confirm/adjust/reject control. A participant's
@@ -15,11 +15,32 @@ export function Observations() {
   const { identity } = useAuth()
   const observations = useLiveQuery(() => db.observations.toArray(), [], [] as ObservationRecord[])
   const verdicts = useLiveQuery(() => db.verifications.toArray(), [], [] as VerificationVerdict[])
+  const evaluations = useLiveQuery(() => db.evaluations.toArray(), [], [] as EvaluationRecord[])
+  const ksas = useLiveQuery(() => db.ksas.toArray(), [], [] as Ksa[])
 
   const annotated = useMemo(
     () => annotateObservations(observations ?? [], verdicts ?? []),
     [observations, verdicts],
   )
+
+  // Map a routed observation back to the evaluator's optional quick read on the
+  // originating capture: quick_ratings is keyed by ksa_id, the observation carries
+  // ksa_code, so bridge code -> id and capture_client_id -> evaluation.
+  const codeToId = useMemo(() => {
+    const m = new Map<string, string>()
+    for (const k of ksas ?? []) m.set(k.code, k.id)
+    return m
+  }, [ksas])
+  const evalByClientId = useMemo(() => {
+    const m = new Map<string, EvaluationRecord>()
+    for (const e of evaluations ?? []) m.set(e.client_id, e)
+    return m
+  }, [evaluations])
+  const quickReadFor = (o: ObservationRecord): number | undefined => {
+    const ksaId = codeToId.get(o.ksa_code)
+    if (!ksaId) return undefined
+    return evalByClientId.get(o.capture_client_id)?.quick_ratings?.[ksaId]
+  }
 
   const byParticipant = new Map<string, AnnotatedObservation[]>()
   for (const o of annotated) {
@@ -72,6 +93,12 @@ export function Observations() {
                     <span className="muted small">
                       ({o.sentiment_flag}, {o.confidence}, {o.origin})
                     </span>
+                    {(() => {
+                      const qr = quickReadFor(o)
+                      return qr !== undefined ? (
+                        <span className="pill" style={{ marginLeft: '0.5rem' }}>evaluator read {qr}/3</span>
+                      ) : null
+                    })()}
                     {o.needs_review && <span className="pill" style={{ marginLeft: '0.5rem' }}>routing flagged</span>}
                   </div>
                   <div className="small" style={{ marginTop: '0.25rem' }}>{o.text}</div>

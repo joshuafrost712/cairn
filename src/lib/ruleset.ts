@@ -17,3 +17,20 @@ export const INPUT_RULES: string[] = [
   'Stick to what you observed; keep interpretation separate from evidence.',
   'One activity per capture — start a new capture for a different activity.',
 ]
+
+// A one-line version of the rules, surfaced at the top of capture so evaluators
+// have them in mind before dictating (the full list + attestation stay at submit).
+export const INPUT_RULES_SHORT =
+  'Name who you mean, describe what you observed, one activity per capture.'
+
+// Shared-vocabulary glossary surfaced in capture (dictation-safe popover). Edit
+// freely; definitions are kept short and functional for quick reference.
+export const GLOSSARY: Array<{ term: string; def: string }> = [
+  { term: 'MTT', def: 'Mother-tongue translator; a local speaker on the translation team.' },
+  { term: 'CLAT', def: 'Creating Local Arts Together; the workflow for translating Scripture into a local art form.' },
+  { term: 'Ethnopoetics', def: "The study of how a culture's verbal art (poetry, song, story) works and what it does." },
+  { term: 'ANE', def: 'Ancient Near East; the cultural world surrounding ancient Israel.' },
+  { term: 'Four Es / SENSES', def: 'Internalization frameworks from earlier workshops for taking a text deeply in before drafting.' },
+  { term: 'FIA', def: 'A set of exegetical and translation-helps materials used in preparation.' },
+  { term: 'Scripture-as-Resources', def: 'Drawing on other Scripture passages as a resource during exegesis and drafting.' },
+]

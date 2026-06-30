@@ -142,6 +142,20 @@ a { color: var(--accent); text-decoration: none; }
 .rubric-panel li { margin-bottom: 0.2rem; }
 .rubric-level { font-weight: 700; }
 
+/* Capture KSA card: short title heads the card, the cue reads beneath it. */
+.ksa-title { font-size: 1rem; font-weight: 700; margin-bottom: 0; }
+.ksa-cue { color: var(--ink); font-size: 0.92rem; margin: 0; }
+
+/* Optional quick 0–3 read on each KSA. */
+.quick-rating { margin-top: 0.5rem; }
+.rating-chip {
+  min-width: 2.1rem;
+  padding: 0.3rem 0.55rem;
+  font-size: 0.9rem;
+  border-radius: 8px;
+}
+.rating-anchor { margin: 0.35rem 0 0; }
+
 .banner {
   padding: 0.5rem 0.75rem;
   border-radius: 8px;

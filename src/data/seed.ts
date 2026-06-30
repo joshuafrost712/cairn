@@ -4,9 +4,11 @@ import type { Activity, ActivityKsa, Ksa, Participant, Team, Workshop } from '..
 // foundation app is demoable offline. Keep in sync with seed.sql if you change either.
 //
 // Content is the real KSA framework from the Psalms Workshop plan (OBT CDT
-// Workshop 3, Bali, 24 Aug – 4 Sep 2026). The 0–3 evidence_levels are DRAFT
-// scaffolding derived from each Skill statement, and guiding_questions are MOCK
-// "look/listen for" prompts for trying the app — both pending facilitator authoring.
+// Workshop 3, Bali, 24 Aug – 4 Sep 2026). Evaluator prompts are framed as neutral
+// observation cues (not yes/no verdicts), guiding_questions enumerate the
+// sub-dimensions to watch, and evidence_levels are a single developmental
+// progression (0 = not yet, 3 = fluent/exemplary). These are authored drafts for
+// facilitator review, not the earlier mock scaffolding.
 // Participants/teams are placeholders (the real CIT roster is TBD).
 
 export const seedWorkshops: Workshop[] = [
@@ -51,22 +53,24 @@ export const seedKsas: Ksa[] = [
     id: '55555555-0000-0000-0000-000000000001',
     code: 'CLAT',
     area: 'The CLAT Process and Translation of Aesthetic Language',
+    short_label: 'CLAT facilitation & drafting',
     description:
       'Knows the Creating Local Arts Together (CLAT) conversations and how to adapt them as a workflow for translating aesthetic portions of Scripture using the macro translation principles for aesthetic language.',
-    evaluator_facing_prompt: 'CLAT facilitation: are they leading the conversations well and producing a draft that is both faithful and excellent in the local genre?',
+    evaluator_facing_prompt:
+      'How did they lead the CLAT conversations, and what did the resulting draft show about fidelity and local-genre excellence?',
     ai_facing_rubric:
       'Knowledge: knows the CLAT conversations and how they adapt into a workflow for translating aesthetic Scripture via the macro principles. Attitude: values CLAT as a disciplined, community-rooted process; trusts local artists as essential partners; committed to capturing aesthetic qualities because they shape emotion, identity, worship, and clarity of meaning. Skill: can lead a team and local artists through a contextualized CLAT process and facilitate translating Psalms into a functionally matched local genre with attention to both fidelity and genre excellence. Evaluation: quality of CLAT facilitation with MTTs/artists, how the Psalm 1 and 13 drafts function as both faithful renderings and excellent genre examples (esp. at community check and mentored consulting), and clarity of documented reasoning.',
     evidence_levels: {
-      '0': 'Cannot lead the CLAT conversations; drafts ignore source fidelity or genre.',
-      '1': 'Leads parts with heavy support; draft weak on fidelity or on genre excellence.',
-      '2': 'Leads the CLAT conversations competently; draft is faithful and fits the genre.',
-      '3': 'Leads fluently; draft is faithful AND an excellent example of the local genre, with clear documented reasoning.',
+      '0': 'Not yet leading; relies on others to run the CLAT conversations, and the draft loses the source meaning or the genre.',
+      '1': 'Leads parts with substantial support; the draft is either faithful or genre-fitting, but not yet both.',
+      '2': 'Leads the conversations independently; the draft is faithful and fits the local genre.',
+      '3': 'Leads fluently and adapts the process; the draft is faithful and an excellent example of the genre, with reasoning they can articulate.',
     },
     cbc_subpoint_refs: ['Guiding Translation Teams', 'Translation Practice', 'Adult Education'],
     guiding_questions: [
-      'Are they leading the CLAT conversations in order, or skipping steps?',
-      'Does the draft they produce stay faithful to the source meaning?',
-      'Does the draft sound like an excellent example of the local genre, not a flattened one?',
+      'Do they move through the CLAT conversations in order, adapting rather than skipping steps?',
+      'Does the draft hold the source meaning?',
+      'Does the draft sound like a strong example of the local genre, not a flattened one?',
       'Can they explain why they made a given rendering choice?',
     ],
   },
@@ -74,67 +78,73 @@ export const seedKsas: Ksa[] = [
     id: '55555555-0000-0000-0000-000000000002',
     code: 'AESTH',
     area: 'Aesthetic Language, Ethnopoetics, and the Biblical Function of the Psalms',
+    short_label: 'Aesthetic language & ethnopoetics',
     description:
       'Knows that aesthetic language is a universal human phenomenon for sacred, identity-forming, and emotionally significant content; knows ethnopoetics as the framework; knows the role and functions of aesthetic language in the Hebrew Bible and wider ancient Near East.',
-    evaluator_facing_prompt: 'Aesthetic language / ethnopoetics: can they explain it and articulate its biblical and ANE social/theological function?',
+    evaluator_facing_prompt:
+      'When it came up, how did they explain aesthetic language / ethnopoetics and its function in the Bible and the wider ancient Near East?',
     ai_facing_rubric:
       'Knowledge: aesthetic language as universal; ethnopoetics as the study framework; its central role and social/theological functions in the Hebrew Bible and ancient Near East. Attitude: holds aesthetic language in high regard as a divinely sanctioned means of forming identity, shaping emotion, and passing on sacred knowledge. Skill: can describe aesthetic language and ethnopoetics in their own words, identify aesthetic passages across Scripture, and articulate the functions these forms served. Evaluation: how well they explain ethnopoetics and the role of aesthetic language, and how that foundation informs their MTT interactions.',
     evidence_levels: {
-      '0': 'Cannot describe aesthetic language / ethnopoetics or its biblical function.',
-      '1': 'Partial or vague grasp; struggles to connect it to Scripture / the ANE.',
-      '2': 'Explains ethnopoetics and the biblical/ANE function clearly.',
-      '3': 'Explains fluently and uses the framework to inform interactions with the MTTs.',
+      '0': 'Cannot yet describe aesthetic language or ethnopoetics, or treats it as mere decoration.',
+      '1': 'Partial or vague grasp; struggles to tie it to Scripture or the ancient Near East.',
+      '2': 'Explains ethnopoetics and the biblical / ANE function clearly.',
+      '3': 'Explains it fluently and lets that framework shape how they guide the MTTs.',
     },
     cbc_subpoint_refs: ['Hermeneutics', 'Modes of Communication'],
     guiding_questions: [
       'Can they explain, in their own words, what aesthetic language and ethnopoetics are?',
-      'Do they connect aesthetic forms to their function in the Hebrew Bible and the ancient Near East?',
-      'Do they treat aesthetic language as valuable, or as decoration to strip away?',
+      'Do they connect aesthetic forms to their function in Scripture and the ancient Near East?',
+      'Do they treat aesthetic language as load-bearing meaning, or as decoration to strip away?',
     ],
   },
   {
     id: '55555555-0000-0000-0000-000000000003',
     code: 'GENRE',
     area: 'Genre Theory, Discovery, and Matching',
+    short_label: 'Genre mapping & matching',
     description:
       'Knows that every culture has a repertoire of genres with distinct functions, features, and norms; knows the principal Psalm genres and genre theory as a tool for discovering genres in a community and matching them across languages for faithful translation.',
-    evaluator_facing_prompt: 'Genre work: good culturally-appropriate mapping questions, sound feature analysis, and a convincing functional match?',
+    evaluator_facing_prompt:
+      "How did they map the community's genres and reason toward a functional match for the psalm?",
     ai_facing_rubric:
       'Knowledge: every culture has a genre repertoire (functions, features, norms); principal Psalm genres; genre theory for discovery and cross-language matching. Attitude: approaches local genres with genuine appreciation as rich resources, committed to functional matches rather than forcing biblical forms. Skill: can ask culturally appropriate questions to map a community genre repertoire, identify functions/features of psalm and candidate local genres, and reason convincingly about why a local genre is a faithful functional match. Evaluation: quality of the genre-mapping facilitation, coherence of feature documentation, and how well-reasoned the proposed matches are.',
     evidence_levels: {
-      '0': 'Cannot map or match genres; forces biblical forms onto local ones.',
-      '1': 'Maps with heavy prompting; matching reasoning is thin.',
-      '2': 'Maps the repertoire, analyzes features, proposes a sound functional match.',
-      '3': 'Facilitates rich mapping; feature analysis is coherent; the match argument is convincing and well-documented.',
+      '0': 'Cannot yet map or match genres, or forces biblical forms onto local ones.',
+      '1': 'Maps with heavy prompting; the matching reasoning is thin.',
+      '2': 'Maps the repertoire, analyzes features, and proposes a sound functional match.',
+      '3': 'Draws out a rich map; feature analysis is coherent and the match argument is convincing and documented.',
     },
     cbc_subpoint_refs: ['Guiding Translation Teams', 'Modes of Communication', 'Multicultural Environment'],
     guiding_questions: [
-      'Are their mapping questions culturally appropriate and open-ended?',
-      'Do they identify the function of each local genre, not just its form?',
-      'Do they force a biblical form onto a local one, or find a true functional match?',
-      'Is their proposed match between the psalm and a local genre well-reasoned?',
+      'Are their mapping questions open-ended and culturally appropriate?',
+      'Do they name the function of each local genre, not just its form?',
+      'Do they look for a true functional match rather than forcing a biblical form?',
+      'Is the proposed psalm-to-genre match well reasoned?',
     ],
   },
   {
     id: '55555555-0000-0000-0000-000000000004',
     code: 'EXEG',
     area: 'Psalms Exegesis and Internalization',
+    short_label: 'Exegesis & internalization',
     description:
       'Knows the exegesis of Psalms 1 and 13 (genre, structure, rhetorical features, theology) and relevant Hebrew poetic conventions; knows the internalization frameworks from earlier workshops (the Four Es and SENSES).',
-    evaluator_facing_prompt: 'Exegesis/internalization: deep personal internalization, and skilled facilitation of MTT internalization using the Four Es / SENSES?',
+    evaluator_facing_prompt:
+      "How deeply have they internalized the psalm themselves, and how did they facilitate the MTT's internalization?",
     ai_facing_rubric:
       'Knowledge: exegesis of Psalms 1 and 13 (genre, structure, rhetoric, theology); relevant Hebrew poetic conventions; internalization frameworks (Four Es, SENSES). Attitude: treats exegesis as the foundation for faithful translation and internalization as the essential bridge to drafting; does not rush either. Skill: can exegete and internalize a psalm deeply, facilitate internalization for an MTT using the frameworks, and draw on Scripture-as-Resources, spoken English Bible materials, FIA materials, and AI exegetical tools. Evaluation: depth of demonstrated internalization, effectiveness facilitating MTT internalization per best practices, and use of exegetical resources. A pre-workshop exegetical write-up, if assigned, is a baseline indicator (not pass/fail).',
     evidence_levels: {
-      '0': 'Exegesis / internalization absent or superficial.',
-      '1': 'Some exegesis; internalization shallow or facilitation weak.',
-      '2': 'Solid personal internalization; facilitates MTT internalization per the frameworks.',
-      '3': 'Deep internalization; facilitates skillfully using the Four Es / SENSES and the exegetical resources.',
+      '0': 'Exegesis / internalization is absent or surface-level.',
+      '1': 'Some exegesis, but internalization is shallow or the facilitation is weak.',
+      '2': 'Solid personal internalization; facilitates MTT internalization using the frameworks.',
+      '3': 'Deep internalization; facilitates skillfully with the Four Es / SENSES and the exegetical resources.',
     },
     cbc_subpoint_refs: ['Hermeneutics', 'Translation Practice'],
     guiding_questions: [
-      'How deeply have they internalized the psalm themselves (recall, feeling, understanding)?',
-      'Do they facilitate MTT internalization using the Four Es / SENSES before any drafting?',
-      'Do they rush to drafting, or let internalization happen first?',
+      'How deep is their own internalization of the psalm (recall, feeling, understanding)?',
+      'Do they facilitate MTT internalization (Four Es / SENSES) before any drafting?',
+      'Do they let internalization happen first, or rush to a draft?',
       'Do they draw on exegetical resources (Scripture-as-Resources, FIA, AI tools)?',
     ],
   },
@@ -142,21 +152,23 @@ export const seedKsas: Ksa[] = [
     id: '55555555-0000-0000-0000-000000000005',
     code: 'CHECK',
     area: 'Checking Artistic Translations',
+    short_label: 'Checking facilitation',
     description:
       'Knows best practices for community and consultant checking of artistic translations, how to ask open-ended and inferential questions suited to aesthetic content, and the framework of the Concise Handbook on the Consultant Checking Conversation.',
-    evaluator_facing_prompt: 'Checking: good consulting questions/plan; humble, skilled facilitation leading from issue identification through resolution?',
+    evaluator_facing_prompt:
+      'How did they prepare and lead the check, from their consulting questions through the move from issue to resolution?',
     ai_facing_rubric:
       'Knowledge: best practices for community and consultant checking of artistic translations; open-ended/inferential questions for aesthetic content; the Concise Handbook framework as shared vocabulary. Attitude: treats checking as collaborative, humble, servant-hearted (not adversarial or purely technical); recognizes MTTs/artists as co-laborers. Skill: can prepare consulting questions and plans suited to the genre/content, facilitate community and consultant checking, lead a conversation from issue identification to resolution, and give/receive peer feedback. Evaluation: quality of preparation and execution of the Psalm 1 and 13 checks, quality of consulting questions, peer reports, and facilitator observation notes.',
     evidence_levels: {
-      '0': 'No usable consulting questions/plan; cannot lead a check.',
-      '1': 'Questions/plan thin; leads only with support.',
-      '2': 'Prepares suitable questions/plan; facilitates community and consultant checks competently.',
-      '3': 'Excellent questions/plan; leads from issue identification through resolution with humility and skill.',
+      '0': 'No usable consulting questions or plan; cannot yet lead a check.',
+      '1': 'Questions or plan are thin; leads only with support.',
+      '2': 'Prepares suitable questions and a plan; facilitates community and consultant checks competently.',
+      '3': 'Strong questions and plan; leads from issue to resolution with humility and skill.',
     },
     cbc_subpoint_refs: ['Consulting Process Skills', 'Translation Practice', 'Interpersonal Skills'],
     guiding_questions: [
-      'Are their consulting questions open-ended and inferential, suited to the song form?',
-      'Do they lead from issue identification through to a resolution the team owns?',
+      'Are their consulting questions open-ended and inferential, suited to a song?',
+      'Do they lead from naming an issue to a resolution the team owns?',
       'Is their posture humble and collaborative rather than adversarial?',
       'Do they give and receive peer feedback well?',
     ],
@@ -165,16 +177,18 @@ export const seedKsas: Ksa[] = [
     id: '55555555-0000-0000-0000-000000000006',
     code: 'ADVOC',
     area: 'Advocacy and Community Integration',
+    short_label: 'Advocacy & integration',
     description:
       'Knows how to build a case for local-genre Scripture translation (genre theory, ethnopoetics, the social function of aesthetic language, examples from Scripture and the stakeholders’ own milieu) and how to develop a plan for integrating artistic translations into communities.',
-    evaluator_facing_prompt: 'Advocacy/integration: compelling inductive case for why a local-art-form psalm is still faithful, and a realistic integration plan?',
+    evaluator_facing_prompt:
+      'How did they make the case for a local-genre psalm, and how realistic is their integration plan?',
     ai_facing_rubric:
       'Knowledge: how to build a case for local-genre Scripture translation using genre theory, ethnopoetics, the social function of aesthetic language, and scriptural/cultural examples; the rationale and plan for community integration. Attitude: embraces the ambassador role for faithful local-genre translation (which makes meaning clearer, not obscured); values community integration and Scripture impact as the goal. Skill: can make a compelling, inductively framed case to community leaders that a psalm in a local art form is still a faithful translation, and can work with artists/MTTs on a realistic integration plan with follow-up. Evaluation: clarity of the case and the realism, cultural sensitivity, and scope of the integration plans produced.',
     evidence_levels: {
-      '0': 'Cannot make the case; integration plan absent.',
-      '1': 'Case is weak; plan is unrealistic.',
-      '2': 'Makes a clear case; produces a realistic integration plan.',
-      '3': 'Compelling inductive case; culturally sensitive, well-scoped plan with follow-up.',
+      '0': 'Cannot yet make the case; no integration plan.',
+      '1': 'The case is weak; the plan is unrealistic.',
+      '2': 'Makes a clear case and a realistic integration plan.',
+      '3': 'Compelling inductive case; a culturally sensitive, well-scoped plan with follow-up.',
     },
     cbc_subpoint_refs: ['Interpersonal Skills', 'Multicultural Environment', 'Adult Education'],
     guiding_questions: [

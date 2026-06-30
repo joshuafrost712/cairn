@@ -11,6 +11,8 @@ function toRow(e: EvaluationRecord) {
     workshop_id: e.workshop_id,
     source_language: e.source_language,
     answers: e.answers,
+    quick_ratings: e.quick_ratings ?? {},
+    focus_participant_id: e.focus_participant_id ?? null,
     source_text: e.source_text,
     participant_scope: e.participant_scope,
     attestation: e.attestation,
