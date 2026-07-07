@@ -15,6 +15,9 @@ import { Reports } from './pages/Reports'
 import { DayEmail } from './pages/DayEmail'
 import { Export } from './pages/Export'
 import { Admin } from './pages/Admin'
+import { Conversations } from './pages/Conversations'
+import { Inbox } from './pages/Inbox'
+import { DevFeedbackRoot } from './devfeedback/DevFeedbackRoot'
 
 function Header() {
   const { identity, signOut } = useAuth()
@@ -23,7 +26,7 @@ function Header() {
   return (
     <header className="app-header">
       <div>
-        <span className="brand">Cairn</span>{' '}
+        <span className="brand">Throughline</span>{' '}
         {!onHome && <Link className="small" to="/">Home</Link>}
         <div className="sub">OBT participant evaluation</div>
       </div>
@@ -69,6 +72,8 @@ function Shell() {
         <Route path="/reports" element={<Reports />} />
         <Route path="/day-email" element={<DayEmail />} />
         <Route path="/export" element={<Export />} />
+        <Route path="/conversations" element={<Conversations />} />
+        <Route path="/inbox" element={<Inbox />} />
         <Route path="/admin" element={<Admin />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
@@ -82,6 +87,7 @@ export default function App() {
       <AuthProvider>
         <BrowserRouter basename={import.meta.env.BASE_URL}>
           <Shell />
+          <DevFeedbackRoot />
         </BrowserRouter>
       </AuthProvider>
     </ErrorBoundary>

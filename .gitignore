@@ -27,3 +27,10 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# In-app dev feedback batches — transient working artifacts, not history.
+# Keep the folders and README, ignore the batch files themselves.
+feedback/incoming/*
+feedback/processed/*
+!feedback/incoming/.gitkeep
+!feedback/processed/.gitkeep

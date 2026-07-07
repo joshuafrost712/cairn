@@ -1,4 +1,4 @@
-// Shared entity types. Mirror the Postgres schema (supabase/migrations/0001_foundation_schema.sql).
+// Shared entity types. Mirror the Postgres schema (supabase/migrations/20260608000100_foundation_schema.sql).
 
 // The six KSA areas of the Psalms Workshop (OBT CDT Workshop 3, Bali 2026).
 export const KSA_AREAS = [
@@ -79,7 +79,7 @@ export interface AppUser {
   id: string
   name: string
   email: string
-  role: 'evaluator' | 'consultant' | 'admin'
+  role: 'evaluator' | 'consultant' | 'chief_evaluator' | 'admin' | 'participant'
 }
 
 /** A name/id the evaluator was watching during a capture. */
@@ -160,6 +160,51 @@ export interface ObservationRecord {
    * same participant. Best-effort: null when the originating capture can't be found.
    */
   evaluator_email?: string | null
+}
+
+export type MentoringStatus = 'needed' | 'scheduled' | 'completed' | 'dismissed'
+
+/**
+ * A mentoring conversation triggered by a confirmed low observation
+ * (effective_designation 0 or 1 on a verified/adjusted observation). When a
+ * participant scores a confirmed low on a KSA, the mentor holds a short
+ * follow-up the next day; how the participant responds to correction is itself
+ * evaluation data. One record per triggering observation; idempotent on
+ * re-derive because the id is derived from the observation id.
+ */
+export interface MentoringConversation {
+  /** deterministic: `mc::${trigger_observation_id}` so re-derivation never duplicates */
+  id: string
+  participant_id: string
+  participant_name: string
+  workshop_id: string | null
+  trigger_observation_id: string | null
+  trigger_ksa_code: string | null
+  trigger_designation: number | null // 0 or 1
+  trigger_activity_id: string | null
+  status: MentoringStatus
+  scheduled_for: string | null // ISO date
+  summary: string | null // "we talked about X, Y, Z"
+  participant_response: string | null // how they handled it
+  recorded_by: string | null // evaluator email
+  created_at: string
+  updated_at: string
+  sync_status: SyncStatus // reuse existing type
+  sync_error?: string | null
+}
+
+/**
+ * A record that the chief evaluator has acknowledged and reconciled a discrepancy.
+ * Keyed by a deterministic id: `disc::${participant_id}::${ksa_code}`.
+ * Sync is local-only for now; add a sync_status field and Supabase upsert if remote
+ * reconciliation records become needed.
+ */
+export interface DiscrepancyResolution {
+  /** deterministic: `disc::${participant_id}::${ksa_code}` */
+  id: string
+  resolved_by: string // evaluator email
+  note: string | null
+  at: string // ISO timestamp
 }
 
 /** One evaluator's verdict on one observation (the multi-evaluator gate). */

@@ -17,7 +17,7 @@ function buildEmail(observations: ObservationRecord[] = [], verdicts: Verificati
 }
 
 describe('renderDayEmailMarkdown', () => {
-  it('names the participant, shows the merged designation, and flags a two-evaluator conflict', () => {
+  it('surfaces a strength as a highlight and flags a two-evaluator conflict with both sides', () => {
     const observations = [
       obs({ participant_id: 'p-1', ksa_code: 'GENRE', evidence_designation: 3, evaluator_email: 'josh@sil.org' }),
       obs({ participant_id: 'p-1', ksa_code: 'GENRE', evidence_designation: 1, evaluator_email: 'boss@sil.org' }),
@@ -25,25 +25,37 @@ describe('renderDayEmailMarkdown', () => {
     const md = buildEmail(observations)
     // participant surfaced
     expect(md).toContain('CIT One')
-    // merged designation is the max (3), as Reports does
-    expect(md).toContain('Designation 3/3')
-    // conflict made explicit with the range
+    // the strength (max designation) appears as a highlight
+    expect(md).toContain('Highlights to encourage')
+    expect(md).toContain('Genre Theory')
+    // conflict made explicit with the range, in its own reconciliation section
+    expect(md).toContain('Needs reconciliation')
     expect(md).toMatch(/conflicted/i)
     expect(md).toContain('1–3')
-    // both evaluators attributed by name
+    // both sides of the conflict attributed by name (full traceability)
     expect(md).toContain('josh rated 3/3')
     expect(md).toContain('boss rated 1/3')
   })
 
-  it('reports agreement (no conflict) when two evaluators land on the same score', () => {
+  it('reports no conflict when two evaluators land on the same score', () => {
     const observations = [
       obs({ participant_id: 'p-1', ksa_code: 'GENRE', evidence_designation: 2, evaluator_email: 'josh@sil.org' }),
       obs({ participant_id: 'p-1', ksa_code: 'GENRE', evidence_designation: 2, evaluator_email: 'boss@sil.org' }),
     ]
     const md = buildEmail(observations)
-    expect(md).toContain('Designation 2/3')
-    expect(md).toMatch(/Evaluators agreed/)
-    expect(md).not.toMatch(/conflicted here/i)
+    expect(md).toContain('Highlights to encourage')
+    expect(md).toContain('competent')
+    expect(md).not.toMatch(/Needs reconciliation/)
+  })
+
+  it('recommends a mentoring conversation for a confirmed low designation', () => {
+    const observations = [
+      obs({ participant_id: 'p-1', ksa_code: 'CHECK', evidence_designation: 1, evaluator_email: 'josh@sil.org' }),
+    ]
+    const md = buildEmail(observations)
+    expect(md).toContain('Growth areas')
+    expect(md).toContain('Recommended follow-up')
+    expect(md).toMatch(/mentoring conversation/i)
   })
 
   it('falls back gracefully when an observation has no evaluator attribution', () => {

@@ -16,12 +16,15 @@ import { exportAll, importAll } from '../db/backup'
 import { getRequiredConfirmations, setRequiredConfirmations } from '../reports/verification'
 import { downloadText } from '../lib/download'
 import type { Activity, Ksa, Participant, Team, Workshop } from '../lib/types'
+import { RecordsBrowser } from '../components/RecordsBrowser'
+import { loadDemoScenario } from '../data/demoScenario'
 
 // Admin: load/seed reference content, edit the workshop meta + roster (teams and
 // participants) so a real workshop can be entered without code edits. KSAs and the
 // schedule are authored content and shown read-only here.
 export function Admin() {
   const [busy, setBusy] = useState(false)
+  const [demoMsg, setDemoMsg] = useState<string | null>(null)
   const workshops = useLiveQuery(() => db.workshops.toArray(), [], [] as Workshop[])
   const activities = useLiveQuery(() => db.activities.toArray(), [], [] as Activity[])
   const teams = useLiveQuery(() => db.teams.toArray(), [], [] as Team[])
@@ -60,7 +63,23 @@ export function Admin() {
           <button className="ghost" onClick={() => withBusy(primeFromSeed)} disabled={busy}>
             Load sample workshop
           </button>
+          <button
+            className="ghost"
+            disabled={busy}
+            onClick={() =>
+              withBusy(async () => {
+                setDemoMsg(null)
+                const r = await loadDemoScenario()
+                setDemoMsg(
+                  `Demo loaded: ${r.evaluations} captures · ${r.observations} observations · ${r.verdicts} verdicts · ${r.conversations} conversation(s). Re-run at any time to reset.`,
+                )
+              })
+            }
+          >
+            Load demo scenario
+          </button>
         </div>
+        {demoMsg && <p className="small muted" style={{ marginTop: '0.4rem' }}>{demoMsg}</p>}
         {isSupabaseConfigured && (
           <p className="small muted" style={{ marginTop: '0.4rem' }}>
             Note: reloading from the backend overwrites local edits. Manage the roster in the backend when Supabase is on.
@@ -147,6 +166,16 @@ export function Admin() {
           </div>
         </>
       )}
+
+      <div className="card">
+        <h2>Participant records</h2>
+        <p className="small muted" style={{ marginBottom: '0.75rem' }}>
+          Browse the full evidence record for any participant, make admin corrections to observations,
+          and append data after the fact (e.g. a late-session performance). Verdict-based disputes are
+          handled on <a href="/observations">Observations</a> and the Inbox.
+        </p>
+        <RecordsBrowser />
+      </div>
 
       <div className="card">
         <h2>Verification</h2>

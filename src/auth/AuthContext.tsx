@@ -1,45 +1,37 @@
 /* eslint-disable react-refresh/only-export-components -- provider + its hook are co-located by design */
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
+import type { User } from '@supabase/supabase-js'
 import type { AppUser } from '../lib/types'
 import { supabase, isSupabaseConfigured } from '../lib/supabase'
 
-// Lightweight, offline-tolerant identity. The signed-in evaluator is persisted to
-// localStorage so work continues through connectivity gaps without re-auth. When
-// Supabase is configured we also upsert the evaluator into app_user so the backend
-// has a durable record; full password / magic-link auth is the documented upgrade.
+// ---------------------------------------------------------------------------
+// Identity shape (shared by both auth paths)
+// ---------------------------------------------------------------------------
 
-const STORAGE_KEY = 'cairn.identity'
-
-// How long a sign-in is remembered on-device before we ask the evaluator to sign
-// in again. Lightweight identity is not a security boundary, but a bounded window
-// keeps a shared or borrowed phone from staying signed in indefinitely. Change this
-// one constant to lengthen or shorten the remembered period.
-const MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000 // 30 days
-
-interface Identity {
+export interface Identity {
   name: string
   email: string
   role: AppUser['role']
-  signedInAt: string // ISO timestamp; drives the remembered-for-a-period expiry
+  signedInAt: string // ISO timestamp
 }
 
-interface AuthValue {
-  identity: Identity | null
-  signIn: (name: string, email: string, role?: AppUser['role']) => Promise<void>
-  signOut: () => void
-}
+// ---------------------------------------------------------------------------
+// Local-only fallback (no Supabase configured)
+// ---------------------------------------------------------------------------
 
-const AuthContext = createContext<AuthValue | null>(null)
+const STORAGE_KEY = 'cairn.identity'
 
-function load(): Identity | null {
+// How long a local sign-in is remembered before asking the user to sign in
+// again. Only applies to the local-identity fallback path; Supabase sessions
+// have their own expiry managed by supabase-js.
+const MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000 // 30 days
+
+function loadLocal(): Identity | null {
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
     if (!raw) return null
     const parsed = JSON.parse(raw) as Partial<Identity>
     if (!parsed.email || !parsed.name) return null
-    // Expire a remembered sign-in once it's older than MAX_AGE_MS. Identities
-    // saved before this field existed have no signedInAt; treat them as expired
-    // so the next sign-in stamps a fresh one.
     const signedInAt = parsed.signedInAt ? Date.parse(parsed.signedInAt) : NaN
     if (!Number.isFinite(signedInAt) || Date.now() - signedInAt > MAX_AGE_MS) {
       localStorage.removeItem(STORAGE_KEY)
@@ -51,44 +43,185 @@ function load(): Identity | null {
   }
 }
 
-export function AuthProvider({ children }: { children: ReactNode }) {
-  const [identity, setIdentity] = useState<Identity | null>(load)
+// ---------------------------------------------------------------------------
+// Context value
+// ---------------------------------------------------------------------------
 
+interface AuthValue {
+  identity: Identity | null
+  /** Supabase path: email + password. Local path: name + email (password ignored). */
+  signIn: (emailOrName: string, emailOrPassword: string, passwordOrRole?: string, roleForLocal?: AppUser['role']) => Promise<{ error: string | null }>
+  signUp: (name: string, email: string, password: string, role: AppUser['role']) => Promise<{ error: string | null; confirmationRequired?: boolean }>
+  signOut: () => Promise<void>
+  /** True when operating on local-only identity (no Supabase configured). */
+  isLocalMode: boolean
+}
+
+const AuthContext = createContext<AuthValue | null>(null)
+
+// ---------------------------------------------------------------------------
+// Helper: convert a Supabase session + optional app_user row into Identity
+// ---------------------------------------------------------------------------
+
+function identityFromSession(
+  user: User,
+  appUser: { name: string; role: string } | null,
+): Identity {
+  const meta = (user.user_metadata ?? {}) as Record<string, unknown>
+  const name =
+    (appUser?.name as string | undefined) ??
+    (meta.name as string | undefined) ??
+    user.email ??
+    'Unknown'
+  const rawRole = (appUser?.role as string | undefined) ?? (meta.role as string | undefined) ?? 'evaluator'
+  const allowed: AppUser['role'][] = ['evaluator', 'consultant', 'chief_evaluator', 'admin', 'participant']
+  const role: AppUser['role'] = (allowed.includes(rawRole as AppUser['role']) ? rawRole : 'evaluator') as AppUser['role']
+  return {
+    name,
+    email: user.email ?? '',
+    role,
+    signedInAt: new Date().toISOString(),
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Provider
+// ---------------------------------------------------------------------------
+
+export function AuthProvider({ children }: { children: ReactNode }) {
+  const [identity, setIdentity] = useState<Identity | null>(() =>
+    isSupabaseConfigured ? null : loadLocal(),
+  )
+
+  // ---- Supabase session bootstrap ----
   useEffect(() => {
+    if (!isSupabaseConfigured || !supabase) return
+
+    // Restore from cached session (works offline after first login).
+    void supabase.auth.getSession().then(async ({ data }) => {
+      if (!data.session) { setIdentity(null); return }
+      const user = data.session.user
+      const { data: row } = await supabase!
+        .from('app_user')
+        .select('name, role')
+        .eq('email', user.email ?? '')
+        .maybeSingle()
+      setIdentity(identityFromSession(user, row))
+    })
+
+    // Keep identity in sync across tab focus, token refresh, sign-out, etc.
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      if (!session) { setIdentity(null); return }
+      const user = session.user
+      const { data: row } = await supabase!
+        .from('app_user')
+        .select('name, role')
+        .eq('email', user.email ?? '')
+        .maybeSingle()
+      setIdentity(identityFromSession(user, row))
+    })
+
+    return () => subscription.unsubscribe()
+  }, [])
+
+  // ---- Local-only: persist identity to localStorage ----
+  useEffect(() => {
+    if (isSupabaseConfigured) return
     if (identity) localStorage.setItem(STORAGE_KEY, JSON.stringify(identity))
   }, [identity])
 
-  const signIn = async (name: string, email: string, role: AppUser['role'] = 'evaluator') => {
+  // --------------------------------------------------------------------------
+  // signIn
+  //
+  // Supabase path: signIn(email, password)
+  // Local path:   signIn(name, email)   — password param accepted but ignored
+  // --------------------------------------------------------------------------
+  const signIn = async (
+    emailOrName: string,
+    emailOrPassword: string,
+    _passwordOrRole?: string,
+    roleForLocal: AppUser['role'] = 'evaluator',
+  ): Promise<{ error: string | null }> => {
+    if (isSupabaseConfigured && supabase) {
+      const email = emailOrName.trim().toLowerCase()
+      const password = emailOrPassword
+      const { error: authErr } = await supabase.auth.signInWithPassword({ email, password })
+      if (authErr) return { error: authErr.message }
+      // Identity is set by the onAuthStateChange listener above; nothing to do.
+      return { error: null }
+    }
+
+    // Local-only fallback: name + email (password ignored).
+    const name = emailOrName
+    const email = emailOrPassword
+    if (!name.trim() || !email.trim()) return { error: 'Name and email are required.' }
     const next: Identity = {
       name: name.trim(),
       email: email.trim().toLowerCase(),
-      role,
+      role: roleForLocal,
       signedInAt: new Date().toISOString(),
     }
     setIdentity(next)
-    // Best-effort durable record; never blocks sign-in.
-    if (isSupabaseConfigured && supabase && navigator.onLine) {
-      try {
-        await supabase.from('app_user').upsert(
-          { name: next.name, email: next.email, role: next.role },
-          { onConflict: 'email' },
-        )
-      } catch (err) {
-        console.warn('[cairn] app_user upsert failed (continuing local)', err)
-      }
-    }
+    return { error: null }
   }
 
-  const signOut = () => {
+  // --------------------------------------------------------------------------
+  // signUp (Supabase only)
+  // --------------------------------------------------------------------------
+  const signUp = async (
+    name: string,
+    email: string,
+    password: string,
+    role: AppUser['role'],
+  ): Promise<{ error: string | null; confirmationRequired?: boolean }> => {
+    if (!isSupabaseConfigured || !supabase) {
+      return { error: 'Supabase is not configured; use local-only sign-in.' }
+    }
+    const { data, error: authErr } = await supabase.auth.signUp({
+      email: email.trim().toLowerCase(),
+      password,
+      options: { data: { name: name.trim(), role } },
+    })
+    if (authErr) return { error: authErr.message }
+    if (!data.session) {
+      // Email confirmation is required (Supabase dashboard setting).
+      return { error: null, confirmationRequired: true }
+    }
+    // Session was created immediately (email confirmation disabled).
+    // onAuthStateChange fires and sets identity; nothing extra needed.
+    return { error: null }
+  }
+
+  // --------------------------------------------------------------------------
+  // signOut
+  // --------------------------------------------------------------------------
+  const signOut = async () => {
+    if (isSupabaseConfigured && supabase) {
+      await supabase.auth.signOut()
+    }
     localStorage.removeItem(STORAGE_KEY)
     setIdentity(null)
   }
 
-  return <AuthContext.Provider value={{ identity, signIn, signOut }}>{children}</AuthContext.Provider>
+  return (
+    <AuthContext.Provider
+      value={{ identity, signIn, signUp, signOut, isLocalMode: !isSupabaseConfigured }}
+    >
+      {children}
+    </AuthContext.Provider>
+  )
 }
 
 export function useAuth(): AuthValue {
   const ctx = useContext(AuthContext)
   if (!ctx) throw new Error('useAuth must be used within AuthProvider')
   return ctx
+}
+
+// ---------------------------------------------------------------------------
+// Convenience helper for chief-evaluator gating (does not hide routes yet)
+// ---------------------------------------------------------------------------
+export function useIsChief(): boolean {
+  const { identity } = useAuth()
+  return identity?.role === 'chief_evaluator' || identity?.role === 'admin'
 }

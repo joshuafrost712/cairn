@@ -1,4 +1,4 @@
-# Cairn — OBT Participant Evaluation (foundation slice)
+# Throughline — OBT Participant Evaluation (foundation slice)
 
 A mobile-first field tool for capturing observer-led participant evaluation during
 Oral Bible Translation (OBT) consulting workshops. It covers the data model, minimal
@@ -8,7 +8,9 @@ Report generation, the multi-evaluator verification gate, and CBC export are
 **deferred to later phases** — the schema accommodates them but this repo does not
 build them yet.
 
-"Cairn" is a working codename, renamable.
+The app is named **Throughline** — every rating traces back through the evidence
+behind it. (Internal storage identifiers still use the original `cairn` codename
+to avoid orphaning on-device data; that is intentional and not user-visible.)
 
 ## What works now
 
@@ -133,7 +135,7 @@ the workflow in `.github/workflows/deploy.yml` is ready:
 3. Wait for the "Deploy to GitHub Pages" action to finish; it prints an
    `https://<you>.github.io/<repo>/` URL.
 4. Open that URL on your phone → browser menu → **Add to Home Screen**. It installs as
-   the "Cairn" app and works offline.
+   the "Throughline" app and works offline.
 
 To route observations from the phone with no setup, use the copy/paste path: on
 Observations/Routing, "Copy pending captures" → paste into the Claude app (Max) with the
@@ -143,10 +145,11 @@ makes this one-tap but isn't required to try the app.)
 ### Connect Supabase (optional for local dev, required for sync)
 
 1. Create a project at supabase.com.
-2. In the SQL editor, run `supabase/migrations/0001_foundation_schema.sql`, then
-   `supabase/migrations/0002_quick_ratings_focus_short_label.sql`, then
-   `supabase/seed.sql` (the Psalms Workshop, Bali 2026 — real 6-area KSA framework;
-   authored 0–3 evidence levels; placeholder CIT roster).
+2. Apply the schema with the Supabase CLI: `supabase login`, `supabase link
+   --project-ref <ref>`, then `supabase db push` (applies every file in
+   `supabase/migrations/` in order). Optionally load `supabase/seed.sql` (the
+   Psalms Workshop, Bali 2026 real 6-area KSA framework) via the SQL editor or
+   `supabase db reset`. Full auth walkthrough: `docs/SETUP-AUTH.md`.
 3. Copy `.env.example` to `.env` and fill in `VITE_SUPABASE_URL` and
    `VITE_SUPABASE_ANON_KEY` from Project Settings → API.
 4. Restart `npm run dev`. The app now syncs the outbox and loads reference data from

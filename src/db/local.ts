@@ -2,8 +2,10 @@ import Dexie, { type EntityTable } from 'dexie'
 import type {
   Activity,
   ActivityKsa,
+  DiscrepancyResolution,
   EvaluationRecord,
   Ksa,
+  MentoringConversation,
   ObservationRecord,
   Participant,
   Team,
@@ -29,6 +31,8 @@ class CairnDB extends Dexie {
   activityKsas!: EntityTable<ActivityKsa & { pk: string }, 'pk'>
   observations!: EntityTable<ObservationRecord, 'id'>
   verifications!: EntityTable<VerificationVerdict, 'id'>
+  mentoringConversations!: EntityTable<MentoringConversation, 'id'>
+  discrepancyResolutions!: EntityTable<DiscrepancyResolution, 'id'>
 
   constructor() {
     super('cairn')
@@ -50,6 +54,14 @@ class CairnDB extends Dexie {
     // v3: evaluator verdicts for the multi-evaluator verification gate.
     this.version(3).stores({
       verifications: 'id, observation_id, capture_client_id, evaluator_email',
+    })
+    // v4: mentoring conversations derived from confirmed low observations.
+    this.version(4).stores({
+      mentoringConversations: 'id, participant_id, workshop_id, status, trigger_observation_id, sync_status',
+    })
+    // v5: local-only acknowledgement that a chief evaluator has reconciled a discrepancy.
+    this.version(5).stores({
+      discrepancyResolutions: 'id',
     })
   }
 }

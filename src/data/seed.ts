@@ -9,7 +9,7 @@ import type { Activity, ActivityKsa, Ksa, Participant, Team, Workshop } from '..
 // sub-dimensions to watch, and evidence_levels are a single developmental
 // progression (0 = not yet, 3 = fluent/exemplary). These are authored drafts for
 // facilitator review, not the earlier mock scaffolding.
-// Participants/teams are placeholders (the real CIT roster is TBD).
+// Participants are the real CIT roster from the sign-up form responses (names only; no emails).
 
 export const seedWorkshops: Workshop[] = [
   {
@@ -27,12 +27,36 @@ export const seedTeams: Team[] = [
   { id: '22222222-0000-0000-0000-000000000002', workshop_id: seedWorkshops[0].id, name: 'Music Team B' },
 ]
 
-// Placeholder consultants-in-training (CITs); replace with the real roster.
+// Real CIT roster from "OBT Consultant Development Track Workshop 3 - Psalms (Responses)"
+// Google Sheets ID: 125K4bY-XPWF1fJcn9XtykEB2-Na48X6JATRibd6QFzc
+// Names only; registered_email is null (names are kept in the roster sheet, not here).
 export const seedParticipants: Participant[] = [
-  { id: '33333333-0000-0000-0000-000000000001', workshop_id: seedWorkshops[0].id, name: 'CIT One', registered_email: 'cit1@example.org', team_id: seedTeams[0].id, preferred_language: 'English' },
-  { id: '33333333-0000-0000-0000-000000000002', workshop_id: seedWorkshops[0].id, name: 'CIT Two', registered_email: 'cit2@example.org', team_id: seedTeams[0].id, preferred_language: 'English' },
-  { id: '33333333-0000-0000-0000-000000000003', workshop_id: seedWorkshops[0].id, name: 'CIT Three', registered_email: 'cit3@example.org', team_id: seedTeams[1].id, preferred_language: 'English' },
-  { id: '33333333-0000-0000-0000-000000000004', workshop_id: seedWorkshops[0].id, name: 'CIT Four', registered_email: 'cit4@example.org', team_id: seedTeams[1].id, preferred_language: 'English' },
+  { id: '33333333-0000-0000-0000-000000000001', workshop_id: seedWorkshops[0].id, name: 'Keem Leong', registered_email: null, team_id: seedTeams[0].id, preferred_language: null },
+  { id: '33333333-0000-0000-0000-000000000002', workshop_id: seedWorkshops[0].id, name: 'Sajesh Pradhan', registered_email: null, team_id: seedTeams[0].id, preferred_language: null },
+  { id: '33333333-0000-0000-0000-000000000003', workshop_id: seedWorkshops[0].id, name: 'Amos Khokhar', registered_email: null, team_id: seedTeams[0].id, preferred_language: null },
+  { id: '33333333-0000-0000-0000-000000000004', workshop_id: seedWorkshops[0].id, name: 'Mathew Thomas', registered_email: null, team_id: seedTeams[0].id, preferred_language: null },
+  { id: '33333333-0000-0000-0000-000000000005', workshop_id: seedWorkshops[0].id, name: 'Eliphas Mukhim', registered_email: null, team_id: seedTeams[0].id, preferred_language: null },
+  { id: '33333333-0000-0000-0000-000000000006', workshop_id: seedWorkshops[0].id, name: 'Mukesh Kumar Nayak', registered_email: null, team_id: seedTeams[0].id, preferred_language: null },
+  { id: '33333333-0000-0000-0000-000000000007', workshop_id: seedWorkshops[0].id, name: 'Sunita Kumari', registered_email: null, team_id: seedTeams[0].id, preferred_language: null },
+  { id: '33333333-0000-0000-0000-000000000008', workshop_id: seedWorkshops[0].id, name: 'Young Whan Song', registered_email: null, team_id: seedTeams[0].id, preferred_language: null },
+  { id: '33333333-0000-0000-0000-000000000009', workshop_id: seedWorkshops[0].id, name: 'Suelen Campelo', registered_email: null, team_id: seedTeams[0].id, preferred_language: null },
+  { id: '33333333-0000-0000-0000-000000000010', workshop_id: seedWorkshops[0].id, name: 'Santpaul Singh', registered_email: null, team_id: seedTeams[0].id, preferred_language: null },
+  { id: '33333333-0000-0000-0000-000000000011', workshop_id: seedWorkshops[0].id, name: 'Anjali Lama', registered_email: null, team_id: seedTeams[0].id, preferred_language: null },
+  { id: '33333333-0000-0000-0000-000000000012', workshop_id: seedWorkshops[0].id, name: 'Jaime Jill Fianza', registered_email: null, team_id: seedTeams[0].id, preferred_language: null },
+  { id: '33333333-0000-0000-0000-000000000013', workshop_id: seedWorkshops[0].id, name: 'Chula Danuwar', registered_email: null, team_id: seedTeams[0].id, preferred_language: null },
+  { id: '33333333-0000-0000-0000-000000000014', workshop_id: seedWorkshops[0].id, name: 'Robert Tilton', registered_email: null, team_id: seedTeams[1].id, preferred_language: null },
+  { id: '33333333-0000-0000-0000-000000000015', workshop_id: seedWorkshops[0].id, name: 'Kristina Tarp', registered_email: null, team_id: seedTeams[1].id, preferred_language: null },
+  { id: '33333333-0000-0000-0000-000000000016', workshop_id: seedWorkshops[0].id, name: 'Hiramba Deb Adhikary', registered_email: null, team_id: seedTeams[1].id, preferred_language: null },
+  { id: '33333333-0000-0000-0000-000000000017', workshop_id: seedWorkshops[0].id, name: 'Martin Landert', registered_email: null, team_id: seedTeams[1].id, preferred_language: null },
+  { id: '33333333-0000-0000-0000-000000000018', workshop_id: seedWorkshops[0].id, name: 'Rea Joy Lumawan', registered_email: null, team_id: seedTeams[1].id, preferred_language: null },
+  { id: '33333333-0000-0000-0000-000000000019', workshop_id: seedWorkshops[0].id, name: 'Anna Seidel', registered_email: null, team_id: seedTeams[1].id, preferred_language: null },
+  { id: '33333333-0000-0000-0000-000000000020', workshop_id: seedWorkshops[0].id, name: 'Joemar Cabading', registered_email: null, team_id: seedTeams[1].id, preferred_language: null },
+  { id: '33333333-0000-0000-0000-000000000021', workshop_id: seedWorkshops[0].id, name: 'Rosemary Bolton', registered_email: null, team_id: seedTeams[1].id, preferred_language: null },
+  { id: '33333333-0000-0000-0000-000000000022', workshop_id: seedWorkshops[0].id, name: 'Sibaji Digal', registered_email: null, team_id: seedTeams[1].id, preferred_language: null },
+  { id: '33333333-0000-0000-0000-000000000023', workshop_id: seedWorkshops[0].id, name: 'Tammy Cortimilia', registered_email: null, team_id: seedTeams[1].id, preferred_language: null },
+  { id: '33333333-0000-0000-0000-000000000024', workshop_id: seedWorkshops[0].id, name: 'Raissa Santos', registered_email: null, team_id: seedTeams[1].id, preferred_language: null },
+  { id: '33333333-0000-0000-0000-000000000025', workshop_id: seedWorkshops[0].id, name: 'Chhotray Aind', registered_email: null, team_id: seedTeams[1].id, preferred_language: null },
+  { id: '33333333-0000-0000-0000-000000000026', workshop_id: seedWorkshops[0].id, name: 'Bijili K Abraham Kuppackal', registered_email: null, team_id: seedTeams[1].id, preferred_language: null },
 ]
 
 // Afternoon practicums + Week 2 checking are the primary evaluation windows.
