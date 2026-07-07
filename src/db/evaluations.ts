@@ -1,5 +1,6 @@
 import { db } from './local'
 import { pushOutbox } from './sync'
+import { coverageRowFromEvaluation, upsertCoverage } from './coverage'
 import { RULESET_VERSION } from '../lib/ruleset'
 import type { EvaluationRecord, ParticipantScopeEntry, QuickRatings } from '../lib/types'
 
@@ -111,7 +112,15 @@ export async function submitEvaluation(
     sync_status: 'queued',
     updated_at: new Date().toISOString(),
   })
+  // Instant self-feedback: reflect this device's own coverage immediately,
+  // without waiting for the realtime echo. The echo later re-puts the same
+  // client_id — idempotent.
+  const submitted = await db.evaluations.get(clientId)
+  void upsertCoverage(coverageRowFromEvaluation(submitted))
   void pushOutbox()
+  // The sync loop's `running` guard can make the push above no-op if a tick is
+  // mid-flight; a short retry keeps other devices inside the ~3s coverage SLA.
+  setTimeout(() => void pushOutbox(), 500)
 }
 
 export function getEvaluation(clientId: string) {

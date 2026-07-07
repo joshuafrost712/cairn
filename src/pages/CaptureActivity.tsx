@@ -3,6 +3,7 @@ import { useNavigate, useParams, Link } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '../db/local'
 import { ksasForActivity } from '../db/reference'
+import { coverageForActivity } from '../db/coverage'
 import { saveAnswers, submitEvaluation, undoLastEdit } from '../db/evaluations'
 import { composeSourceText } from '../lib/compose'
 import { INPUT_RULES, INPUT_RULES_SHORT, DICTATION_HINT } from '../lib/ruleset'
@@ -11,6 +12,14 @@ import { Glossary } from '../components/Glossary'
 import type { Ksa, Participant, ParticipantScopeEntry, QuickRatings } from '../lib/types'
 
 type Level = 0 | 1 | 2 | 3
+
+/** Short initials for an evaluator email (local-part), e.g. "josh_frost@sil.org" -> "JF". */
+function evaluatorInitials(email: string): string {
+  const local = email.split('@')[0] ?? email
+  const parts = local.split(/[._-]+/).filter(Boolean)
+  const letters = (parts.length >= 2 ? [parts[0], parts[1]] : [local]).map((s) => s[0] ?? '')
+  return letters.join('').toUpperCase().slice(0, 2) || '?'
+}
 
 export function CaptureActivity() {
   const { clientId = '' } = useParams()
@@ -29,6 +38,15 @@ export function CaptureActivity() {
         : Promise.resolve([] as Participant[]),
     [record?.workshop_id],
     [] as Participant[],
+  )
+
+  // Live evaluation coverage for this activity: who has already received an
+  // evaluation, by whom, and how many. Fed by this device's submissions and, via
+  // Supabase Realtime, other evaluators' devices (see db/coverage.ts). The
+  // live-query repaints the selector automatically when a coverage row lands.
+  const coverage = useLiveQuery(
+    () => (record?.activity_id ? coverageForActivity(record.activity_id) : undefined),
+    [record?.activity_id],
   )
 
   // Local working copy so typing is never clobbered by the live query.
@@ -185,18 +203,54 @@ export function CaptureActivity() {
             {focusMode ? 'Focus: one CIT' : 'Focus on one CIT'}
           </button>
         </div>
+        {(() => {
+          const total = participants?.length ?? 0
+          const covered = (participants ?? []).filter((p) => (coverage?.get(p.id)?.count ?? 0) > 0).length
+          const remaining = total - covered
+          if (total === 0) return null
+          return (
+            <p
+              className={`small coverage-summary ${remaining === 0 ? 'ok' : ''}`}
+              style={{ marginTop: 8, marginBottom: 0 }}
+            >
+              {remaining === 0
+                ? `All ${total} participants have an evaluation for this activity.`
+                : `${remaining} of ${total} still need evaluation.`}
+            </p>
+          )
+        })()}
         <div className="row" style={{ marginTop: 8 }}>
           {(participants ?? []).map((p) => {
             const on = focusMode ? focusParticipantId === p.id : scope.some((s) => s.participant_id === p.id)
+            const cov = coverage?.get(p.id)
+            const evs = cov?.evaluators ?? []
+            const title = cov
+              ? `Evaluated ${cov.count}× by ${evs.join(', ') || 'unknown'}`
+              : 'Not yet evaluated for this activity'
             return (
               <button
                 key={p.id}
                 type="button"
-                className={on ? 'primary' : ''}
+                className={`participant-btn${on ? ' primary' : ''}${cov ? ' covered' : ''}`}
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={() => (focusMode ? selectFocus(p) : toggleParticipant(p))}
+                title={title}
               >
-                {p.name}
+                <span>{p.name}</span>
+                {cov && (
+                  <span className="coverage-badge" aria-label={title}>
+                    <span className="coverage-check" aria-hidden="true">
+                      &#10003;
+                    </span>
+                    {evs.slice(0, 2).map((e) => (
+                      <span key={e} className="coverage-initials">
+                        {evaluatorInitials(e)}
+                      </span>
+                    ))}
+                    {evs.length > 2 && <span className="coverage-initials more">+{evs.length - 2}</span>}
+                    {cov.count > 1 && <span className="coverage-count">{cov.count}</span>}
+                  </span>
+                )}
               </button>
             )
           })}

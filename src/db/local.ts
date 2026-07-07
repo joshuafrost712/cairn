@@ -2,6 +2,7 @@ import Dexie, { type EntityTable } from 'dexie'
 import type {
   Activity,
   ActivityKsa,
+  CoverageRow,
   DiscrepancyResolution,
   EvaluationRecord,
   Ksa,
@@ -33,6 +34,7 @@ class CairnDB extends Dexie {
   verifications!: EntityTable<VerificationVerdict, 'id'>
   mentoringConversations!: EntityTable<MentoringConversation, 'id'>
   discrepancyResolutions!: EntityTable<DiscrepancyResolution, 'id'>
+  coverage!: EntityTable<CoverageRow, 'client_id'>
 
   constructor() {
     super('cairn')
@@ -62,6 +64,11 @@ class CairnDB extends Dexie {
     // v5: local-only acknowledgement that a chief evaluator has reconciled a discrepancy.
     this.version(5).stores({
       discrepancyResolutions: 'id',
+    })
+    // v6: live evaluation-coverage cache (who has been evaluated per activity),
+    // fed by this device's submissions and other devices via Supabase Realtime.
+    this.version(6).stores({
+      coverage: 'client_id, activity_id, workshop_id, evaluator_email',
     })
   }
 }

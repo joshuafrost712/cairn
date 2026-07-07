@@ -168,3 +168,34 @@ a { color: var(--accent); text-decoration: none; }
 .offline-dot { width: 8px; height: 8px; border-radius: 999px; display: inline-block; }
 .offline-dot.on { background: var(--ok); }
 .offline-dot.off { background: var(--warn); }
+
+/* Live evaluation-coverage cue on the participant selector. */
+.coverage-summary { color: var(--warn); }
+.coverage-summary.ok { color: var(--ok); }
+
+.participant-btn { display: inline-flex; align-items: center; gap: 0.4rem; }
+/* Covered = already evaluated for this activity. A distinct dimension from the
+   selected (.primary) state, so a covered button that is also selected shows both. */
+.participant-btn.covered { border-color: #bbf7d0; background: #f0fdf4; }
+.participant-btn.covered.primary { background: var(--accent); border-color: var(--accent); }
+
+.coverage-badge { display: inline-flex; align-items: center; gap: 0.25rem; }
+.coverage-check { color: var(--ok); font-weight: 700; }
+.participant-btn.primary .coverage-check { color: var(--accent-ink); }
+.coverage-initials {
+  font-size: 0.65rem;
+  font-weight: 600;
+  line-height: 1;
+  padding: 0.15rem 0.3rem;
+  border-radius: 999px;
+  background: #dcfce7;
+  color: #166534;
+}
+.coverage-initials.more { background: var(--line); color: var(--muted); }
+.participant-btn.primary .coverage-initials { background: rgba(255, 255, 255, 0.25); color: var(--accent-ink); }
+.coverage-count {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--muted);
+}
+.participant-btn.primary .coverage-count { color: var(--accent-ink); }

@@ -4,6 +4,7 @@ import { AuthProvider, useAuth } from './auth/AuthContext'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import { loadReferenceData } from './db/reference'
 import { startSyncLoop } from './db/sync'
+import { startCoverageSync } from './db/coverage'
 import { SyncStatusBar } from './components/SyncStatusBar'
 import { SignIn } from './pages/SignIn'
 import { EvaluatorHome } from './pages/EvaluatorHome'
@@ -47,9 +48,19 @@ function Shell() {
   const { identity } = useAuth()
 
   useEffect(() => {
-    void loadReferenceData()
-    const stop = startSyncLoop()
-    return stop
+    const stopSync = startSyncLoop()
+    // Start coverage sync after reference data lands so the workshop cache exists.
+    let stopCoverage: (() => void) | null = null
+    let cancelled = false
+    void loadReferenceData().then(() => {
+      if (cancelled) return
+      stopCoverage = startCoverageSync()
+    })
+    return () => {
+      cancelled = true
+      stopSync()
+      stopCoverage?.()
+    }
   }, [])
 
   if (!identity) {

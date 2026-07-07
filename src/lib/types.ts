@@ -1,6 +1,8 @@
 // Shared entity types. Mirror the Postgres schema (supabase/migrations/20260608000100_foundation_schema.sql).
 
-// The six KSA areas of the Psalms Workshop (OBT CDT Workshop 3, Bali 2026).
+// The technical KSA areas of the Psalms Workshop (OBT CDT Workshop 3, Bali 2026).
+// The interpersonal-interaction competency (INTERP, teaching sessions) is authored
+// in the seed data alongside these; this list is not currently referenced elsewhere.
 export const KSA_AREAS = [
   'The CLAT Process and Translation of Aesthetic Language',
   'Aesthetic Language, Ethnopoetics, and the Biblical Function of the Psalms',
@@ -136,6 +138,22 @@ export interface EvaluationRecord {
    * 'routed' = observations imported back from outbox/.
    */
   routing_status?: 'sent' | 'routed'
+}
+
+/**
+ * Denormalized "who has been evaluated for this activity" row. One per submitted
+ * evaluation (keyed by the same client_id), fed from the local device's own
+ * submissions and from other devices via Supabase Realtime. The participant
+ * selector live-queries an aggregate of these to show coverage. See db/coverage.ts.
+ */
+export interface CoverageRow {
+  client_id: string
+  activity_id: string | null
+  workshop_id: string | null
+  evaluator_email: string | null
+  /** union of participant_scope[].participant_id and focus_participant_id */
+  participant_ids: string[]
+  submitted_at: string
 }
 
 /** An individual-level observation imported from routing/outbox/ (Claude-produced). */
