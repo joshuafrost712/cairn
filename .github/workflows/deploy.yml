@@ -32,7 +32,7 @@ jobs:
           node-version: 20
           cache: npm
       - run: npm ci
-      - run: VITE_BASE="/${{ github.event.repository.name }}/" VITE_ROUTING_REPO="${{ vars.VITE_ROUTING_REPO }}" VITE_ROUTING_BRANCH="${{ vars.VITE_ROUTING_BRANCH }}" npm run build
+      - run: VITE_BASE="/${{ github.event.repository.name }}/" VITE_ROUTING_REPO="${{ vars.VITE_ROUTING_REPO }}" VITE_ROUTING_BRANCH="${{ vars.VITE_ROUTING_BRANCH }}" VITE_SUPABASE_URL="${{ secrets.VITE_SUPABASE_URL }}" VITE_SUPABASE_ANON_KEY="${{ secrets.VITE_SUPABASE_ANON_KEY }}" npm run build
       - run: cp dist/index.html dist/404.html
       - uses: actions/upload-pages-artifact@v3
         with:
