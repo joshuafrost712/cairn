@@ -4,7 +4,7 @@
 -- prompts are neutral observation cues, evidence_levels are a single developmental
 -- 0–3 progression, and guiding_questions enumerate the sub-dimensions to watch.
 -- These are authored drafts for facilitator review. Keep in sync with src/data/seed.ts.
--- Participants/teams are placeholders (real CIT roster TBD).
+-- Participants are the real Psalms-workshop roster (see src/data/seed.ts).
 
 -- Workshop
 insert into workshop (id, name, start_date, end_date, location, languages) values
@@ -19,25 +19,58 @@ insert into team (id, workshop_id, name) values
   ('22222222-0000-0000-0000-000000000002', '11111111-1111-1111-1111-111111111111', 'Music Team B')
 on conflict (id) do nothing;
 
--- Participants (placeholder CITs)
+-- Participants (real Psalms-workshop roster; kept in sync with src/data/seed.ts).
 insert into participant (id, workshop_id, name, registered_email, team_id, preferred_language) values
-  ('33333333-0000-0000-0000-000000000001', '11111111-1111-1111-1111-111111111111', 'CIT One',   'cit1@example.org', '22222222-0000-0000-0000-000000000001', 'English'),
-  ('33333333-0000-0000-0000-000000000002', '11111111-1111-1111-1111-111111111111', 'CIT Two',   'cit2@example.org', '22222222-0000-0000-0000-000000000001', 'English'),
-  ('33333333-0000-0000-0000-000000000003', '11111111-1111-1111-1111-111111111111', 'CIT Three', 'cit3@example.org', '22222222-0000-0000-0000-000000000002', 'English'),
-  ('33333333-0000-0000-0000-000000000004', '11111111-1111-1111-1111-111111111111', 'CIT Four',  'cit4@example.org', '22222222-0000-0000-0000-000000000002', 'English')
+  ('33333333-0000-0000-0000-000000000001', '11111111-1111-1111-1111-111111111111', 'Keem Leong', null, '22222222-0000-0000-0000-000000000001', null),
+  ('33333333-0000-0000-0000-000000000002', '11111111-1111-1111-1111-111111111111', 'Sajesh Pradhan', null, '22222222-0000-0000-0000-000000000001', null),
+  ('33333333-0000-0000-0000-000000000003', '11111111-1111-1111-1111-111111111111', 'Amos Khokhar', null, '22222222-0000-0000-0000-000000000001', null),
+  ('33333333-0000-0000-0000-000000000004', '11111111-1111-1111-1111-111111111111', 'Mathew Thomas', null, '22222222-0000-0000-0000-000000000001', null),
+  ('33333333-0000-0000-0000-000000000005', '11111111-1111-1111-1111-111111111111', 'Eliphas Mukhim', null, '22222222-0000-0000-0000-000000000001', null),
+  ('33333333-0000-0000-0000-000000000006', '11111111-1111-1111-1111-111111111111', 'Mukesh Kumar Nayak', null, '22222222-0000-0000-0000-000000000001', null),
+  ('33333333-0000-0000-0000-000000000007', '11111111-1111-1111-1111-111111111111', 'Sunita Kumari', null, '22222222-0000-0000-0000-000000000001', null),
+  ('33333333-0000-0000-0000-000000000008', '11111111-1111-1111-1111-111111111111', 'Young Whan Song', null, '22222222-0000-0000-0000-000000000001', null),
+  ('33333333-0000-0000-0000-000000000009', '11111111-1111-1111-1111-111111111111', 'Suelen Campelo', null, '22222222-0000-0000-0000-000000000001', null),
+  ('33333333-0000-0000-0000-000000000010', '11111111-1111-1111-1111-111111111111', 'Santpaul Singh', null, '22222222-0000-0000-0000-000000000001', null),
+  ('33333333-0000-0000-0000-000000000011', '11111111-1111-1111-1111-111111111111', 'Anjali Lama', null, '22222222-0000-0000-0000-000000000001', null),
+  ('33333333-0000-0000-0000-000000000012', '11111111-1111-1111-1111-111111111111', 'Jaime Jill Fianza', null, '22222222-0000-0000-0000-000000000001', null),
+  ('33333333-0000-0000-0000-000000000013', '11111111-1111-1111-1111-111111111111', 'Chula Danuwar', null, '22222222-0000-0000-0000-000000000001', null),
+  ('33333333-0000-0000-0000-000000000014', '11111111-1111-1111-1111-111111111111', 'Robert Tilton', null, '22222222-0000-0000-0000-000000000002', null),
+  ('33333333-0000-0000-0000-000000000015', '11111111-1111-1111-1111-111111111111', 'Kristina Tarp', null, '22222222-0000-0000-0000-000000000002', null),
+  ('33333333-0000-0000-0000-000000000016', '11111111-1111-1111-1111-111111111111', 'Hiramba Deb Adhikary', null, '22222222-0000-0000-0000-000000000002', null),
+  ('33333333-0000-0000-0000-000000000017', '11111111-1111-1111-1111-111111111111', 'Martin Landert', null, '22222222-0000-0000-0000-000000000002', null),
+  ('33333333-0000-0000-0000-000000000018', '11111111-1111-1111-1111-111111111111', 'Rea Joy Lumawan', null, '22222222-0000-0000-0000-000000000002', null),
+  ('33333333-0000-0000-0000-000000000019', '11111111-1111-1111-1111-111111111111', 'Anna Seidel', null, '22222222-0000-0000-0000-000000000002', null),
+  ('33333333-0000-0000-0000-000000000020', '11111111-1111-1111-1111-111111111111', 'Joemar Cabading', null, '22222222-0000-0000-0000-000000000002', null),
+  ('33333333-0000-0000-0000-000000000021', '11111111-1111-1111-1111-111111111111', 'Rosemary Bolton', null, '22222222-0000-0000-0000-000000000002', null),
+  ('33333333-0000-0000-0000-000000000022', '11111111-1111-1111-1111-111111111111', 'Sibaji Digal', null, '22222222-0000-0000-0000-000000000002', null),
+  ('33333333-0000-0000-0000-000000000023', '11111111-1111-1111-1111-111111111111', 'Tammy Cortimilia', null, '22222222-0000-0000-0000-000000000002', null),
+  ('33333333-0000-0000-0000-000000000024', '11111111-1111-1111-1111-111111111111', 'Raissa Santos', null, '22222222-0000-0000-0000-000000000002', null),
+  ('33333333-0000-0000-0000-000000000025', '11111111-1111-1111-1111-111111111111', 'Chhotray Aind', null, '22222222-0000-0000-0000-000000000002', null),
+  ('33333333-0000-0000-0000-000000000026', '11111111-1111-1111-1111-111111111111', 'Bijili K Abraham Kuppackal', null, '22222222-0000-0000-0000-000000000002', null)
 on conflict (id) do nothing;
 
--- Activities (afternoon practicums + Week 2 checking = the primary evaluation windows)
+-- Activities. Two evaluation windows per day: morning teaching sessions (interpersonal
+-- interaction) and afternoon practicums / Week 2 checking (the KSA competencies).
+-- sort_order interleaves so each morning precedes its afternoon; Sep 2 (full-day
+-- checking) and Sep 4 (integration) get no separate teaching row.
 insert into activity (id, workshop_id, title, day, start_time, end_time, sort_order, genre_group) values
-  ('44444444-0000-0000-0000-000000000001', '11111111-1111-1111-1111-111111111111', 'Genre Repertoire Mapping with MTTs', '2026-08-24', '2026-08-24T14:00:00+08', '2026-08-24T17:00:00+08', 1, 'Week 1 · Practicum'),
-  ('44444444-0000-0000-0000-000000000002', '11111111-1111-1111-1111-111111111111', 'Scripture Goals, Genre Matching & Feature Analysis (Psalm 1)', '2026-08-25', '2026-08-25T14:00:00+08', '2026-08-25T17:00:00+08', 2, 'Week 1 · Practicum'),
-  ('44444444-0000-0000-0000-000000000003', '11111111-1111-1111-1111-111111111111', 'Facilitating MTT Internalization & Crafting (Psalm 1)', '2026-08-26', '2026-08-26T14:00:00+08', '2026-08-26T17:00:00+08', 3, 'Week 1 · Practicum'),
-  ('44444444-0000-0000-0000-000000000004', '11111111-1111-1111-1111-111111111111', 'Psalm 1 Refinement & Psalm 13 Initiation', '2026-08-27', '2026-08-27T14:00:00+08', '2026-08-27T17:00:00+08', 4, 'Week 1 · Practicum'),
-  ('44444444-0000-0000-0000-000000000005', '11111111-1111-1111-1111-111111111111', 'Psalm 1 Refinement & Psalm 13 Group Exegesis/Internalization', '2026-08-28', '2026-08-28T14:00:00+08', '2026-08-28T17:00:00+08', 5, 'Week 1 · Practicum'),
-  ('44444444-0000-0000-0000-000000000006', '11111111-1111-1111-1111-111111111111', 'Community Check of Psalm 1', '2026-08-31', '2026-08-31T14:00:00+08', '2026-08-31T17:00:00+08', 6, 'Week 2 · Checking'),
-  ('44444444-0000-0000-0000-000000000007', '11111111-1111-1111-1111-111111111111', 'Consultant Check of Psalm 1', '2026-09-01', '2026-09-01T14:00:00+08', '2026-09-01T17:00:00+08', 7, 'Week 2 · Checking'),
-  ('44444444-0000-0000-0000-000000000008', '11111111-1111-1111-1111-111111111111', 'Checking & Revising Psalm 13 (full day)', '2026-09-02', '2026-09-02T09:00:00+08', '2026-09-02T16:00:00+08', 8, 'Week 2 · Checking'),
-  ('44444444-0000-0000-0000-000000000009', '11111111-1111-1111-1111-111111111111', 'Integration Conversations (CLAT Step 7) & APPLY with Artists', '2026-09-04', '2026-09-04T09:00:00+08', '2026-09-04T12:00:00+08', 9, 'Week 2 · Integration')
+  ('44444444-0000-0000-0000-000000000001', '11111111-1111-1111-1111-111111111111', 'Genre Repertoire Mapping with MTTs', '2026-08-24', '2026-08-24T14:00:00+08', '2026-08-24T17:00:00+08', 2, 'Week 1 · Practicum'),
+  ('44444444-0000-0000-0000-000000000002', '11111111-1111-1111-1111-111111111111', 'Scripture Goals, Genre Matching & Feature Analysis (Psalm 1)', '2026-08-25', '2026-08-25T14:00:00+08', '2026-08-25T17:00:00+08', 4, 'Week 1 · Practicum'),
+  ('44444444-0000-0000-0000-000000000003', '11111111-1111-1111-1111-111111111111', 'Facilitating MTT Internalization & Crafting (Psalm 1)', '2026-08-26', '2026-08-26T14:00:00+08', '2026-08-26T17:00:00+08', 6, 'Week 1 · Practicum'),
+  ('44444444-0000-0000-0000-000000000004', '11111111-1111-1111-1111-111111111111', 'Psalm 1 Refinement & Psalm 13 Initiation', '2026-08-27', '2026-08-27T14:00:00+08', '2026-08-27T17:00:00+08', 8, 'Week 1 · Practicum'),
+  ('44444444-0000-0000-0000-000000000005', '11111111-1111-1111-1111-111111111111', 'Psalm 1 Refinement & Psalm 13 Group Exegesis/Internalization', '2026-08-28', '2026-08-28T14:00:00+08', '2026-08-28T17:00:00+08', 10, 'Week 1 · Practicum'),
+  ('44444444-0000-0000-0000-000000000006', '11111111-1111-1111-1111-111111111111', 'Community Check of Psalm 1', '2026-08-31', '2026-08-31T14:00:00+08', '2026-08-31T17:00:00+08', 12, 'Week 2 · Checking'),
+  ('44444444-0000-0000-0000-000000000007', '11111111-1111-1111-1111-111111111111', 'Consultant Check of Psalm 1', '2026-09-01', '2026-09-01T14:00:00+08', '2026-09-01T17:00:00+08', 14, 'Week 2 · Checking'),
+  ('44444444-0000-0000-0000-000000000008', '11111111-1111-1111-1111-111111111111', 'Checking & Revising Psalm 13 (full day)', '2026-09-02', '2026-09-02T09:00:00+08', '2026-09-02T16:00:00+08', 15, 'Week 2 · Checking'),
+  ('44444444-0000-0000-0000-000000000009', '11111111-1111-1111-1111-111111111111', 'Integration Conversations (CLAT Step 7) & APPLY with Artists', '2026-09-04', '2026-09-04T09:00:00+08', '2026-09-04T12:00:00+08', 17, 'Week 2 · Integration'),
+  ('44444444-0000-0000-0000-0000000000a1', '11111111-1111-1111-1111-111111111111', 'Morning Teaching — Opening; Aesthetic Language & Ethnopoetics; Genres in the Psalms', '2026-08-24', '2026-08-24T09:00:00+08', '2026-08-24T12:00:00+08', 1, 'Week 1 · Teaching'),
+  ('44444444-0000-0000-0000-0000000000a2', '11111111-1111-1111-1111-111111111111', 'Morning Teaching — CLAT Overview', '2026-08-25', '2026-08-25T09:00:00+08', '2026-08-25T12:00:00+08', 3, 'Week 1 · Teaching'),
+  ('44444444-0000-0000-0000-0000000000a3', '11111111-1111-1111-1111-111111111111', 'Morning Teaching — Translating Aesthetic Language; Psalm 1 Exegesis & Internalization', '2026-08-26', '2026-08-26T09:00:00+08', '2026-08-26T12:00:00+08', 5, 'Week 1 · Teaching'),
+  ('44444444-0000-0000-0000-0000000000a4', '11111111-1111-1111-1111-111111111111', 'Morning Teaching — Psalm 1 Debrief; Psalm 13 Exegesis & Internalization', '2026-08-27', '2026-08-27T09:00:00+08', '2026-08-27T12:00:00+08', 7, 'Week 1 · Teaching'),
+  ('44444444-0000-0000-0000-0000000000a5', '11111111-1111-1111-1111-111111111111', 'Morning Teaching — Debrief & Q&A; Hebrew Poetry Conventions', '2026-08-28', '2026-08-28T09:00:00+08', '2026-08-28T12:00:00+08', 9, 'Week 1 · Teaching'),
+  ('44444444-0000-0000-0000-0000000000a6', '11111111-1111-1111-1111-111111111111', 'Morning Teaching — Community & Consultant Checking of Artistic Translations', '2026-08-31', '2026-08-31T09:00:00+08', '2026-08-31T12:00:00+08', 11, 'Week 2 · Teaching'),
+  ('44444444-0000-0000-0000-0000000000a7', '11111111-1111-1111-1111-111111111111', 'Morning — Consulting-Question Preparation Block', '2026-09-01', '2026-09-01T09:00:00+08', '2026-09-01T12:00:00+08', 13, 'Week 2 · Teaching'),
+  ('44444444-0000-0000-0000-0000000000a8', '11111111-1111-1111-1111-111111111111', 'Morning Teaching — Week 2 Day 4 Session (content TBD)', '2026-09-03', '2026-09-03T09:00:00+08', '2026-09-03T12:00:00+08', 16, 'Week 2 · Teaching')
 on conflict (id) do nothing;
 
 -- KSAs (the 6 Psalms Workshop areas). short_label heads the capture card;
@@ -91,7 +124,15 @@ insert into ksa (id, code, area, short_label, description, evaluator_facing_prom
    'Knowledge: how to build a case for local-genre Scripture translation using genre theory, ethnopoetics, the social function of aesthetic language, and scriptural/cultural examples; the rationale and plan for community integration. Attitude: embraces the ambassador role for faithful local-genre translation (which makes meaning clearer, not obscured); values community integration and Scripture impact as the goal. Skill: can make a compelling, inductively framed case to community leaders that a psalm in a local art form is still a faithful translation, and can work with artists/MTTs on a realistic integration plan with follow-up. Evaluation: clarity of the case and the realism, cultural sensitivity, and scope of the integration plans produced.',
    '{"0":"Cannot yet make the case; no integration plan.","1":"The case is weak; the plan is unrealistic.","2":"Makes a clear case and a realistic integration plan.","3":"Compelling inductive case; a culturally sensitive, well-scoped plan with follow-up."}',
    array['Interpersonal Skills','Multicultural Environment','Adult Education'],
-   array['Can they make a compelling, inductive case that a local-art-form psalm is still faithful?','Is their community-integration plan realistic and culturally sensitive?','Do they plan for follow-up, not just a one-time presentation?'])
+   array['Can they make a compelling, inductive case that a local-art-form psalm is still faithful?','Is their community-integration plan realistic and culturally sensitive?','Do they plan for follow-up, not just a one-time presentation?']),
+  ('55555555-0000-0000-0000-000000000007', 'INTERP', 'Interpersonal Interaction and Collaborative Posture',
+   'Interpersonal posture & collaboration',
+   'Knows that consultant work is fundamentally relational and cross-cultural, and that how one engages fellow CITs, consultants, and instructors — collaboration, humility, and openness to feedback — shapes the work as much as technical skill. Observed in the teaching sessions rather than the practicum.',
+   'How did they engage with fellow CITs, consultants, and instructors in this session — their collaboration, humility, openness to feedback, and sensitivity to cross-cultural difference?',
+   'Knowledge: understands that consultant and translation work is relational and cross-cultural, and that how one engages colleagues, mentors, and teams shapes outcomes. Attitude: approaches others with openness, collegiality, and a posture of service; treats feedback and correction as collaborative rather than adversarial; genuinely values cultural difference. Skill: collaborates constructively in group learning, gives and receives peer and mentor feedback well, and navigates cross-cultural interaction with sensitivity. Evaluation: observed interpersonal conduct during the teaching sessions — collaboration with peers, interaction with consultants and instructors, humility under correction, and cross-cultural sensitivity. Grounded in the CBC General Core competencies Interpersonal Skills and Multicultural Environment.',
+   '{"0":"Disengaged, dismissive, or defensive; talks over others, resists correction, or shows little regard for cross-cultural difference.","1":"Participates unevenly; collaborates when prompted but is guarded about feedback or occasionally inattentive to others'' perspectives or cultural difference.","2":"Engages collegially and with humility; contributes to the group, receives feedback openly, and is attentive to cross-cultural dynamics.","3":"Actively builds the group up; draws others in, gives and receives feedback graciously, and navigates cross-cultural difference with evident sensitivity and service."}',
+   array['Interpersonal Skills','Multicultural Environment'],
+   array['Do they engage collegially with fellow CITs and consultants, or stay disengaged / dominate the room?','How do they receive feedback and correction from instructors and peers?','Are they attentive and respectful across cultural difference?','Do they contribute to a constructive, servant-hearted group dynamic?'])
 on conflict (id) do nothing;
 
 -- Link KSAs to activities (from the document's "KSAs addressed" notes)
@@ -113,5 +154,13 @@ insert into activity_ksa (activity_id, ksa_id, sort_order) values
   ('44444444-0000-0000-0000-000000000008', '55555555-0000-0000-0000-000000000005', 1),
   ('44444444-0000-0000-0000-000000000008', '55555555-0000-0000-0000-000000000004', 2),
   ('44444444-0000-0000-0000-000000000009', '55555555-0000-0000-0000-000000000006', 1),
-  ('44444444-0000-0000-0000-000000000009', '55555555-0000-0000-0000-000000000001', 2)
+  ('44444444-0000-0000-0000-000000000009', '55555555-0000-0000-0000-000000000001', 2),
+  ('44444444-0000-0000-0000-0000000000a1', '55555555-0000-0000-0000-000000000007', 1),
+  ('44444444-0000-0000-0000-0000000000a2', '55555555-0000-0000-0000-000000000007', 1),
+  ('44444444-0000-0000-0000-0000000000a3', '55555555-0000-0000-0000-000000000007', 1),
+  ('44444444-0000-0000-0000-0000000000a4', '55555555-0000-0000-0000-000000000007', 1),
+  ('44444444-0000-0000-0000-0000000000a5', '55555555-0000-0000-0000-000000000007', 1),
+  ('44444444-0000-0000-0000-0000000000a6', '55555555-0000-0000-0000-000000000007', 1),
+  ('44444444-0000-0000-0000-0000000000a7', '55555555-0000-0000-0000-000000000007', 1),
+  ('44444444-0000-0000-0000-0000000000a8', '55555555-0000-0000-0000-000000000007', 1)
 on conflict (activity_id, ksa_id) do nothing;

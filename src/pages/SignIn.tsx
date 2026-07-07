@@ -4,12 +4,13 @@ import { useAuth } from '../auth/AuthContext'
 import { isSupabaseConfigured } from '../lib/supabase'
 import type { AppUser } from '../lib/types'
 
-// Roles available for self-signup (participant is omitted from self-serve).
+// Roles offered at self-signup. Elevated roles (chief_evaluator, admin) are never
+// self-serve — they are assigned from the server-side allowlist, so they are not
+// listed here. The requested role is honored only if the account's allowlist entry
+// permits it; otherwise the server assigns the account's default role.
 const SIGNUP_ROLES: { value: AppUser['role']; label: string }[] = [
   { value: 'evaluator', label: 'Evaluator' },
   { value: 'consultant', label: 'Consultant' },
-  { value: 'chief_evaluator', label: 'Chief Evaluator' },
-  { value: 'admin', label: 'Admin' },
 ]
 
 // ---------------------------------------------------------------------------
@@ -148,7 +149,8 @@ function SupabaseSignIn() {
               ))}
             </select>
             <p className="muted small" style={{ marginTop: 4 }}>
-              Role selection is a demo convenience; production self-signup will default to evaluator.
+              Accounts are by invitation: your email must be pre-authorized. Chief-evaluator and
+              admin roles are assigned by an administrator, not chosen here.
             </p>
             {error && <p className="banner warn" style={{ marginTop: 12 }}>{error}</p>}
             <div style={{ height: 16 }} />
