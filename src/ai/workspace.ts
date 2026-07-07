@@ -164,7 +164,8 @@ ${levelText}
     .join('\n\n')
   return `# KSA rubric (reference)
 
-The six KSA areas for the Psalms Workshop (OBT CDT Workshop 3, Bali 2026). Evidence
+The KSA areas for the Psalms Workshop (OBT CDT Workshop 3, Bali 2026), including the
+interpersonal-interaction competency observed in the teaching sessions. Evidence
 levels are draft placeholders pending facilitator authoring.
 
 ${body}

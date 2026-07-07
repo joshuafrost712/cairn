@@ -59,17 +59,31 @@ export const seedParticipants: Participant[] = [
   { id: '33333333-0000-0000-0000-000000000026', workshop_id: seedWorkshops[0].id, name: 'Bijili K Abraham Kuppackal', registered_email: null, team_id: seedTeams[1].id, preferred_language: null },
 ]
 
-// Afternoon practicums + Week 2 checking are the primary evaluation windows.
+// Two evaluation windows per day: the morning teaching sessions (interpersonal
+// interaction among CITs, consultants, and instructors) and the afternoon
+// practicums / Week 2 checking (the KSA competencies). sort_order interleaves so
+// each morning precedes its afternoon; the two days whose mornings are already
+// evaluation activities (Sep 2 full-day checking, Sep 4 integration) get no
+// separate teaching row.
 export const seedActivities: Activity[] = [
-  { id: '44444444-0000-0000-0000-000000000001', workshop_id: seedWorkshops[0].id, title: 'Genre Repertoire Mapping with MTTs', day: '2026-08-24', start_time: '2026-08-24T14:00:00+08:00', end_time: '2026-08-24T17:00:00+08:00', sort_order: 1, genre_group: 'Week 1 · Practicum' },
-  { id: '44444444-0000-0000-0000-000000000002', workshop_id: seedWorkshops[0].id, title: 'Scripture Goals, Genre Matching & Feature Analysis (Psalm 1)', day: '2026-08-25', start_time: '2026-08-25T14:00:00+08:00', end_time: '2026-08-25T17:00:00+08:00', sort_order: 2, genre_group: 'Week 1 · Practicum' },
-  { id: '44444444-0000-0000-0000-000000000003', workshop_id: seedWorkshops[0].id, title: 'Facilitating MTT Internalization & Crafting (Psalm 1)', day: '2026-08-26', start_time: '2026-08-26T14:00:00+08:00', end_time: '2026-08-26T17:00:00+08:00', sort_order: 3, genre_group: 'Week 1 · Practicum' },
-  { id: '44444444-0000-0000-0000-000000000004', workshop_id: seedWorkshops[0].id, title: 'Psalm 1 Refinement & Psalm 13 Initiation', day: '2026-08-27', start_time: '2026-08-27T14:00:00+08:00', end_time: '2026-08-27T17:00:00+08:00', sort_order: 4, genre_group: 'Week 1 · Practicum' },
-  { id: '44444444-0000-0000-0000-000000000005', workshop_id: seedWorkshops[0].id, title: 'Psalm 1 Refinement & Psalm 13 Group Exegesis/Internalization', day: '2026-08-28', start_time: '2026-08-28T14:00:00+08:00', end_time: '2026-08-28T17:00:00+08:00', sort_order: 5, genre_group: 'Week 1 · Practicum' },
-  { id: '44444444-0000-0000-0000-000000000006', workshop_id: seedWorkshops[0].id, title: 'Community Check of Psalm 1', day: '2026-08-31', start_time: '2026-08-31T14:00:00+08:00', end_time: '2026-08-31T17:00:00+08:00', sort_order: 6, genre_group: 'Week 2 · Checking' },
-  { id: '44444444-0000-0000-0000-000000000007', workshop_id: seedWorkshops[0].id, title: 'Consultant Check of Psalm 1', day: '2026-09-01', start_time: '2026-09-01T14:00:00+08:00', end_time: '2026-09-01T17:00:00+08:00', sort_order: 7, genre_group: 'Week 2 · Checking' },
-  { id: '44444444-0000-0000-0000-000000000008', workshop_id: seedWorkshops[0].id, title: 'Checking & Revising Psalm 13 (full day)', day: '2026-09-02', start_time: '2026-09-02T09:00:00+08:00', end_time: '2026-09-02T16:00:00+08:00', sort_order: 8, genre_group: 'Week 2 · Checking' },
-  { id: '44444444-0000-0000-0000-000000000009', workshop_id: seedWorkshops[0].id, title: 'Integration Conversations (CLAT Step 7) & APPLY with Artists', day: '2026-09-04', start_time: '2026-09-04T09:00:00+08:00', end_time: '2026-09-04T12:00:00+08:00', sort_order: 9, genre_group: 'Week 2 · Integration' },
+  { id: '44444444-0000-0000-0000-000000000001', workshop_id: seedWorkshops[0].id, title: 'Genre Repertoire Mapping with MTTs', day: '2026-08-24', start_time: '2026-08-24T14:00:00+08:00', end_time: '2026-08-24T17:00:00+08:00', sort_order: 2, genre_group: 'Week 1 · Practicum' },
+  { id: '44444444-0000-0000-0000-000000000002', workshop_id: seedWorkshops[0].id, title: 'Scripture Goals, Genre Matching & Feature Analysis (Psalm 1)', day: '2026-08-25', start_time: '2026-08-25T14:00:00+08:00', end_time: '2026-08-25T17:00:00+08:00', sort_order: 4, genre_group: 'Week 1 · Practicum' },
+  { id: '44444444-0000-0000-0000-000000000003', workshop_id: seedWorkshops[0].id, title: 'Facilitating MTT Internalization & Crafting (Psalm 1)', day: '2026-08-26', start_time: '2026-08-26T14:00:00+08:00', end_time: '2026-08-26T17:00:00+08:00', sort_order: 6, genre_group: 'Week 1 · Practicum' },
+  { id: '44444444-0000-0000-0000-000000000004', workshop_id: seedWorkshops[0].id, title: 'Psalm 1 Refinement & Psalm 13 Initiation', day: '2026-08-27', start_time: '2026-08-27T14:00:00+08:00', end_time: '2026-08-27T17:00:00+08:00', sort_order: 8, genre_group: 'Week 1 · Practicum' },
+  { id: '44444444-0000-0000-0000-000000000005', workshop_id: seedWorkshops[0].id, title: 'Psalm 1 Refinement & Psalm 13 Group Exegesis/Internalization', day: '2026-08-28', start_time: '2026-08-28T14:00:00+08:00', end_time: '2026-08-28T17:00:00+08:00', sort_order: 10, genre_group: 'Week 1 · Practicum' },
+  { id: '44444444-0000-0000-0000-000000000006', workshop_id: seedWorkshops[0].id, title: 'Community Check of Psalm 1', day: '2026-08-31', start_time: '2026-08-31T14:00:00+08:00', end_time: '2026-08-31T17:00:00+08:00', sort_order: 12, genre_group: 'Week 2 · Checking' },
+  { id: '44444444-0000-0000-0000-000000000007', workshop_id: seedWorkshops[0].id, title: 'Consultant Check of Psalm 1', day: '2026-09-01', start_time: '2026-09-01T14:00:00+08:00', end_time: '2026-09-01T17:00:00+08:00', sort_order: 14, genre_group: 'Week 2 · Checking' },
+  { id: '44444444-0000-0000-0000-000000000008', workshop_id: seedWorkshops[0].id, title: 'Checking & Revising Psalm 13 (full day)', day: '2026-09-02', start_time: '2026-09-02T09:00:00+08:00', end_time: '2026-09-02T16:00:00+08:00', sort_order: 15, genre_group: 'Week 2 · Checking' },
+  { id: '44444444-0000-0000-0000-000000000009', workshop_id: seedWorkshops[0].id, title: 'Integration Conversations (CLAT Step 7) & APPLY with Artists', day: '2026-09-04', start_time: '2026-09-04T09:00:00+08:00', end_time: '2026-09-04T12:00:00+08:00', sort_order: 17, genre_group: 'Week 2 · Integration' },
+  // Morning teaching sessions — evaluated on interpersonal interaction (INTERP) only.
+  { id: '44444444-0000-0000-0000-0000000000a1', workshop_id: seedWorkshops[0].id, title: 'Morning Teaching — Opening; Aesthetic Language & Ethnopoetics; Genres in the Psalms', day: '2026-08-24', start_time: '2026-08-24T09:00:00+08:00', end_time: '2026-08-24T12:00:00+08:00', sort_order: 1, genre_group: 'Week 1 · Teaching' },
+  { id: '44444444-0000-0000-0000-0000000000a2', workshop_id: seedWorkshops[0].id, title: 'Morning Teaching — CLAT Overview', day: '2026-08-25', start_time: '2026-08-25T09:00:00+08:00', end_time: '2026-08-25T12:00:00+08:00', sort_order: 3, genre_group: 'Week 1 · Teaching' },
+  { id: '44444444-0000-0000-0000-0000000000a3', workshop_id: seedWorkshops[0].id, title: 'Morning Teaching — Translating Aesthetic Language; Psalm 1 Exegesis & Internalization', day: '2026-08-26', start_time: '2026-08-26T09:00:00+08:00', end_time: '2026-08-26T12:00:00+08:00', sort_order: 5, genre_group: 'Week 1 · Teaching' },
+  { id: '44444444-0000-0000-0000-0000000000a4', workshop_id: seedWorkshops[0].id, title: 'Morning Teaching — Psalm 1 Debrief; Psalm 13 Exegesis & Internalization', day: '2026-08-27', start_time: '2026-08-27T09:00:00+08:00', end_time: '2026-08-27T12:00:00+08:00', sort_order: 7, genre_group: 'Week 1 · Teaching' },
+  { id: '44444444-0000-0000-0000-0000000000a5', workshop_id: seedWorkshops[0].id, title: 'Morning Teaching — Debrief & Q&A; Hebrew Poetry Conventions', day: '2026-08-28', start_time: '2026-08-28T09:00:00+08:00', end_time: '2026-08-28T12:00:00+08:00', sort_order: 9, genre_group: 'Week 1 · Teaching' },
+  { id: '44444444-0000-0000-0000-0000000000a6', workshop_id: seedWorkshops[0].id, title: 'Morning Teaching — Community & Consultant Checking of Artistic Translations', day: '2026-08-31', start_time: '2026-08-31T09:00:00+08:00', end_time: '2026-08-31T12:00:00+08:00', sort_order: 11, genre_group: 'Week 2 · Teaching' },
+  { id: '44444444-0000-0000-0000-0000000000a7', workshop_id: seedWorkshops[0].id, title: 'Morning — Consulting-Question Preparation Block', day: '2026-09-01', start_time: '2026-09-01T09:00:00+08:00', end_time: '2026-09-01T12:00:00+08:00', sort_order: 13, genre_group: 'Week 2 · Teaching' },
+  { id: '44444444-0000-0000-0000-0000000000a8', workshop_id: seedWorkshops[0].id, title: 'Morning Teaching — Week 2 Day 4 Session (content TBD)', day: '2026-09-03', start_time: '2026-09-03T09:00:00+08:00', end_time: '2026-09-03T12:00:00+08:00', sort_order: 16, genre_group: 'Week 2 · Teaching' },
 ]
 
 export const seedKsas: Ksa[] = [
@@ -221,6 +235,31 @@ export const seedKsas: Ksa[] = [
       'Do they plan for follow-up, not just a one-time presentation?',
     ],
   },
+  {
+    id: '55555555-0000-0000-0000-000000000007',
+    code: 'INTERP',
+    area: 'Interpersonal Interaction and Collaborative Posture',
+    short_label: 'Interpersonal posture & collaboration',
+    description:
+      'Knows that consultant work is fundamentally relational and cross-cultural, and that how one engages fellow CITs, consultants, and instructors — collaboration, humility, and openness to feedback — shapes the work as much as technical skill. Observed in the teaching sessions rather than the practicum.',
+    evaluator_facing_prompt:
+      'How did they engage with fellow CITs, consultants, and instructors in this session — their collaboration, humility, openness to feedback, and sensitivity to cross-cultural difference?',
+    ai_facing_rubric:
+      'Knowledge: understands that consultant and translation work is relational and cross-cultural, and that how one engages colleagues, mentors, and teams shapes outcomes. Attitude: approaches others with openness, collegiality, and a posture of service; treats feedback and correction as collaborative rather than adversarial; genuinely values cultural difference. Skill: collaborates constructively in group learning, gives and receives peer and mentor feedback well, and navigates cross-cultural interaction with sensitivity. Evaluation: observed interpersonal conduct during the teaching sessions — collaboration with peers, interaction with consultants and instructors, humility under correction, and cross-cultural sensitivity. Grounded in the CBC General Core competencies Interpersonal Skills and Multicultural Environment.',
+    evidence_levels: {
+      '0': 'Disengaged, dismissive, or defensive; talks over others, resists correction, or shows little regard for cross-cultural difference.',
+      '1': 'Participates unevenly; collaborates when prompted but is guarded about feedback or occasionally inattentive to others’ perspectives or cultural difference.',
+      '2': 'Engages collegially and with humility; contributes to the group, receives feedback openly, and is attentive to cross-cultural dynamics.',
+      '3': 'Actively builds the group up; draws others in, gives and receives feedback graciously, and navigates cross-cultural difference with evident sensitivity and service.',
+    },
+    cbc_subpoint_refs: ['Interpersonal Skills', 'Multicultural Environment'],
+    guiding_questions: [
+      'Do they engage collegially with fellow CITs and consultants, or stay disengaged / dominate the room?',
+      'How do they receive feedback and correction from instructors and peers?',
+      'Are they attentive and respectful across cultural difference?',
+      'Do they contribute to a constructive, servant-hearted group dynamic?',
+    ],
+  },
 ]
 
 // Links from the document's "KSAs addressed" notes for each afternoon/activity.
@@ -252,4 +291,13 @@ export const seedActivityKsas: ActivityKsa[] = [
   // Integration & APPLY -> Advocacy, CLAT
   { activity_id: seedActivities[8].id, ksa_id: seedKsas[5].id, sort_order: 1 },
   { activity_id: seedActivities[8].id, ksa_id: seedKsas[0].id, sort_order: 2 },
+  // Morning teaching sessions -> Interpersonal interaction only
+  { activity_id: seedActivities[9].id, ksa_id: seedKsas[6].id, sort_order: 1 },
+  { activity_id: seedActivities[10].id, ksa_id: seedKsas[6].id, sort_order: 1 },
+  { activity_id: seedActivities[11].id, ksa_id: seedKsas[6].id, sort_order: 1 },
+  { activity_id: seedActivities[12].id, ksa_id: seedKsas[6].id, sort_order: 1 },
+  { activity_id: seedActivities[13].id, ksa_id: seedKsas[6].id, sort_order: 1 },
+  { activity_id: seedActivities[14].id, ksa_id: seedKsas[6].id, sort_order: 1 },
+  { activity_id: seedActivities[15].id, ksa_id: seedKsas[6].id, sort_order: 1 },
+  { activity_id: seedActivities[16].id, ksa_id: seedKsas[6].id, sort_order: 1 },
 ]
