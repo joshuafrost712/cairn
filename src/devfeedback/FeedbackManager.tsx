@@ -34,16 +34,36 @@ export function FeedbackManager() {
 
   const send = async () => {
     if (!comments || comments.length === 0 || sending) return
+    // Snapshot the batch: `comments` is a live query and must not shift under us
+    // between the send and the mark-sent flip.
+    const batch = comments
     setSending(true)
     setStatus('Sending…')
-    const md = renderBatchMarkdown(comments, new Date().toISOString())
+    const md = renderBatchMarkdown(batch, new Date().toISOString())
     const result = await sendBatch(md)
-    await markSent(comments.map((c) => c.id))
+    if (!result.ok) {
+      setSending(false)
+      setStatus("Couldn't send the batch — nothing was marked done, so nothing is lost. Please try again.")
+      return
+    }
+    // Only flip status→sent after the batch is delivered/exported, and only
+    // report success once that flip has actually persisted. If markSent fails
+    // silently the comments stay `open` and get re-exported in the next batch —
+    // that is the duplication bug this guard exists to prevent.
+    try {
+      await markSent(batch.map((c) => c.id))
+    } catch {
+      setSending(false)
+      setStatus(
+        'The batch was sent, but marking it done failed. Do NOT resend — reload and check the batch first, or these comments will be sent again.',
+      )
+      return
+    }
     setSending(false)
     setStatus(
       result.fallback === 'download'
         ? `Dev server not reached — downloaded the batch instead. Move it into feedback/incoming/.`
-        : `Sent ${comments.length} comment${comments.length === 1 ? '' : 's'} → ${result.path ?? 'feedback/incoming/'}`,
+        : `Sent ${batch.length} comment${batch.length === 1 ? '' : 's'} → ${result.path ?? 'feedback/incoming/'}`,
     )
   }
 

@@ -129,6 +129,28 @@ Vite, Dexie, react-router, vite-plugin-pwa).
 Requirements on the host app: it uses Vite, react-router (for `useLocation`),
 and has `dexie` + `dexie-react-hooks` as dependencies (both Cairn-stack apps do).
 
+## Reliability invariants (carry these into every port)
+
+Two bugs shipped in the original module and had to be fixed in every copy
+(there is no shared package). New ports must preserve these fixes.
+
+1. **Never report "Sent" unless `markSent` persisted.** In `FeedbackManager`'s
+   `send()`, `markSent` only flips `status: open → sent` (it never deletes), and the
+   live query reads only `open` rows. If the flip silently fails after `sendBatch`
+   resolved, the UI says "Sent" but the comments stay `open` and get re-exported into
+   the *next* batch — the duplication bug. Guard it: gate `markSent` on send success,
+   `try/catch` the flip, and only show the success message once it has committed
+   (in the vanilla-JS port, `withStore` resolves on `t.oncomplete`, so success is real
+   only inside `markSent(...).then`). On failure, tell the user NOT to resend.
+2. **Reset per-target panel state.** `EditWindow` (and `CommentWindow`) are mounted
+   once as singletons with no `key`, so their local `text`/`comment` state survives
+   across edit targets. Because the seeded value wins over the freshly-computed
+   `oldText` (`value = text ?? oldText`), a previous target's typed text leaks into the
+   next panel that opens. Fix: reset local draft state whenever the target identity
+   changes — a `useEffect` keyed on `editDraft?.nodeId`/`editDraft?.field` (or a
+   remount `key` on the panel). Never rely solely on clearing state on successful
+   save; a cancelled draft must clear too.
+
 ## Origo variant (built)
 
 Origo is vanilla JS served by FastAPI, composed of tool viewers inside iframes —
