@@ -14,6 +14,7 @@ import type {
   VerificationVerdict,
   Workshop,
 } from '../lib/types'
+import type { DraftDoc } from '../drafts/types'
 
 /**
  * On-device store (IndexedDB via Dexie). Two roles:
@@ -37,6 +38,7 @@ class CairnDB extends Dexie {
   discrepancyResolutions!: EntityTable<DiscrepancyResolution, 'id'>
   coverage!: EntityTable<CoverageRow, 'client_id'>
   referenceOutbox!: EntityTable<ReferenceOutboxEntry, 'id'>
+  docDrafts!: EntityTable<DraftDoc, 'id'>
 
   constructor() {
     super('cairn')
@@ -76,6 +78,12 @@ class CairnDB extends Dexie {
     // workshops/activities/KSAs/wiring produced by the Scenario Builder.
     this.version(7).stores({
       referenceOutbox: 'id, table, op',
+    })
+    // v8: outgoing document drafts (participant emails, event digests) with the
+    // human's edits and approval record. Purely additive, so no migration
+    // function: Dexie creates the store and leaves every existing table alone.
+    this.version(8).stores({
+      docDrafts: 'id, kind, subjectKey, status, dateLabel, updatedAt',
     })
   }
 }

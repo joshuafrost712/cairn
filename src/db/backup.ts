@@ -10,6 +10,7 @@ import type {
   VerificationVerdict,
   Workshop,
 } from '../lib/types'
+import type { DraftDoc } from '../drafts/types'
 
 // Full on-device backup/restore — for moving a device's data or guarding against
 // loss before a backend exists. Restore is an upsert (bulkPut by key): it merges
@@ -27,6 +28,9 @@ interface BackupData {
   evaluations: EvaluationRecord[]
   observations: ObservationRecord[]
   verifications: VerificationVerdict[]
+  // Included so a device move does not lose an evening's review work: a draft
+  // holds human edits and an approval record that cannot be regenerated.
+  docDrafts?: DraftDoc[]
 }
 
 export interface Backup {
@@ -36,7 +40,7 @@ export interface Backup {
 }
 
 export async function exportAll(): Promise<Backup> {
-  const [workshops, teams, participants, activities, ksas, activityKsas, evaluations, observations, verifications] =
+  const [workshops, teams, participants, activities, ksas, activityKsas, evaluations, observations, verifications, docDrafts] =
     await Promise.all([
       db.workshops.toArray(),
       db.teams.toArray(),
@@ -47,11 +51,12 @@ export async function exportAll(): Promise<Backup> {
       db.evaluations.toArray(),
       db.observations.toArray(),
       db.verifications.toArray(),
+      db.docDrafts.toArray(),
     ])
   return {
     schema: BACKUP_SCHEMA_ID,
     exported_at: new Date().toISOString(),
-    data: { workshops, teams, participants, activities, ksas, activityKsas, evaluations, observations, verifications },
+    data: { workshops, teams, participants, activities, ksas, activityKsas, evaluations, observations, verifications, docDrafts },
   }
 }
 
@@ -69,7 +74,7 @@ export async function importAll(text: string): Promise<{ tables: number; rows: n
   let rows = 0
   await db.transaction(
     'rw',
-    [db.workshops, db.teams, db.participants, db.activities, db.ksas, db.activityKsas, db.evaluations, db.observations, db.verifications],
+    [db.workshops, db.teams, db.participants, db.activities, db.ksas, db.activityKsas, db.evaluations, db.observations, db.verifications, db.docDrafts],
     async () => {
       const put = async <T>(table: { bulkPut: (rows: T[]) => Promise<unknown> }, list: T[] | undefined) => {
         if (!Array.isArray(list) || list.length === 0) return
@@ -86,6 +91,7 @@ export async function importAll(text: string): Promise<{ tables: number; rows: n
       await put(db.evaluations, d.evaluations)
       await put(db.observations, d.observations)
       await put(db.verifications, d.verifications)
+      await put(db.docDrafts, d.docDrafts)
     },
   )
   return { tables, rows }
