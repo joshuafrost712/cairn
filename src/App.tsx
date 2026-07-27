@@ -93,6 +93,7 @@ function Shell() {
       <Route element={<AppShell mode="wide" />}>
         <Route path="/observations" element={<Observations />} />
         <Route path="/reports" element={<Reports />} />
+        <Route path="/reports/:participantId" element={<Reports />} />
 
         <Route element={<RequireRole roles={CHIEF_ROLES} />}>
           <Route path="/inbox" element={<Inbox />} />
