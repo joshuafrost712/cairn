@@ -22,14 +22,23 @@ import type { Ksa, ObservationRecord, Participant, Team } from '../lib/types'
 // item is set aside.
 type MaybeAnnotated = ObservationRecord & { vstatus?: string; effective_designation?: number }
 
-function isSetAside(o: ObservationRecord): boolean {
+/**
+ * Whether an observation is held out of the count.
+ *
+ * Exported because analytics.ts must apply exactly this rule: a dashboard number
+ * that included evidence the report excludes (or vice versa) would quietly
+ * disagree with the report it sits next to. Importing it is what makes that
+ * impossible; re-implementing it would only look equivalent.
+ */
+export function isSetAside(o: ObservationRecord): boolean {
   const a = o as MaybeAnnotated
   if (a.vstatus === 'disputed') return true
   if (a.vstatus === 'verified' || a.vstatus === 'adjusted') return false
   return o.needs_review
 }
 
-function designationOf(o: ObservationRecord): number {
+/** The designation a count should use: the agreed value when one exists. */
+export function designationOf(o: ObservationRecord): number {
   const a = o as MaybeAnnotated
   return a.effective_designation ?? o.evidence_designation
 }

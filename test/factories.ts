@@ -1,5 +1,13 @@
 // Tiny builders for test fixtures. Keep the required-field noise out of the tests.
-import type { Ksa, ObservationRecord, Participant, Team, VerificationVerdict } from '../src/lib/types'
+import type {
+  Activity,
+  EvaluationRecord,
+  Ksa,
+  ObservationRecord,
+  Participant,
+  Team,
+  VerificationVerdict,
+} from '../src/lib/types'
 
 let n = 0
 const uid = (p: string) => `${p}-${++n}`
@@ -41,11 +49,47 @@ export function ksa(code: string, partial: Partial<Ksa> = {}): Ksa {
     id: partial.id ?? uid('ksa'),
     code,
     area: partial.area ?? `${code} area`,
+    // Required on Ksa and previously missing here. test/ is outside tsconfig.app's
+    // include, so tsc never caught it; the dashboard reads it for column headers.
+    short_label: partial.short_label ?? code,
     description: partial.description ?? '',
     evaluator_facing_prompt: partial.evaluator_facing_prompt ?? 'prompt?',
     ai_facing_rubric: partial.ai_facing_rubric ?? 'rubric',
     evidence_levels: partial.evidence_levels ?? { '0': 'a', '1': 'b', '2': 'c', '3': 'd' },
     cbc_subpoint_refs: partial.cbc_subpoint_refs ?? ['Sub A'],
+  }
+}
+
+export function activity(partial: Partial<Activity> = {}): Activity {
+  return {
+    id: partial.id ?? uid('act'),
+    workshop_id: partial.workshop_id ?? 'w-1',
+    title: partial.title ?? 'An activity',
+    day: 'day' in partial ? (partial.day ?? null) : '2026-08-26',
+    start_time: partial.start_time ?? null,
+    end_time: partial.end_time ?? null,
+    sort_order: partial.sort_order ?? 0,
+    genre_group: partial.genre_group ?? null,
+  }
+}
+
+export function evaluation(partial: Partial<EvaluationRecord> = {}): EvaluationRecord {
+  return {
+    client_id: partial.client_id ?? uid('cap'),
+    evaluator_email: 'evaluator_email' in partial ? (partial.evaluator_email ?? null) : 'a@x.org',
+    activity_id: 'activity_id' in partial ? (partial.activity_id ?? null) : 'act-1',
+    workshop_id: partial.workshop_id ?? 'w-1',
+    source_language: partial.source_language ?? 'English',
+    answers: partial.answers ?? {},
+    source_text: partial.source_text ?? 'text',
+    participant_scope: partial.participant_scope ?? [],
+    attestation: partial.attestation ?? true,
+    ruleset_version: partial.ruleset_version ?? '1',
+    edit_history: partial.edit_history ?? [],
+    created_at: partial.created_at ?? '2026-08-26T09:00:00.000Z',
+    updated_at: partial.updated_at ?? '2026-08-26T09:00:00.000Z',
+    sync_status: partial.sync_status ?? 'synced',
+    routing_status: partial.routing_status ?? 'routed',
   }
 }
 

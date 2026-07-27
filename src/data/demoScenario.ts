@@ -139,53 +139,25 @@ function makeVerdict(
 // Main export
 // ---------------------------------------------------------------------------
 
-export async function loadDemoScenario(): Promise<{
-  evaluations: number
-  observations: number
-  verdicts: number
-  conversations: number
-}> {
-  // 1. Ensure reference data exists
-  const participantCount = await db.participants.count()
-  if (participantCount === 0) {
-    await primeFromSeed()
-  }
+// ---------------------------------------------------------------------------
+// The demo records, as pure data
+// ---------------------------------------------------------------------------
 
-  // 2. Idempotent cleanup: delete all demo:: rows
-  await db.transaction(
-    'rw',
-    [db.evaluations, db.observations, db.verifications, db.mentoringConversations],
-    async () => {
-      // Evaluations: client_id is the primary key
-      const evalIds = await db.evaluations
-        .filter((r) => r.client_id.startsWith(DEMO_PREFIX))
-        .primaryKeys()
-      await db.evaluations.bulkDelete(evalIds as string[])
-
-      // Observations: id is the primary key
-      const obsIds = await db.observations
-        .filter((r) => r.id.startsWith(DEMO_PREFIX))
-        .primaryKeys()
-      await db.observations.bulkDelete(obsIds as string[])
-
-      // Verifications: id is `${obs_id}::${email}`; observation_id starts with demo::
-      const verdictIds = await db.verifications
-        .filter((r) => r.observation_id.startsWith(DEMO_PREFIX))
-        .primaryKeys()
-      await db.verifications.bulkDelete(verdictIds as string[])
-
-      // Mentoring: trigger_observation_id starts with demo::, and the mc:: id too
-      const convIds = await db.mentoringConversations
-        .filter(
-          (r) =>
-            (r.trigger_observation_id !== null && r.trigger_observation_id.startsWith(DEMO_PREFIX)) ||
-            r.id.startsWith(`mc::${DEMO_PREFIX}`),
-        )
-        .primaryKeys()
-      await db.mentoringConversations.bulkDelete(convIds as string[])
-    },
-  )
-
+/**
+ * Build the demo scenario's rows without touching Dexie.
+ *
+ * Split out of loadDemoScenario so tests can assert against the SAME fixture the
+ * app seeds. A dashboard bug that only shows up on realistically-shaped data
+ * (an observation whose capture is missing, a conflict five hours apart) is
+ * exactly the kind unit fixtures miss, and this is the only realistic dataset
+ * the repo has.
+ */
+export function buildDemoRecords(): {
+  evaluations: EvaluationRecord[]
+  observations: ObservationRecord[]
+  verdicts: VerificationVerdict[]
+  ids: { obsExegA: string }
+} {
   // ---------------------------------------------------------------------------
   // 3. Build rows
   // ---------------------------------------------------------------------------
@@ -467,6 +439,63 @@ export async function loadDemoScenario(): Promise<{
     verdicts.push(makeVerdict(obsCheckD, confirmer, evalCheckD, isoAt(DAY3_BASE, 2)))
   }
 
+
+  return { evaluations, observations, verdicts, ids: { obsExegA } }
+}
+
+export async function loadDemoScenario(): Promise<{
+  evaluations: number
+  observations: number
+  verdicts: number
+  conversations: number
+}> {
+  // 1. Ensure reference data exists
+  const participantCount = await db.participants.count()
+  if (participantCount === 0) {
+    await primeFromSeed()
+  }
+
+  // 2. Idempotent cleanup: delete all demo:: rows
+  await db.transaction(
+    'rw',
+    [db.evaluations, db.observations, db.verifications, db.mentoringConversations],
+    async () => {
+      // Evaluations: client_id is the primary key
+      const evalIds = await db.evaluations
+        .filter((r) => r.client_id.startsWith(DEMO_PREFIX))
+        .primaryKeys()
+      await db.evaluations.bulkDelete(evalIds as string[])
+
+      // Observations: id is the primary key
+      const obsIds = await db.observations
+        .filter((r) => r.id.startsWith(DEMO_PREFIX))
+        .primaryKeys()
+      await db.observations.bulkDelete(obsIds as string[])
+
+      // Verifications: id is `${obs_id}::${email}`; observation_id starts with demo::
+      const verdictIds = await db.verifications
+        .filter((r) => r.observation_id.startsWith(DEMO_PREFIX))
+        .primaryKeys()
+      await db.verifications.bulkDelete(verdictIds as string[])
+
+      // Mentoring: trigger_observation_id starts with demo::, and the mc:: id too
+      const convIds = await db.mentoringConversations
+        .filter(
+          (r) =>
+            (r.trigger_observation_id !== null && r.trigger_observation_id.startsWith(DEMO_PREFIX)) ||
+            r.id.startsWith(`mc::${DEMO_PREFIX}`),
+        )
+        .primaryKeys()
+      await db.mentoringConversations.bulkDelete(convIds as string[])
+    },
+  )
+
+  // ---------------------------------------------------------------------------
+  // 3. Build rows (pure; see buildDemoRecords above)
+  // ---------------------------------------------------------------------------
+
+  const { evaluations, observations, verdicts, ids } = buildDemoRecords()
+  const obsExegA = ids.obsExegA
   // ---------------------------------------------------------------------------
   // 4. Write to Dexie
   // ---------------------------------------------------------------------------
