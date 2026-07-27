@@ -435,3 +435,118 @@ button.tile:hover {
   padding: var(--s-1) var(--s-2);
   border-radius: var(--r-1);
 }
+
+/* ---- destructive actions ------------------------------------------------ */
+
+/*
+ * Danger is a text-and-border colour, not a filled block. A wall of solid red
+ * buttons on the roster page trains you to ignore red, which is exactly the
+ * wrong reflex on the one page that can delete a participant.
+ */
+button.danger {
+  color: var(--danger);
+  border-color: #fecaca;
+  background: var(--wash-danger);
+}
+
+button.danger:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.confirm {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+  padding: var(--s-3);
+  border: 1px solid #fecaca;
+  border-radius: var(--r-2);
+  background: var(--wash-danger);
+}
+
+.confirm input {
+  margin: 0;
+}
+
+/* ---- the roster / settings form column ---------------------------------- */
+
+/*
+ * Config forms cap at a readable measure even inside the wide shell. A name
+ * field stretched across a 1600px monitor is harder to use, not easier.
+ */
+.form-col {
+  max-width: 42rem;
+}
+
+/* ---- shared utilities (replacing the inline styles in Inbox.tsx) --------- */
+
+/*
+ * Inbox.tsx carried roughly two dozen inline style objects that reimplemented
+ * the button at six sizes and the quote rail at three. They are here now, once,
+ * so that a change to the rail is a change to the rail rather than a search.
+ */
+
+/* A quoted or attributed block: evidence, an email draft, an excerpt. */
+.rail {
+  padding-left: var(--s-2);
+  border-left: 3px solid var(--line);
+}
+
+.rail + .rail {
+  margin-top: var(--s-3);
+}
+
+/* Vertical rhythm inside a card without a margin on every child. */
+.stack > * + * {
+  margin-top: var(--s-3);
+}
+
+.stack-tight > * + * {
+  margin-top: var(--s-2);
+}
+
+/* A secondary control with a face, for show/hide toggles that must read as
+   pressable in a wall of text. */
+button.btn--face {
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+}
+
+button.btn--block-left {
+  width: 100%;
+  text-align: left;
+}
+
+/* A <Link> that must sit in a button row and match its neighbours. */
+.btn-link {
+  display: inline-block;
+  padding: var(--s-1) var(--s-2);
+  border: 1px solid var(--line);
+  border-radius: var(--r-1);
+  background: var(--card);
+  color: var(--accent);
+  text-decoration: none;
+  font-size: var(--t--1);
+}
+
+.btn-link:hover {
+  border-color: var(--line-strong);
+}
+
+/* Informational, as distinct from .banner.warn. Blue is the accent wash here
+   and never a data value. */
+.banner.info {
+  background: var(--accent-wash);
+  border: 1px solid #bfdbfe;
+  color: #1e40af;
+}
+
+.textarea--mono-sm {
+  font-size: var(--t--2);
+}
+
+/* A .row whose columns are different heights: the label block should sit at the
+   top rather than centre against a two-line neighbour. */
+.row--top {
+  align-items: flex-start;
+}

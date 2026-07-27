@@ -85,7 +85,7 @@ export function EvaluatorHome() {
     return (
       <>
         <div className="banner warn">
-          <Copy id="home.no-workshop.before" /> <Link to="/admin">{c('nav.admin')}</Link>{' '}
+          <Copy id="home.no-workshop.before" /> <Link to="/admin/data">{c('nav.data')}</Link>{' '}
           <Copy id="home.no-workshop.after" />
         </div>
       </>

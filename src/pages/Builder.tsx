@@ -109,7 +109,7 @@ export function Builder() {
         <h1>Scenario Builder</h1>
         <p className="small muted">
           Author the events, the questions, and what goes in each box, then wire them together.{' '}
-          <Link to="/">Home</Link> · <Link to="/admin">Admin (roster)</Link>
+          The people who take part are on <Link to="/admin/roster">Roster</Link>.
         </p>
         <p className="small muted">
           Backend: {isSupabaseConfigured ? 'Supabase — changes sync + are shared' : 'local-only (this device)'}

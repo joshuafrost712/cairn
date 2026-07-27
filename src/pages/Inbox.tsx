@@ -31,8 +31,8 @@ function EmailDraftCard({ draft, label }: { draft: DiscrepancyEmailDraft; label:
   const mailto = `mailto:${encodeURIComponent(draft.to)}?subject=${encodeURIComponent(draft.subject)}&body=${encodeURIComponent(draft.body)}`
 
   return (
-    <div style={{ marginBottom: '0.75rem', paddingLeft: '0.5rem', borderLeft: '3px solid var(--line)' }}>
-      <p className="small" style={{ margin: '0 0 0.35rem' }}>
+    <div className="rail stack-tight">
+      <p className="small">
         <strong>{label}</strong>
         {draft.to ? (
           <span className="muted"> — to: {draft.to}</span>
@@ -40,24 +40,20 @@ function EmailDraftCard({ draft, label }: { draft: DiscrepancyEmailDraft; label:
           <span className="muted"> — recipient email unknown; fill in manually</span>
         )}
       </p>
-      <div className="row" style={{ flexWrap: 'wrap', gap: '0.4rem' }}>
-        <button className="primary" style={{ fontSize: '0.85rem', padding: '0.4rem 0.75rem' }} onClick={copy}>
+      <div className="row">
+        <button className="primary btn--sm" onClick={copy}>
           Copy
         </button>
-        <button
-          style={{ fontSize: '0.85rem', padding: '0.4rem 0.75rem' }}
-          onClick={() => { window.location.href = mailto }}
-        >
+        <button className="btn--sm" onClick={() => { window.location.href = mailto }}>
           Open in mail app
         </button>
       </div>
-      {msg && <p className="small muted" style={{ margin: '0.3rem 0 0' }}>{msg}</p>}
+      {msg && <p className="small muted">{msg}</p>}
       <textarea
-        className="mono"
+        className="mono textarea--mono-sm"
         readOnly
         value={draft.body}
         rows={6}
-        style={{ marginTop: '0.5rem', fontSize: '0.75rem' }}
         onFocus={(e) => e.currentTarget.select()}
       />
     </div>
@@ -83,63 +79,45 @@ function DiscrepancyCard({
   const id = discrepancyId(d.participant_id, d.ksa_code)
 
   return (
-    <div className="card">
-      <div className="row" style={{ alignItems: 'flex-start', flexWrap: 'wrap' }}>
+    <div className="card stack">
+      <div className="row row--top">
         <div style={{ flex: 1 }}>
           <strong>{d.participant_name}</strong>
           <span className="muted small"> · {d.ksa_code} — {d.area}</span>
-          <div style={{ marginTop: '0.2rem' }}>
+          <div className="small" style={{ marginTop: 'var(--s-1)' }}>
             <span className="pill queued">scores: {d.lo}/3 to {d.hi}/3</span>
           </div>
         </div>
-        <div className="row" style={{ gap: '0.4rem' }}>
-          <Link
-            to="/observations"
-            className="small"
-            style={{ padding: '0.4rem 0.75rem', border: '1px solid var(--line)', borderRadius: '10px', background: '#fff', color: 'var(--accent)', textDecoration: 'none' }}
-          >
+        <div className="row">
+          <Link to="/observations" className="btn-link">
             Review in verification
           </Link>
-          <button
-            className="primary"
-            style={{ fontSize: '0.85rem', padding: '0.4rem 0.75rem' }}
-            onClick={() => onReconcile(id)}
-          >
+          <button className="primary btn--sm" onClick={() => onReconcile(id)}>
             Mark reconciled
           </button>
         </div>
       </div>
 
-      {d.timeGapNote && (
-        <div className="banner" style={{ marginTop: '0.5rem', background: '#eff6ff', border: '1px solid #bfdbfe', color: '#1e40af' }}>
-          {d.timeGapNote}
-        </div>
-      )}
+      {d.timeGapNote && <div className="banner info">{d.timeGapNote}</div>}
 
-      <div style={{ marginTop: '0.5rem' }}>
+      <div className="stack-tight">
         {d.observations.map((o) => (
-          <div key={o.id} className="small" style={{ marginBottom: '0.4rem', paddingLeft: '0.5rem', borderLeft: '3px solid var(--line)' }}>
-            <span className="pill" style={{ marginRight: '0.3rem' }}>{o.effective_designation}/3</span>
+          <div key={o.id} className="rail small">
+            <span className="pill">{o.effective_designation}/3</span>{' '}
             <strong>{o.evaluator_email ?? 'unknown evaluator'}</strong>: {o.text}
-            {o.source_excerpt && (
-              <div className="muted" style={{ marginTop: '0.15rem' }}>"{o.source_excerpt}"</div>
-            )}
+            {o.source_excerpt && <div className="muted">“{o.source_excerpt}”</div>}
           </div>
         ))}
       </div>
 
-      <div style={{ marginTop: '0.5rem' }}>
-        <button
-          className="ghost"
-          style={{ fontSize: '0.82rem', padding: '0.3rem 0.6rem', borderRadius: '8px', background: '#f3f4f6', border: '1px solid var(--line)' }}
-          onClick={() => setShowEmails((v) => !v)}
-        >
+      <div>
+        <button className="ghost btn--sm btn--face" onClick={() => setShowEmails((v) => !v)}>
           {showEmails ? 'Hide email drafts' : 'Show email drafts'}
         </button>
       </div>
 
       {showEmails && (
-        <div style={{ marginTop: '0.75rem' }}>
+        <div>
           <EmailDraftCard draft={drafts[0]} label="To the chief evaluator" />
           <EmailDraftCard
             draft={drafts[1]}
@@ -225,7 +203,7 @@ export function Inbox() {
           <p className="small">
             <span className="pill queued">{open.length} open</span>
             {reconciled.length > 0 && (
-              <span className="muted" style={{ marginLeft: '0.5rem' }}>{reconciled.length} reconciled</span>
+              <span className="muted"> · {reconciled.length} reconciled</span>
             )}
           </p>
         )}
@@ -248,26 +226,25 @@ export function Inbox() {
       ))}
 
       {reconciled.length > 0 && (
-        <div className="card">
+        <div className="card stack">
           <button
-            className="ghost"
-            style={{ fontSize: '0.85rem', padding: '0.3rem 0.6rem', borderRadius: '8px', background: '#f3f4f6', border: '1px solid var(--line)', width: '100%', textAlign: 'left' }}
+            className="ghost btn--sm btn--face btn--block-left"
             onClick={() => setShowReconciled((v) => !v)}
           >
             {showReconciled ? 'Hide' : 'Show'} {reconciled.length} reconciled
           </button>
           {showReconciled && (
-            <div style={{ marginTop: '0.75rem' }}>
+            <div className="stack-tight">
               {reconciled.map((d) => {
                 const id = discrepancyId(d.participant_id, d.ksa_code)
                 const res = (resolutions ?? []).find((r) => r.id === id)
                 return (
-                  <div key={id} className="activity-item" style={{ display: 'block', cursor: 'default', opacity: 0.7 }}>
-                    <span className="pill synced" style={{ marginRight: '0.4rem' }}>reconciled</span>
+                  <div key={id} className="rail small">
+                    <span className="pill synced">reconciled</span>{' '}
                     <strong>{d.participant_name}</strong>
-                    <span className="muted small"> · {d.ksa_code} — {d.area} ({d.lo}/3 to {d.hi}/3)</span>
+                    <span className="muted"> · {d.ksa_code} — {d.area} ({d.lo}/3 to {d.hi}/3)</span>
                     {res && (
-                      <div className="muted small" style={{ marginTop: '0.2rem' }}>
+                      <div className="muted">
                         Marked by {res.resolved_by} on {new Date(res.at).toLocaleString()}
                       </div>
                     )}

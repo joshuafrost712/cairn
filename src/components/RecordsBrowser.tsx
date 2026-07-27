@@ -312,7 +312,17 @@ function AppendForm({ participant, activities, ksas, evaluatorEmail, onAdded }: 
 // Main component
 // ---------------------------------------------------------------------------
 
-export function RecordsBrowser() {
+/**
+ * Selection is optionally controlled so the page can put it in the URL.
+ * Passing `participantId` without `onSelectParticipant` would give a picker
+ * that refuses to move, so the two travel together or not at all.
+ */
+interface RecordsBrowserProps {
+  participantId?: string
+  onSelectParticipant?: (id: string) => void
+}
+
+export function RecordsBrowser({ participantId, onSelectParticipant }: RecordsBrowserProps = {}) {
   const { identity } = useAuth()
 
   const participants = useLiveQuery(() => db.participants.toArray(), [], [] as Participant[])
@@ -323,7 +333,13 @@ export function RecordsBrowser() {
   const verdicts = useLiveQuery(() => db.verifications.toArray(), [], [] as VerificationVerdict[])
   const allConversations = useLiveQuery(() => db.mentoringConversations.toArray(), [], [] as MentoringConversation[])
 
-  const [selectedId, setSelectedId] = useState<string>('')
+  const controlled = participantId !== undefined && onSelectParticipant !== undefined
+  const [localId, setLocalId] = useState<string>('')
+  const selectedId = controlled ? participantId : localId
+  const setSelectedId = (id: string) => {
+    if (controlled) onSelectParticipant(id)
+    else setLocalId(id)
+  }
   const [showAppend, setShowAppend] = useState(false)
 
   const sortedKsas = useMemo(

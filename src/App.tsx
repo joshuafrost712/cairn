@@ -17,7 +17,6 @@ import { Observations } from './pages/Observations'
 import { Reports } from './pages/Reports'
 import { DayEmail } from './pages/DayEmail'
 import { Export } from './pages/Export'
-import { Admin } from './pages/Admin'
 import { Builder } from './pages/Builder'
 import { AdminOverview } from './pages/admin/AdminOverview'
 import { WorkshopHealth } from './pages/admin/WorkshopHealth'
@@ -27,6 +26,10 @@ import { ParticipantList } from './pages/admin/ParticipantList'
 import { ParticipantDetail } from './pages/admin/ParticipantDetail'
 import { EvaluatorList } from './pages/admin/EvaluatorList'
 import { EvaluatorDetail } from './pages/admin/EvaluatorDetail'
+import { Roster } from './pages/admin/Roster'
+import { Records } from './pages/admin/Records'
+import { Settings } from './pages/admin/Settings'
+import { DataPage } from './pages/admin/DataPage'
 import { Conversations } from './pages/Conversations'
 import { Inbox } from './pages/Inbox'
 import { DevFeedbackRoot } from './devfeedback/DevFeedbackRoot'
@@ -106,7 +109,12 @@ function Shell() {
         </Route>
 
         <Route element={<RequireRole roles={ADMIN_ROLES} />}>
-          <Route path="/admin" element={<Admin />} />
+          <Route path="/admin/roster" element={<Roster />} />
+          <Route path="/admin/records" element={<Records />} />
+          <Route path="/admin/settings" element={<Settings />} />
+          <Route path="/admin/data" element={<DataPage />} />
+          {/* The old single Admin page. Bookmarks and the docs both point at it. */}
+          <Route path="/admin" element={<Navigate to="/admin/roster" replace />} />
         </Route>
       </Route>
 

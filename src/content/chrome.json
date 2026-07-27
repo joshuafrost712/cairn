@@ -10,8 +10,20 @@
       "label": "Home"
     },
     {
-      "id": "nav.admin",
-      "label": "Admin"
+      "id": "nav.roster",
+      "label": "Roster"
+    },
+    {
+      "id": "nav.records",
+      "label": "Participant records"
+    },
+    {
+      "id": "nav.settings",
+      "label": "Settings"
+    },
+    {
+      "id": "nav.data",
+      "label": "Data"
     },
     {
       "id": "nav.routing",
