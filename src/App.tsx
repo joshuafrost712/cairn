@@ -19,6 +19,12 @@ import { DayEmail } from './pages/DayEmail'
 import { Export } from './pages/Export'
 import { Admin } from './pages/Admin'
 import { Builder } from './pages/Builder'
+import { AdminOverview } from './pages/admin/AdminOverview'
+import { WorkshopHealth } from './pages/admin/WorkshopHealth'
+import { EventList } from './pages/admin/EventList'
+import { EventDetail } from './pages/admin/EventDetail'
+import { ParticipantList } from './pages/admin/ParticipantList'
+import { ParticipantDetail } from './pages/admin/ParticipantDetail'
 import { Conversations } from './pages/Conversations'
 import { Inbox } from './pages/Inbox'
 import { DevFeedbackRoot } from './devfeedback/DevFeedbackRoot'
@@ -86,6 +92,13 @@ function Shell() {
           <Route path="/day-email" element={<DayEmail />} />
           <Route path="/export" element={<Export />} />
           <Route path="/builder" element={<Builder />} />
+
+          <Route path="/admin/overview" element={<AdminOverview />} />
+          <Route path="/admin/workshop" element={<WorkshopHealth />} />
+          <Route path="/admin/events" element={<EventList />} />
+          <Route path="/admin/events/:activityId" element={<EventDetail />} />
+          <Route path="/admin/participants" element={<ParticipantList />} />
+          <Route path="/admin/participants/:participantId" element={<ParticipantDetail />} />
         </Route>
 
         <Route element={<RequireRole roles={ADMIN_ROLES} />}>

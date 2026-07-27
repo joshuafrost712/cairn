@@ -66,6 +66,16 @@ export const NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
+    labelId: 'nav.group.dashboard',
+    roles: CHIEF_ROLES,
+    items: [
+      { labelId: 'nav.overview', to: '/admin/overview' },
+      { labelId: 'nav.workshop-health', to: '/admin/workshop' },
+      { labelId: 'nav.events', to: '/admin/events', end: true },
+      { labelId: 'nav.participants', to: '/admin/participants', end: true },
+    ],
+  },
+  {
     labelId: 'nav.group.configure',
     roles: CHIEF_ROLES,
     items: [

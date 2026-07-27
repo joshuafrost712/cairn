@@ -102,6 +102,26 @@
       "label": "Close navigation menu"
     },
     {
+      "id": "nav.overview",
+      "label": "Overview"
+    },
+    {
+      "id": "nav.workshop-health",
+      "label": "Workshop health"
+    },
+    {
+      "id": "nav.events",
+      "label": "Events"
+    },
+    {
+      "id": "nav.participants",
+      "label": "Participants"
+    },
+    {
+      "id": "nav.evaluators",
+      "label": "Evaluators"
+    },
+    {
       "id": "home.no-workshop.before",
       "label": "No workshop loaded on this device yet. Open"
     },
