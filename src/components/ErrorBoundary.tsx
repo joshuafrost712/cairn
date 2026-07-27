@@ -1,5 +1,4 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react'
-import { c } from '../lib/content/chrome'
 import { Copy } from './Copy'
 
 // A render crash must never lose an evaluator's place silently. This catches it,
@@ -29,10 +28,13 @@ export class ErrorBoundary extends Component<{ children: ReactNode }, State> {
             <Copy id="error.body" as="p" className="small" />
             <p className="muted small">{this.state.error.message}</p>
             <div className="row">
-              <button className="primary" onClick={() => location.reload()}>{c('error.reload')}</button>
-              <button className="ghost" onClick={() => this.setState({ error: null })}>
-                {c('error.try-again')}
-              </button>
+              <Copy id="error.reload" as="button" className="primary" onClick={() => location.reload()} />
+              <Copy
+                id="error.try-again"
+                as="button"
+                className="ghost"
+                onClick={() => this.setState({ error: null })}
+              />
             </div>
           </div>
         </main>

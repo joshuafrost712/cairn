@@ -1,5 +1,6 @@
 import { recordVerdict, clearVerdict } from '../db/verifications'
 import { c } from '../lib/content/chrome'
+import { Copy } from './Copy'
 import type { AnnotatedObservation } from '../reports/verification'
 
 const STATUS_CLASS: Record<string, string> = {
@@ -28,13 +29,14 @@ export function VerifyControls({ obs, evaluatorEmail }: { obs: AnnotatedObservat
       <span className={`pill ${STATUS_CLASS[obs.vstatus] ?? ''}`}>{obs.vstatus}</span>{' '}
       <span className="muted">{obs.confirmCount} confirm{obs.confirmCount === 1 ? '' : 's'}{obs.rejectCount ? `, ${obs.rejectCount} reject` : ''}</span>
       <div className="row" style={{ marginTop: '0.3rem', gap: '0.35rem' }}>
-        <button
+        <Copy
+          id="verify.confirm"
+          tokens={{ level: obs.evidence_designation }}
+          as="button"
           className={`ghost small ${mine?.decision === 'confirm' ? 'primary' : ''}`}
           onClick={() => recordVerdict(obs, evaluatorEmail, 'confirm')}
-        >
-          {c('verify.confirm', 'label', { level: obs.evidence_designation })}
-        </button>
-        <span className="small muted">{c('verify.adjust')}</span>
+        />
+        <Copy id="verify.adjust" className="small muted" />
         {[0, 1, 2, 3].map((n) => (
           <button
             key={n}
@@ -44,16 +46,20 @@ export function VerifyControls({ obs, evaluatorEmail }: { obs: AnnotatedObservat
             {n}
           </button>
         ))}
-        <button
+        <Copy
+          id="verify.reject"
+          as="button"
           className={`ghost small ${mine?.decision === 'reject' ? 'primary' : ''}`}
           onClick={() => recordVerdict(obs, evaluatorEmail, 'reject')}
-        >
-          {c('verify.reject')}
-        </button>
+        />
         {mine && (
-          <button className="ghost small muted" onClick={() => clearVerdict(obs.id, evaluatorEmail)}>
-            {c('verify.clear', 'label', { what: mineLabel ?? '' })}
-          </button>
+          <Copy
+            id="verify.clear"
+            tokens={{ what: mineLabel ?? '' }}
+            as="button"
+            className="ghost small muted"
+            onClick={() => clearVerdict(obs.id, evaluatorEmail)}
+          />
         )}
       </div>
     </div>

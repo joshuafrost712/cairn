@@ -24,10 +24,15 @@ export interface CopyProps {
   tokens?: Record<string, string | number>
   /** Element to render. Defaults to a span so it can sit inline anywhere. */
   as?: keyof React.JSX.IntrinsicElements
-  className?: string
-  style?: React.CSSProperties
-  htmlFor?: string
   children?: ReactNode
+  /**
+   * Anything else the rendered element takes (className, style, onClick, type,
+   * htmlFor, aria-*). Open on purpose: a button or a link whose whole text is one
+   * chrome node should still render through Copy so the string stays addressable,
+   * and forcing those cases back to a bare `c()` call is what leaves text
+   * un-editable.
+   */
+  [prop: string]: unknown
 }
 
 export function Copy({ id, field = 'label', tokens, as = 'span', children, ...rest }: CopyProps) {
