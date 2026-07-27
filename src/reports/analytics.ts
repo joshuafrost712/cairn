@@ -260,13 +260,32 @@ function mean(values: number[]): number {
 // 4. Per-activity (the event view)
 // ---------------------------------------------------------------------------
 
+export interface ParticipantValue {
+  participant_id: string | null
+  participant_name: string
+  /** The MAX of their counting observations on this area, mirroring build.ts. */
+  value: number
+  observationIds: string[]
+}
+
 export interface ActivityKsaCell {
   ksa_code: string
   area: string
   short_label: string
   /** over raw observations in this event, not over participant representatives */
   stats: DesignationStats
-  weak: { participant_id: string | null; participant_name: string; value: number }[]
+  /**
+   * One row per participant observed on this area in this event, rolled up the
+   * same way a report rolls one up: the max of their counting observations.
+   *
+   * This is the right denominator for any "how many of the group" question.
+   * Counting observations instead would let one participant with four low notes
+   * on the same area read as four people, which is precisely the inference the
+   * event digest's pattern threshold exists to support.
+   */
+  byParticipant: ParticipantValue[]
+  /** The subset of byParticipant at or below the at-risk ceiling, worst first. */
+  weak: ParticipantValue[]
 }
 
 export interface ActivityFlag {
@@ -323,19 +342,38 @@ export function activityAnalytics(
 
   const perKsa: ActivityKsaCell[] = ksas.map((k) => {
     const obs = byKsa.get(k.code) ?? []
+
+    // Roll up to one value per participant before anything counts people. An
+    // unattributed observation keys on its name so it still surfaces rather
+    // than collapsing every unattributed row into one phantom participant.
+    const pMap = new Map<string, ParticipantValue>()
+    for (const o of obs) {
+      const key = o.participant_id ?? `name::${o.participant_name}`
+      const v = valueOf(o, policy)
+      const existing = pMap.get(key)
+      if (existing) {
+        existing.value = Math.max(existing.value, v)
+        existing.observationIds.push(o.id)
+      } else {
+        pMap.set(key, {
+          participant_id: o.participant_id,
+          participant_name: o.participant_name,
+          value: v,
+          observationIds: [o.id],
+        })
+      }
+    }
+    const byParticipant = [...pMap.values()].sort(
+      (a, b) => a.value - b.value || a.participant_name.localeCompare(b.participant_name),
+    )
+
     return {
       ksa_code: k.code,
       area: k.area,
       short_label: k.short_label || k.code,
       stats: designationStats(obs.map((o) => valueOf(o, policy))),
-      weak: obs
-        .filter((o) => valueOf(o, policy) <= atRiskMax)
-        .map((o) => ({
-          participant_id: o.participant_id,
-          participant_name: o.participant_name,
-          value: valueOf(o, policy),
-        }))
-        .sort((a, b) => a.value - b.value),
+      byParticipant,
+      weak: byParticipant.filter((p) => p.value <= atRiskMax),
     }
   })
 

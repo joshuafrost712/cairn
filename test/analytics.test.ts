@@ -229,6 +229,40 @@ describe('activityAnalytics', () => {
     expect(a.flagged[0].observationIds).toHaveLength(1)
   })
 
+  it('rolls each KSA up to one row per participant, taking their best score', () => {
+    const situated = prep(
+      [
+        // Amos scored twice on EXEG by two evaluators: one row, at his best.
+        obs({ id: 'a', capture_client_id: 'cap-1', participant_id: 'p-1', participant_name: 'Amos', ksa_code: 'EXEG', evidence_designation: 0 }),
+        obs({ id: 'b', capture_client_id: 'cap-1', participant_id: 'p-1', participant_name: 'Amos', ksa_code: 'EXEG', evidence_designation: 3 }),
+        obs({ id: 'c', capture_client_id: 'cap-1', participant_id: 'p-2', participant_name: 'Chula', ksa_code: 'EXEG', evidence_designation: 1 }),
+      ],
+      evals,
+    )
+    const exeg = activityAnalytics(act, ksas, situated, evals).perKsa.find((k) => k.ksa_code === 'EXEG')!
+    // stats still counts observations; byParticipant counts people.
+    expect(exeg.stats.n).toBe(3)
+    expect(exeg.byParticipant.map((p) => [p.participant_name, p.value])).toEqual([
+      ['Chula', 1],
+      ['Amos', 3],
+    ])
+    expect(exeg.byParticipant.find((p) => p.participant_name === 'Amos')!.observationIds.sort()).toEqual(['a', 'b'])
+    // Amos is NOT weak: his report would call him a 3, so the event view must too.
+    expect(exeg.weak.map((p) => p.participant_name)).toEqual(['Chula'])
+  })
+
+  it('keeps unattributed observations as separate rows rather than one phantom participant', () => {
+    const situated = prep(
+      [
+        obs({ capture_client_id: 'cap-1', participant_id: null, participant_name: 'Someone', ksa_code: 'EXEG', evidence_designation: 0 }),
+        obs({ capture_client_id: 'cap-1', participant_id: null, participant_name: 'Another', ksa_code: 'EXEG', evidence_designation: 1 }),
+      ],
+      evals,
+    )
+    const exeg = activityAnalytics(act, ksas, situated, evals).perKsa.find((k) => k.ksa_code === 'EXEG')!
+    expect(exeg.byParticipant).toHaveLength(2)
+  })
+
   it('counts distinct evaluators and sorts the unknown bucket last', () => {
     const situated = prep(
       [
