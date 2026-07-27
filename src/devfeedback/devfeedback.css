@@ -9,9 +9,16 @@
   font-family: system-ui, -apple-system, sans-serif;
 }
 
-.dfb-selection-btn {
+/* Holds the Comment button and, when the selection resolves to an addressable
+   string, the Edit button beside it. */
+.dfb-selection-actions {
   position: fixed;
   z-index: 2147483000;
+  display: flex;
+  gap: 6px;
+}
+
+.dfb-selection-btn {
   padding: 6px 10px;
   font-size: 12px;
   font-weight: 600;

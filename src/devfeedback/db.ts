@@ -26,13 +26,49 @@ export interface FeedbackComment {
   updatedAt: string
 }
 
+/** Reference tables whose authored copy can be proposed against. */
+export type ProposalTable = 'ksa' | 'activity' | 'workshop'
+
+/**
+ * A pending wording change to REFERENCE copy (a KSA question, an activity title).
+ *
+ * Chrome copy is patched straight to disk, because a file edit is already staged
+ * by git and only reaches anyone on the next deploy. Reference copy is not: it
+ * lives in Supabase and is read live by every evaluator's device, so applying an
+ * edit on save would reword a question underneath someone mid-capture. Proposals
+ * are the staging step. Nothing here is visible to evaluators; approving on the
+ * Admin page is what applies it.
+ */
+export interface ContentProposal {
+  id: string
+  table: ProposalTable
+  /** Primary key of the row being edited. */
+  rowId: string
+  /** Field path, e.g. "evaluator_facing_prompt", "guiding_questions.2". */
+  field: string
+  /** Value at the moment the proposal was made; used to detect a stale apply. */
+  oldText: string
+  newText: string
+  status: 'pending' | 'applied' | 'rejected'
+  /** Where it was proposed from, for context when reviewing. */
+  route: string
+  locationLabel: string
+  createdAt: string
+  resolvedAt: string | null
+}
+
 class FeedbackDB extends Dexie {
   comments!: EntityTable<FeedbackComment, 'id'>
+  proposals!: EntityTable<ContentProposal, 'id'>
 
   constructor() {
     super('cairn-dev-feedback')
     this.version(1).stores({
       comments: 'id, status, importance, route, createdAt',
+    })
+    this.version(2).stores({
+      comments: 'id, status, importance, route, createdAt',
+      proposals: 'id, status, table, rowId, createdAt',
     })
   }
 }
@@ -75,4 +111,30 @@ export async function deleteComment(id: string): Promise<void> {
 export async function markSent(ids: string[]): Promise<void> {
   const now = new Date().toISOString()
   await fdb.comments.bulkUpdate(ids.map((id) => ({ key: id, changes: { status: 'sent', updatedAt: now } })))
+}
+
+export async function addProposal(
+  draft: Pick<
+    ContentProposal,
+    'table' | 'rowId' | 'field' | 'oldText' | 'newText' | 'route' | 'locationLabel'
+  >,
+): Promise<void> {
+  await fdb.proposals.add({
+    id: uid(),
+    status: 'pending',
+    createdAt: new Date().toISOString(),
+    resolvedAt: null,
+    ...draft,
+  })
+}
+
+export async function resolveProposal(
+  id: string,
+  status: 'applied' | 'rejected',
+): Promise<void> {
+  await fdb.proposals.update(id, { status, resolvedAt: new Date().toISOString() })
+}
+
+export async function deleteProposal(id: string): Promise<void> {
+  await fdb.proposals.delete(id)
 }

@@ -25,3 +25,8 @@ is that overarching issues are easier and safer to handle all at once.
 
 - `incoming/` — unhandled batches. Gitignored (transient working artifacts).
 - `processed/` — batches already turned into a plan. Gitignored.
+- `content-edits/` — one file per day recording every approved wording change to
+  reference copy (KSA questions, activity titles), as a before/after diff.
+  **Committed, unlike the two above.** These edits are applied to the database,
+  so the file is the only record that the live text has diverged from
+  `src/data/seed.ts`; reconcile the seed from it when convenient.

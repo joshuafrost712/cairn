@@ -36,11 +36,35 @@ function insideOwnUI(node: Node | null): boolean {
   return !!el?.closest('.dfb-root')
 }
 
+/**
+ * The addressable string a selection sits inside, if any. Elements rendered from
+ * the content layer (components/Copy.tsx) or tagged reference data carry
+ * data-dfb-node / data-dfb-field / data-dfb-source; walking up to the nearest one
+ * is what turns "some highlighted words" into "this field of this record".
+ */
+interface EditTarget {
+  nodeId: string
+  field: string
+  source: 'chrome' | 'ref'
+  table?: string
+}
+
+function findEditTarget(node: Node | null): EditTarget | null {
+  const el = node?.nodeType === Node.TEXT_NODE ? node.parentElement : (node as Element | null)
+  const tagged = el?.closest<HTMLElement>('[data-dfb-node]')
+  const nodeId = tagged?.dataset.dfbNode
+  const field = tagged?.dataset.dfbField
+  const source = tagged?.dataset.dfbSource
+  if (!nodeId || !field || (source !== 'chrome' && source !== 'ref')) return null
+  return { nodeId, field, source, table: tagged?.dataset.dfbTable }
+}
+
 interface Anchor {
   top: number
   left: number
   text: string
   label: string
+  target: EditTarget | null
 }
 
 /**
@@ -52,7 +76,7 @@ interface Anchor {
  */
 export function SelectionLayer() {
   const { pathname } = useLocation()
-  const { openComment, draft, managerOpen } = useFeedback()
+  const { openComment, openEdit, draft, editDraft, managerOpen } = useFeedback()
   const [anchor, setAnchor] = useState<Anchor | null>(null)
 
   const readSelection = useCallback((): Anchor | null => {
@@ -65,16 +89,17 @@ export function SelectionLayer() {
     const rect = range.getBoundingClientRect()
     return {
       top: Math.max(4, rect.top - 38),
-      left: Math.min(rect.left, window.innerWidth - 130),
+      left: Math.min(rect.left, window.innerWidth - 220),
       text,
       label: deriveLocationLabel(range),
+      target: findEditTarget(range.startContainer),
     }
   }, [])
 
   useEffect(() => {
     // Don't track selection while a comment window or the manager is open; the
     // button is also hidden in render below, so no stale anchor shows through.
-    if (draft || managerOpen) return
+    if (draft || editDraft || managerOpen) return
     const show = () => setAnchor(readSelection())
     const onSelectionChange = () => {
       const sel = window.getSelection()
@@ -91,7 +116,7 @@ export function SelectionLayer() {
       document.removeEventListener('selectionchange', onSelectionChange)
       window.removeEventListener('scroll', onScroll, true)
     }
-  }, [readSelection, draft, managerOpen])
+  }, [readSelection, draft, editDraft, managerOpen])
 
   // Keyboard shortcut: comment on the current selection, or a page-level note.
   useEffect(() => {
@@ -111,20 +136,36 @@ export function SelectionLayer() {
     return () => document.removeEventListener('keydown', onKey)
   }, [readSelection, openComment, pathname])
 
-  if (!anchor || draft || managerOpen) return null
+  if (!anchor || draft || editDraft || managerOpen) return null
 
   return (
-    <button
-      type="button"
-      className="dfb-root dfb-selection-btn"
-      style={{ top: anchor.top, left: anchor.left }}
-      onMouseDown={(e) => e.preventDefault()} // keep the selection alive through the click
-      onClick={() => {
-        openComment({ route: pathname, selectionText: anchor.text, locationLabel: anchor.label })
-        setAnchor(null)
-      }}
-    >
-      💬 Comment
-    </button>
+    <div className="dfb-root dfb-selection-actions" style={{ top: anchor.top, left: anchor.left }}>
+      <button
+        type="button"
+        className="dfb-selection-btn"
+        onMouseDown={(e) => e.preventDefault()} // keep the selection alive through the click
+        onClick={() => {
+          openComment({ route: pathname, selectionText: anchor.text, locationLabel: anchor.label })
+          setAnchor(null)
+        }}
+      >
+        💬 Comment
+      </button>
+      {/* Only offered when the selection resolves to an addressable string. Plain
+          text with no data-dfb-node has nowhere to write back to. */}
+      {anchor.target && (
+        <button
+          type="button"
+          className="dfb-selection-btn"
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={() => {
+            openEdit({ ...anchor.target!, route: pathname, locationLabel: anchor.label })
+            setAnchor(null)
+          }}
+        >
+          ✏️ Edit
+        </button>
+      )}
+    </div>
   )
 }

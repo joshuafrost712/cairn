@@ -7,11 +7,29 @@ export interface Draft {
   locationLabel: string
 }
 
+/**
+ * An edit-in-progress: which addressable string was selected. `source` decides
+ * where saving goes — 'chrome' patches the JSON file on disk, 'ref' files a
+ * proposal against the database row named by `table` + `nodeId`.
+ */
+export interface EditDraft {
+  nodeId: string
+  field: string
+  source: 'chrome' | 'ref'
+  table?: string
+  locationLabel: string
+  route: string
+}
+
 export interface FeedbackCtxValue {
   /** Non-null while the comment window is open. */
   draft: Draft | null
   openComment: (draft: Draft) => void
   closeComment: () => void
+  /** Non-null while the edit window is open. */
+  editDraft: EditDraft | null
+  openEdit: (draft: EditDraft) => void
+  closeEdit: () => void
   managerOpen: boolean
   setManagerOpen: (open: boolean) => void
 }

@@ -1,4 +1,5 @@
 import { recordVerdict, clearVerdict } from '../db/verifications'
+import { c } from '../lib/content/chrome'
 import type { AnnotatedObservation } from '../reports/verification'
 
 const STATUS_CLASS: Record<string, string> = {
@@ -15,11 +16,11 @@ export function VerifyControls({ obs, evaluatorEmail }: { obs: AnnotatedObservat
   const mine = obs.verdicts.find((v) => v.evaluator_email === evaluatorEmail)
   const mineLabel =
     mine?.decision === 'confirm'
-      ? 'you confirmed'
+      ? c('verify.you-confirmed')
       : mine?.decision === 'adjust'
-        ? `you set ${mine.adjusted_designation}/3`
+        ? c('verify.you-set', 'label', { level: mine.adjusted_designation ?? '' })
         : mine?.decision === 'reject'
-          ? 'you rejected'
+          ? c('verify.you-rejected')
           : null
 
   return (
@@ -31,9 +32,9 @@ export function VerifyControls({ obs, evaluatorEmail }: { obs: AnnotatedObservat
           className={`ghost small ${mine?.decision === 'confirm' ? 'primary' : ''}`}
           onClick={() => recordVerdict(obs, evaluatorEmail, 'confirm')}
         >
-          Confirm {obs.evidence_designation}/3
+          {c('verify.confirm', 'label', { level: obs.evidence_designation })}
         </button>
-        <span className="small muted">adjust:</span>
+        <span className="small muted">{c('verify.adjust')}</span>
         {[0, 1, 2, 3].map((n) => (
           <button
             key={n}
@@ -47,11 +48,11 @@ export function VerifyControls({ obs, evaluatorEmail }: { obs: AnnotatedObservat
           className={`ghost small ${mine?.decision === 'reject' ? 'primary' : ''}`}
           onClick={() => recordVerdict(obs, evaluatorEmail, 'reject')}
         >
-          Reject
+          {c('verify.reject')}
         </button>
         {mine && (
           <button className="ghost small muted" onClick={() => clearVerdict(obs.id, evaluatorEmail)}>
-            clear ({mineLabel})
+            {c('verify.clear', 'label', { what: mineLabel ?? '' })}
           </button>
         )}
       </div>

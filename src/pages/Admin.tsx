@@ -18,6 +18,7 @@ import { getRequiredConfirmations, setRequiredConfirmations } from '../reports/v
 import { downloadText } from '../lib/download'
 import type { Activity, Ksa, Participant, Team, Workshop } from '../lib/types'
 import { RecordsBrowser } from '../components/RecordsBrowser'
+import { ProposalPanel } from '../devfeedback/ProposalPanel'
 import { loadDemoScenario } from '../data/demoScenario'
 
 // Admin: load/seed reference content, edit the workshop meta + roster (teams and
@@ -53,7 +54,7 @@ export function Admin() {
   const teamName = (id: string | null) => myTeams.find((t) => t.id === id)?.name ?? 'Unassigned'
 
   return (
-    <main>
+    <>
       <div className="card">
         <h1>Admin</h1>
         <p className="muted small">Backend: {isSupabaseConfigured ? 'Supabase configured' : 'local-only (no Supabase)'}</p>
@@ -249,6 +250,8 @@ export function Admin() {
           </p>
         ))}
       </div>
-    </main>
+
+      <ProposalPanel />
+    </>
   )
 }

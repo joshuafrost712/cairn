@@ -1,4 +1,6 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react'
+import { c } from '../lib/content/chrome'
+import { Copy } from './Copy'
 
 // A render crash must never lose an evaluator's place silently. This catches it,
 // shows a recoverable message, and keeps the on-device data intact (it's in IndexedDB,
@@ -23,15 +25,14 @@ export class ErrorBoundary extends Component<{ children: ReactNode }, State> {
       return (
         <main>
           <div className="card">
-            <h1>Something went wrong</h1>
-            <p className="small">
-              The screen hit an error, but your data is saved on this device. Reload to continue; nothing in
-              progress is lost.
-            </p>
+            <Copy id="error.title" as="h1" />
+            <Copy id="error.body" as="p" className="small" />
             <p className="muted small">{this.state.error.message}</p>
             <div className="row">
-              <button className="primary" onClick={() => location.reload()}>Reload</button>
-              <button className="ghost" onClick={() => this.setState({ error: null })}>Try again</button>
+              <button className="primary" onClick={() => location.reload()}>{c('error.reload')}</button>
+              <button className="ghost" onClick={() => this.setState({ error: null })}>
+                {c('error.try-again')}
+              </button>
             </div>
           </div>
         </main>
