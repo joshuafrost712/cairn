@@ -225,6 +225,33 @@ export interface DiscrepancyResolution {
   at: string // ISO timestamp
 }
 
+/**
+ * Reference-authoring outbox (client-only; no Postgres twin). The Scenario Builder
+ * writes workshops/activities/KSAs/wiring to the local cache immediately, then
+ * queues the corresponding backend upsert/delete here. pushReferenceOutbox()
+ * (src/db/referenceWrite.ts) replays these to Supabase; loadReferenceData() drains
+ * the queue BEFORE its destructive pull so authored edits are never clobbered.
+ */
+export type ReferenceTable =
+  | 'workshop'
+  | 'team'
+  | 'participant'
+  | 'activity'
+  | 'ksa'
+  | 'activity_ksa'
+
+export interface ReferenceOutboxEntry {
+  /** `${table}:${rowKey}` — repeated edits to the same row collapse to one entry. */
+  id: string
+  table: ReferenceTable
+  op: 'upsert' | 'delete'
+  /** the row id, or `${activity_id}::${ksa_id}` for activity_ksa (its composite key). */
+  rowKey: string
+  /** the Postgres row to upsert; null for a delete. */
+  payload: object | null
+  at: string
+}
+
 /** One evaluator's verdict on one observation (the multi-evaluator gate). */
 export type VerificationDecision = 'confirm' | 'adjust' | 'reject'
 

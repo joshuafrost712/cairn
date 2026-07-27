@@ -1,5 +1,6 @@
 import { db, activityKsaPk } from './local'
 import { supabase, isSupabaseConfigured } from '../lib/supabase'
+import { pushReferenceOutbox } from './referenceWrite'
 import * as seed from '../data/seed'
 import type { Activity, Ksa } from '../lib/types'
 
@@ -11,6 +12,16 @@ import type { Activity, Ksa } from '../lib/types'
  */
 export async function loadReferenceData(): Promise<void> {
   if (isSupabaseConfigured && supabase && navigator.onLine) {
+    // Drain any locally-authored reference edits (Scenario Builder / roster) up to
+    // the backend first, so the destructive pull below reflects them rather than
+    // clobbering them. If anything is still pending afterward (e.g. a transient
+    // push error), SKIP the overwrite entirely and keep the local cache — losing
+    // unsynced authoring would be worse than serving a slightly stale remote.
+    const { pending } = await pushReferenceOutbox()
+    if (pending > 0) {
+      console.warn('[cairn] reference outbox has unsynced entries; keeping local cache')
+      return
+    }
     try {
       const [w, t, p, a, k, ak] = await Promise.all([
         supabase.from('workshop').select('*'),

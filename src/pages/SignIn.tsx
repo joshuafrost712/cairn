@@ -30,15 +30,23 @@ function SupabaseSignIn() {
   const [error, setError] = useState<string | null>(null)
   const [confirmationPending, setConfirmationPending] = useState(false)
 
+  // Both handlers clear `busy` in a finally block. signIn/signUp are written not
+  // to reject, but a stuck "Signing in…" button with no way out is bad enough
+  // that the guarantee belongs on both sides of the call.
   const submitSignIn = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!email.trim() || !password) return
     setBusy(true)
     setError(null)
-    const { error: err } = await signIn(email, password)
-    setBusy(false)
-    if (err) { setError(err); return }
-    navigate('/', { replace: true })
+    try {
+      const { error: err } = await signIn(email, password)
+      if (err) { setError(err); return }
+      navigate('/', { replace: true })
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Sign-in failed. Please try again.')
+    } finally {
+      setBusy(false)
+    }
   }
 
   const submitSignUp = async (e: React.FormEvent) => {
@@ -46,11 +54,16 @@ function SupabaseSignIn() {
     if (!name.trim() || !email.trim() || !password) return
     setBusy(true)
     setError(null)
-    const { error: err, confirmationRequired } = await signUp(name, email, password, role)
-    setBusy(false)
-    if (err) { setError(err); return }
-    if (confirmationRequired) { setConfirmationPending(true); return }
-    navigate('/', { replace: true })
+    try {
+      const { error: err, confirmationRequired } = await signUp(name, email, password, role)
+      if (err) { setError(err); return }
+      if (confirmationRequired) { setConfirmationPending(true); return }
+      navigate('/', { replace: true })
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not create the account. Please try again.')
+    } finally {
+      setBusy(false)
+    }
   }
 
   if (confirmationPending) {
@@ -192,8 +205,12 @@ function LocalSignIn() {
     e.preventDefault()
     if (!name.trim() || !email.trim()) return
     setBusy(true)
-    await signIn(name, email)
-    navigate('/', { replace: true })
+    try {
+      await signIn(name, email)
+      navigate('/', { replace: true })
+    } finally {
+      setBusy(false)
+    }
   }
 
   return (

@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Link } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '../db/local'
 import { loadReferenceData, primeFromSeed } from '../db/reference'
@@ -236,10 +237,11 @@ export function Admin() {
       </div>
 
       <div className="card">
-        <h2>Schedule &amp; KSAs (read-only)</h2>
+        <h2>Schedule &amp; KSAs</h2>
         <p className="small muted">
-          {(activities ?? []).length} activities · {(ksas ?? []).length} KSAs. These are authored content,
-          seeded from the workshop plan.
+          {(activities ?? []).length} activities · {(ksas ?? []).length} KSAs. Events, questions, the 0–3
+          evidence descriptors, and which questions appear on which event are now authored in the{' '}
+          <Link to="/builder">Scenario Builder</Link> — including drafting a whole scenario from an uploaded document.
         </p>
         {(ksas ?? []).map((k) => (
           <p className="small" key={k.id}>

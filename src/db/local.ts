@@ -9,6 +9,7 @@ import type {
   MentoringConversation,
   ObservationRecord,
   Participant,
+  ReferenceOutboxEntry,
   Team,
   VerificationVerdict,
   Workshop,
@@ -35,6 +36,7 @@ class CairnDB extends Dexie {
   mentoringConversations!: EntityTable<MentoringConversation, 'id'>
   discrepancyResolutions!: EntityTable<DiscrepancyResolution, 'id'>
   coverage!: EntityTable<CoverageRow, 'client_id'>
+  referenceOutbox!: EntityTable<ReferenceOutboxEntry, 'id'>
 
   constructor() {
     super('cairn')
@@ -70,10 +72,21 @@ class CairnDB extends Dexie {
     this.version(6).stores({
       coverage: 'client_id, activity_id, workshop_id, evaluator_email',
     })
+    // v7: reference-authoring outbox — pending backend upserts/deletes for
+    // workshops/activities/KSAs/wiring produced by the Scenario Builder.
+    this.version(7).stores({
+      referenceOutbox: 'id, table, op',
+    })
   }
 }
 
 export const db = new CairnDB()
+
+/** A client-generated id (UUID where available). Shared by the roster + builder writers. */
+export function newId(): string {
+  if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) return crypto.randomUUID()
+  return `id_${Date.now().toString(36)}_${Math.floor(Math.random() * 1e9).toString(36)}`
+}
 
 /** Rows still needing to reach the backend — the outbox. */
 export function getOutbox() {

@@ -2,6 +2,7 @@ import { useMemo } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '../db/local'
+import { useActiveWorkshopId } from '../lib/activeWorkshop'
 import { useAuth, useIsChief } from '../auth/AuthContext'
 import { createDraft } from '../db/evaluations'
 import { buildAllReports } from '../reports/build'
@@ -44,7 +45,17 @@ export function EvaluatorHome() {
   const isChief = useIsChief()
   const navigate = useNavigate()
 
-  const workshop = useLiveQuery(() => db.workshops.toCollection().first(), [])
+  const activeWorkshopId = useActiveWorkshopId()
+  const workshop = useLiveQuery(
+    async () => {
+      if (activeWorkshopId) {
+        const w = await db.workshops.get(activeWorkshopId)
+        if (w) return w
+      }
+      return db.workshops.toCollection().first()
+    },
+    [activeWorkshopId],
+  )
   const neededConvCount = useLiveQuery(
     () => db.mentoringConversations.where('status').equals('needed').count(),
     [],
@@ -187,6 +198,8 @@ export function EvaluatorHome() {
         )}
         <span className="spacer" />
         <Link to="/day-email">End-of-day email</Link>
+        <span className="spacer" />
+        <Link className="small muted" to="/builder">Scenario Builder</Link>
         <span className="spacer" />
         <Link className="small muted" to="/admin">Admin</Link>
       </div>

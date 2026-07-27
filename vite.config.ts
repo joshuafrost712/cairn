@@ -22,7 +22,7 @@ function feedbackInbox(): Plugin {
         req.on('end', () => {
           try {
             const { filename, markdown } = JSON.parse(body) as { filename?: string; markdown?: string }
-            const safe = basename(filename ?? 'feedback.md').replace(/[^\w.\-]/g, '_')
+            const safe = basename(filename ?? 'feedback.md').replace(/[^\w.-]/g, '_')
             const name = safe.endsWith('.md') ? safe : `${safe}.md`
             const dir = join(process.cwd(), 'feedback', 'incoming')
             mkdirSync(dir, { recursive: true })
@@ -67,8 +67,12 @@ export default defineConfig({
         ],
       },
       // The app must work fully offline for capture; precache the shell.
+      // navigateFallback has to carry `base`: precache URLs are base-prefixed, so
+      // a hardcoded '/index.html' has no matching entry under the GitHub Pages
+      // build (base=/<repo>/) and Workbox throws non-precached-url while the
+      // service worker evaluates, silently killing offline navigation.
       workbox: {
-        navigateFallback: '/index.html',
+        navigateFallback: `${base}index.html`,
         globPatterns: ['**/*.{js,css,html,ico,png,svg}'],
       },
       devOptions: { enabled: false },

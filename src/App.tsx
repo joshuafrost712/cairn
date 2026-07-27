@@ -16,6 +16,7 @@ import { Reports } from './pages/Reports'
 import { DayEmail } from './pages/DayEmail'
 import { Export } from './pages/Export'
 import { Admin } from './pages/Admin'
+import { Builder } from './pages/Builder'
 import { Conversations } from './pages/Conversations'
 import { Inbox } from './pages/Inbox'
 import { DevFeedbackRoot } from './devfeedback/DevFeedbackRoot'
@@ -45,7 +46,7 @@ function Header() {
 }
 
 function Shell() {
-  const { identity } = useAuth()
+  const { identity, status } = useAuth()
 
   useEffect(() => {
     const stopSync = startSyncLoop()
@@ -62,6 +63,20 @@ function Shell() {
       stopCoverage?.()
     }
   }, [])
+
+  // Distinct from signed-out: we haven't resolved the stored session yet.
+  // Showing the sign-in form here would flash it at an already-signed-in user,
+  // and on a slow connection would look like a failed login.
+  if (status === 'checking') {
+    return (
+      <main>
+        <div className="card">
+          <h1>Throughline</h1>
+          <p className="muted small">Checking your session…</p>
+        </div>
+      </main>
+    )
+  }
 
   if (!identity) {
     return (
@@ -86,6 +101,7 @@ function Shell() {
         <Route path="/conversations" element={<Conversations />} />
         <Route path="/inbox" element={<Inbox />} />
         <Route path="/admin" element={<Admin />} />
+        <Route path="/builder" element={<Builder />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </>
