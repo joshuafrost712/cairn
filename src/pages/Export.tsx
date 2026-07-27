@@ -59,7 +59,7 @@ export function Export() {
   }
 
   return (
-    <main>
+    <>
       <div className="card">
         <h1>CBC export</h1>
         <p className="small muted">
@@ -117,11 +117,6 @@ export function Export() {
 
       {msg && <div className="banner">{msg}</div>}
 
-      <div className="card row">
-        <Link to="/reports">Reports</Link>
-        <span className="spacer" />
-        <Link className="small muted" to="/">Home</Link>
-      </div>
-    </main>
+    </>
   )
 }

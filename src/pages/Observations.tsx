@@ -55,7 +55,7 @@ export function Observations() {
   const email = identity?.email ?? null
 
   return (
-    <main>
+    <>
       <div className="card">
         <Copy id="obs.title" as="h1" />
         <Copy id="obs.intro" as="p" className="small muted" />
@@ -123,13 +123,6 @@ export function Observations() {
         )
       })}
 
-      <div className="card row">
-        <Link to="/routing">{c('nav.back-to-routing')}</Link>
-        <span className="spacer" />
-        <Link to="/reports">{c('nav.reports')}</Link>
-        <span className="spacer" />
-        <Link className="small muted" to="/">{c('nav.home')}</Link>
-      </div>
-    </main>
+    </>
   )
 }

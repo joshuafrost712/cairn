@@ -51,7 +51,7 @@ export function Reports() {
   }
 
   return (
-    <main>
+    <>
       <div className="card">
         <h1>Reports</h1>
         <p className="small muted">
@@ -163,13 +163,6 @@ export function Reports() {
 
       {msg && <div className="banner">{msg}</div>}
 
-      <div className="card row">
-        <Link to="/routing">Routing</Link>
-        <span className="spacer" />
-        <Link to="/export">CBC export</Link>
-        <span className="spacer" />
-        <Link className="small muted" to="/">Home</Link>
-      </div>
-    </main>
+    </>
   )
 }

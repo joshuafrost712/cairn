@@ -1,5 +1,4 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '../db/local'
 import {
@@ -51,7 +50,7 @@ export function Routing() {
   }
 
   return (
-    <main>
+    <>
       <div className="card">
         <h1>Routing</h1>
         <p className="small muted">
@@ -174,11 +173,6 @@ export function Routing() {
 
       {msg && <div className="banner">{msg}</div>}
 
-      <div className="card row">
-        <Link to="/observations">View observations</Link>
-        <span className="spacer" />
-        <Link className="small muted" to="/">Home</Link>
-      </div>
-    </main>
+    </>
   )
 }

@@ -198,13 +198,13 @@ export function Inbox() {
 
   if (!isChief) {
     return (
-      <main>
+      <>
         <div className="card">
           <h1>Discrepancy inbox</h1>
           <p>This inbox is for chief evaluators. Sign in with a chief evaluator or admin account to access it.</p>
           <Link to="/">Back to home</Link>
         </div>
-      </main>
+      </>
     )
   }
 
@@ -212,7 +212,7 @@ export function Inbox() {
   const chiefEmail = identity?.email ?? ''
 
   return (
-    <main>
+    <>
       <div className="card">
         <h1>Discrepancy inbox</h1>
         <p className="small muted">
@@ -279,13 +279,6 @@ export function Inbox() {
         </div>
       )}
 
-      <div className="card row">
-        <Link to="/reports">Reports</Link>
-        <span className="spacer" />
-        <Link to="/observations">Observations</Link>
-        <span className="spacer" />
-        <Link className="small muted" to="/">Home</Link>
-      </div>
-    </main>
+    </>
   )
 }

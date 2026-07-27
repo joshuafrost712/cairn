@@ -68,7 +68,7 @@ function SupabaseSignIn() {
 
   if (confirmationPending) {
     return (
-      <main>
+      <main className="signin">
         <div className="card">
           <h1>Check your email</h1>
           <p className="muted small">
@@ -84,7 +84,7 @@ function SupabaseSignIn() {
   }
 
   return (
-    <main>
+    <main className="signin">
       <div className="card">
         <h1>{mode === 'signin' ? 'Sign in' : 'Create account'}</h1>
 
@@ -214,7 +214,7 @@ function LocalSignIn() {
   }
 
   return (
-    <main>
+    <main className="signin">
       <div className="card">
         <h1>Create your profile</h1>
         <p className="muted small">

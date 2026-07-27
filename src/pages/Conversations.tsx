@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '../db/local'
 import {
@@ -252,7 +251,7 @@ export function Conversations() {
   const defaultRecordedBy = identity?.email ?? ''
 
   return (
-    <main>
+    <>
       <div className="card">
         <h1>Mentoring conversations</h1>
         <p className="small muted">
@@ -322,13 +321,6 @@ export function Conversations() {
         </div>
       )}
 
-      <div className="card row">
-        <Link to="/observations">Observations</Link>
-        <span className="spacer" />
-        <Link to="/reports">Reports</Link>
-        <span className="spacer" />
-        <Link className="small muted" to="/">Home</Link>
-      </div>
-    </main>
+    </>
   )
 }

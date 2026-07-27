@@ -5,12 +5,9 @@ import { db } from '../db/local'
 import { useActiveWorkshopId } from '../lib/activeWorkshop'
 import { c } from '../lib/content/chrome'
 import { Copy } from '../components/Copy'
-import { useAuth, useIsChief } from '../auth/AuthContext'
+import { useAuth } from '../auth/AuthContext'
 import { createDraft } from '../db/evaluations'
-import { buildAllReports } from '../reports/build'
-import { annotateObservations } from '../reports/verification'
-import { findDiscrepancies, buildCaptureTimeMap, discrepancyId } from '../reports/discrepancy'
-import type { Activity, Ksa, ObservationRecord, Participant, Team, VerificationVerdict, EvaluationRecord, DiscrepancyResolution } from '../lib/types'
+import type { Activity } from '../lib/types'
 
 /** Pick the activity nearest to now: prefer the one currently running, else the
  *  most recently finished, else the next upcoming. Returns its id or null. */
@@ -44,7 +41,6 @@ function fmtTime(iso: string | null): string {
 
 export function EvaluatorHome() {
   const { identity } = useAuth()
-  const isChief = useIsChief()
   const navigate = useNavigate()
 
   const activeWorkshopId = useActiveWorkshopId()
@@ -58,11 +54,6 @@ export function EvaluatorHome() {
     },
     [activeWorkshopId],
   )
-  const neededConvCount = useLiveQuery(
-    () => db.mentoringConversations.where('status').equals('needed').count(),
-    [],
-    0,
-  )
   const activities = useLiveQuery(
     () =>
       workshop
@@ -72,54 +63,10 @@ export function EvaluatorHome() {
     [] as Activity[],
   )
 
-  // Discrepancy badge — only computed when the user is a chief evaluator, to avoid
-  // unnecessary queries for regular evaluators.
-  const chiefParticipants = useLiveQuery(
-    () => (isChief ? db.participants.toArray() : Promise.resolve([] as Participant[])),
-    [isChief],
-    [] as Participant[],
-  )
-  const chiefKsas = useLiveQuery(
-    () => (isChief ? db.ksas.toArray() : Promise.resolve([] as Ksa[])),
-    [isChief],
-    [] as Ksa[],
-  )
-  const chiefTeams = useLiveQuery(
-    () => (isChief ? db.teams.toArray() : Promise.resolve([] as Team[])),
-    [isChief],
-    [] as Team[],
-  )
-  const chiefObservations = useLiveQuery(
-    () => (isChief ? db.observations.toArray() : Promise.resolve([] as ObservationRecord[])),
-    [isChief],
-    [] as ObservationRecord[],
-  )
-  const chiefVerdicts = useLiveQuery(
-    () => (isChief ? db.verifications.toArray() : Promise.resolve([] as VerificationVerdict[])),
-    [isChief],
-    [] as VerificationVerdict[],
-  )
-  const chiefEvaluations = useLiveQuery(
-    () => (isChief ? db.evaluations.toArray() : Promise.resolve([] as EvaluationRecord[])),
-    [isChief],
-    [] as EvaluationRecord[],
-  )
-  const chiefResolutions = useLiveQuery(
-    () => (isChief ? db.discrepancyResolutions.toArray() : Promise.resolve([] as DiscrepancyResolution[])),
-    [isChief],
-    [] as DiscrepancyResolution[],
-  )
-
-  const openDiscrepancyCount = useMemo(() => {
-    if (!isChief) return 0
-    const sortedKsas = [...(chiefKsas ?? [])].sort((a, b) => a.code.localeCompare(b.code))
-    const annotated = annotateObservations(chiefObservations ?? [], chiefVerdicts ?? [])
-    const reports = buildAllReports(chiefParticipants ?? [], sortedKsas, annotated, chiefTeams ?? [])
-    const captureTimes = buildCaptureTimeMap(chiefEvaluations ?? [])
-    const all = findDiscrepancies(reports, captureTimes)
-    const resolvedIds = new Set((chiefResolutions ?? []).map((r) => r.id))
-    return all.filter((d) => !resolvedIds.has(discrepancyId(d.participant_id, d.ksa_code))).length
-  }, [isChief, chiefParticipants, chiefKsas, chiefTeams, chiefObservations, chiefVerdicts, chiefEvaluations, chiefResolutions])
+  // The badge counts that used to be computed here (the whole
+  // annotateObservations -> buildAllReports -> findDiscrepancies pipeline, run on
+  // every render just to print one number) now live in useNavCounts, which the
+  // sidebar owns. This page is back to being about picking an activity.
 
   // The suggestion legitimately depends on the current wall-clock time.
   // eslint-disable-next-line react-hooks/purity
@@ -136,17 +83,17 @@ export function EvaluatorHome() {
 
   if (!workshop) {
     return (
-      <main>
+      <>
         <div className="banner warn">
           <Copy id="home.no-workshop.before" /> <Link to="/admin">{c('nav.admin')}</Link>{' '}
           <Copy id="home.no-workshop.after" />
         </div>
-      </main>
+      </>
     )
   }
 
   return (
-    <main>
+    <>
       <div className="card">
         <h1 data-dfb-node={workshop.id} data-dfb-field="name" data-dfb-source="ref" data-dfb-table="workshop">
           {workshop.name}
@@ -175,41 +122,6 @@ export function EvaluatorHome() {
         </button>
       ))}
 
-      <div className="card row">
-        <Link to="/evaluations">{c('nav.my-evaluations')}</Link>
-        <span className="spacer" />
-        <Link to="/routing">{c('nav.routing')}</Link>
-        <span className="spacer" />
-        <Link to="/reports">{c('nav.reports')}</Link>
-        <span className="spacer" />
-        <Link to="/conversations" style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}>
-          {c('nav.conversations')}
-          {(neededConvCount ?? 0) > 0 && (
-            <span className="pill queued" style={{ fontSize: '0.7rem', padding: '0.1rem 0.4rem' }}>
-              {neededConvCount}
-            </span>
-          )}
-        </Link>
-        {isChief && (
-          <>
-            <span className="spacer" />
-            <Link to="/inbox" style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}>
-              {c('nav.discrepancy-inbox')}
-              {openDiscrepancyCount > 0 && (
-                <span className="pill queued" style={{ fontSize: '0.7rem', padding: '0.1rem 0.4rem' }}>
-                  {openDiscrepancyCount}
-                </span>
-              )}
-            </Link>
-          </>
-        )}
-        <span className="spacer" />
-        <Link to="/day-email">{c('nav.day-email')}</Link>
-        <span className="spacer" />
-        <Link className="small muted" to="/builder">{c('nav.builder')}</Link>
-        <span className="spacer" />
-        <Link className="small muted" to="/admin">{c('nav.admin')}</Link>
-      </div>
-    </main>
+    </>
   )
 }

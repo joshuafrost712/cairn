@@ -171,16 +171,16 @@ export function CaptureActivity() {
 
   if (!record) {
     return (
-      <main>
+      <>
         <div className="banner warn">
           <Copy id="capture.not-found.before" /> <Link to="/">{c('capture.not-found.link')}</Link>
         </div>
-      </main>
+      </>
     )
   }
 
   return (
-    <main>
+    <>
       <div className="card">
         <h1>
           {activity ? (
@@ -363,6 +363,6 @@ export function CaptureActivity() {
           )}
         </div>
       </div>
-    </main>
+    </>
   )
 }

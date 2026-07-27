@@ -104,7 +104,7 @@ export function Builder() {
     })
 
   return (
-    <main>
+    <>
       <div className="card">
         <h1>Scenario Builder</h1>
         <p className="small muted">
@@ -188,7 +188,7 @@ export function Builder() {
           <PreviewCard activities={activities ?? []} />
         </>
       )}
-    </main>
+    </>
   )
 }
 

@@ -1,0 +1,138 @@
+/**
+ * Design tokens: colour, space, type, radius, elevation, motion.
+ *
+ * Nothing here selects an element. Everything downstream reads these, and no new
+ * rule should carry a raw hex or a raw px spacing value. That discipline is what
+ * makes dark mode a values-only change later (see the stub at the bottom).
+ *
+ * NOTE ON BREAKPOINTS: CSS custom properties cannot be used inside an @media
+ * condition. `@media (min-width: var(--bp-md))` silently does nothing. The --bp-*
+ * tokens below are DOCUMENTATION ONLY; the real values are hardcoded in
+ * layout.css. Keep the two in sync by hand. This is the single most common way a
+ * token system like this rots.
+ */
+
+:root {
+  /* ---- breakpoints (documentation only — see note above) ---- */
+  --bp-sm: 640px;   /* phone landscape; nothing changes */
+  --bp-md: 900px;   /* sidebar appears, master-detail splits, tables un-stack */
+  --bp-lg: 1280px;  /* tiles go 4-up, heatmap fits without x-scroll */
+  --bp-xl: 1600px;  /* content max-width cap; past this you get margin */
+
+  /* ---- space: 4px base. Use these, never raw px. ---- */
+  --s-0: 0;
+  --s-1: 0.25rem;
+  --s-2: 0.5rem;
+  --s-3: 0.75rem;
+  --s-4: 1rem;
+  --s-5: 1.5rem;
+  --s-6: 2rem;
+  --s-7: 3rem;
+  --s-8: 4rem;
+
+  /* ---- type: 1.125 ratio off 16px. --t-0 is body. ---- */
+  --t--2: 0.72rem;   /* pill, superscript */
+  --t--1: 0.82rem;   /* .small, table cells */
+  --t-0: 1rem;       /* body, inputs */
+  --t-1: 1.125rem;   /* h2 */
+  --t-2: 1.3rem;     /* h1 */
+  --t-3: 1.75rem;    /* stat tile value */
+  --t-4: 3rem;       /* hero figure; at most one per view */
+  --lh-tight: 1.2;
+  --lh-body: 1.45;
+  --ff-sans: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --ff-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+  --fw-med: 600;
+  --fw-bold: 700;
+
+  /* ---- radius ---- */
+  --r-1: 6px;    /* chips, small controls */
+  --r-2: 8px;    /* buttons, inputs */
+  --r-3: 12px;   /* cards; matches the existing .card */
+  --r-bar: 4px;  /* data-end of a bar mark; square at the baseline */
+  --r-pill: 999px;
+
+  /* ---- elevation: two levels. Anything more is decoration. ---- */
+  --e-0: none;
+  --e-1: 0 1px 2px rgba(15, 23, 42, 0.05);
+  --e-2: 0 8px 24px rgba(15, 23, 42, 0.12);  /* drawer, popover only */
+
+  /* ---- motion ---- */
+  --dur-1: 120ms;
+  --dur-2: 220ms;
+  --ease: cubic-bezier(0.2, 0, 0, 1);
+
+  /* ---- surfaces and ink (existing values kept; names added) ---- */
+  --bg: #f7f7f8;           /* page plane */
+  --card: #ffffff;         /* surface-1: every chart renders on this */
+  --surface-2: #f3f4f6;    /* recessed: table zebra, empty heat cell */
+  --ink: #1f2937;
+  --muted: #6b7280;
+  --line: #e5e7eb;         /* hairline: 1px SOLID, never dashed */
+  --line-strong: #d1d5db;  /* table header rule, axis baseline */
+  --accent: #2563eb;
+  --accent-ink: #ffffff;
+  --accent-wash: #eff6ff;  /* nav active, row selected */
+  --focus: #2563eb;
+
+  /* ---- status: reserved. Never encodes a data value. Always icon or label. ---- */
+  --ok: #15803d;
+  --warn: #b45309;
+  --danger: #b91c1c;
+  --wash-ok: #f0fdf4;
+  --wash-warn: #fffbeb;
+  --wash-danger: #fef2f2;
+
+  /* ---- THE 0-3 DESIGNATION RAMP -----------------------------------------
+     Ordinal: reordering the categories would change the meaning, so this is a
+     single-hue ramp with monotone lightness, not a categorical palette and not
+     red-to-green. Colourblind-safe by construction: one hue with ordered
+     lightness carries no hue distinction to lose.
+
+     THE NUMERAL IS ALWAYS RENDERED. Colour is a redundant channel here, never
+     the only one, which is also what makes the plain table view a faithful twin.
+
+     Ink is chosen by fill luminance: 0 and 1 take dark ink, 2 and 3 take white.
+       0 on #86b6ef -> 9.33:1     2 on #256abf -> 5.39:1
+       1 on #5598e7 -> 6.59:1     3 on #104281 -> 9.91:1                      */
+  --d0: #86b6ef;
+  --d1: #5598e7;
+  --d2: #256abf;
+  --d3: #104281;
+  --d0-ink: #0b0b0b;
+  --d1-ink: #0b0b0b;
+  --d2-ink: #ffffff;
+  --d3-ink: #ffffff;
+  --d-empty: #f3f4f6;      /* no evidence yet: recedes, carries a middle dot */
+  --d-empty-ink: #9ca3af;
+
+  /* ---- chart chrome ---- */
+  --grid: #e5e7eb;         /* hairline, solid */
+  --axis: #d1d5db;
+  --deemph: #cbd5e1;       /* the "everything else" grey in emphasis mode */
+  --gap-mark: 2px;         /* surface gap between touching fills. Fixed. */
+
+  font-family: var(--ff-sans);
+  color: var(--ink);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --dur-1: 0ms;
+    --dur-2: 0ms;
+  }
+}
+
+/* Dark mode is DEFERRED. When it lands it is a values-only change: redefine the
+   tokens above under both scopes (the OS preference AND an explicit [data-theme]
+   stamp, so a user toggle beats the OS in both directions). No selector in
+   layout.css or dashboard.css should need to change.
+
+   The designation ramp must be RE-STEPPED, not inverted: on a dark surface the
+   sequential anchor flips (3 becomes the LIGHTEST step) and the step nearest the
+   surface must still clear 2:1. A validated dark set:
+     surface #17181b -> d0 #184f95, d1 #256abf, d2 #5598e7, d3 #b7d3f6
+
+   Do not ship it until every hardcoded hex still sitting inline in src/ has moved
+   into this file. Add `color-scheme: light dark` to :root at the same time so the
+   app's many native inputs and selects follow. */

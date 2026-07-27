@@ -1,11 +1,13 @@
 import { useEffect } from 'react'
-import { BrowserRouter, Routes, Route, Navigate, Link, useLocation } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider, useAuth } from './auth/AuthContext'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import { loadReferenceData } from './db/reference'
 import { startSyncLoop } from './db/sync'
 import { startCoverageSync } from './db/coverage'
-import { SyncStatusBar } from './components/SyncStatusBar'
+import { AppShell } from './layout/AppShell'
+import { RequireRole } from './layout/RequireRole'
+import { ADMIN_ROLES, CHIEF_ROLES } from './layout/roles'
 import { SignIn } from './pages/SignIn'
 import { EvaluatorHome } from './pages/EvaluatorHome'
 import { CaptureActivity } from './pages/CaptureActivity'
@@ -20,30 +22,6 @@ import { Builder } from './pages/Builder'
 import { Conversations } from './pages/Conversations'
 import { Inbox } from './pages/Inbox'
 import { DevFeedbackRoot } from './devfeedback/DevFeedbackRoot'
-
-function Header() {
-  const { identity, signOut } = useAuth()
-  const loc = useLocation()
-  const onHome = loc.pathname === '/'
-  return (
-    <header className="app-header">
-      <div>
-        <span className="brand">Throughline</span>{' '}
-        {!onHome && <Link className="small" to="/">Home</Link>}
-        <div className="sub">OBT participant evaluation</div>
-      </div>
-      <div style={{ textAlign: 'right' }}>
-        <SyncStatusBar />
-        {identity && (
-          <div className="small">
-            {identity.name} <span className="muted">({identity.role})</span> ·{' '}
-            <button className="ghost small" onClick={signOut}>Sign out</button>
-          </div>
-        )}
-      </div>
-    </header>
-  )
-}
 
 function Shell() {
   const { identity, status } = useAuth()
@@ -69,7 +47,7 @@ function Shell() {
   // and on a slow connection would look like a failed login.
   if (status === 'checking') {
     return (
-      <main>
+      <main className="shell__content" style={{ maxWidth: 720 }}>
         <div className="card">
           <h1>Throughline</h1>
           <p className="muted small">Checking your session…</p>
@@ -87,24 +65,36 @@ function Shell() {
   }
 
   return (
-    <>
-      <Header />
-      <Routes>
+    <Routes>
+      {/* Narrow: the capture flow. One task at a time, phone-first, no sidebar. */}
+      <Route element={<AppShell mode="narrow" />}>
         <Route path="/" element={<EvaluatorHome />} />
         <Route path="/capture/:clientId" element={<CaptureActivity />} />
         <Route path="/evaluations" element={<MyEvaluations />} />
         <Route path="/routing" element={<Routing />} />
+        <Route path="/conversations" element={<Conversations />} />
+      </Route>
+
+      {/* Wide: list-and-detail work. Used by evaluators and by the chief alike,
+          which is why width is declared per route rather than inferred from role. */}
+      <Route element={<AppShell mode="wide" />}>
         <Route path="/observations" element={<Observations />} />
         <Route path="/reports" element={<Reports />} />
-        <Route path="/day-email" element={<DayEmail />} />
-        <Route path="/export" element={<Export />} />
-        <Route path="/conversations" element={<Conversations />} />
-        <Route path="/inbox" element={<Inbox />} />
-        <Route path="/admin" element={<Admin />} />
-        <Route path="/builder" element={<Builder />} />
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
-    </>
+
+        <Route element={<RequireRole roles={CHIEF_ROLES} />}>
+          <Route path="/inbox" element={<Inbox />} />
+          <Route path="/day-email" element={<DayEmail />} />
+          <Route path="/export" element={<Export />} />
+          <Route path="/builder" element={<Builder />} />
+        </Route>
+
+        <Route element={<RequireRole roles={ADMIN_ROLES} />}>
+          <Route path="/admin" element={<Admin />} />
+        </Route>
+      </Route>
+
+      <Route path="*" element={<Navigate to="/" replace />} />
+    </Routes>
   )
 }
 
