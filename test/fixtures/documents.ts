@@ -128,15 +128,22 @@ export const fixtures: DocFixture[] = [
       }),
     ],
     verdicts: [
-      // Adjusted, so it counts at 3 rather than the recorded 2 and the bullet
-      // prints "(adjusted from 2)".
+      // Both evaluators adjust to the same value, which is what it takes for the
+      // observation to count at 3 rather than the recorded 2 and for the bullet
+      // to print "(adjusted from 2)". An adjust plus a plain confirm would be a
+      // disagreement, and observationStatus calls that disputed.
       verdict({
         observation_id: 'o-8',
         evaluator_email: 'ruth@sil.org',
         decision: 'adjust',
         adjusted_designation: 3,
       }),
-      verdict({ observation_id: 'o-8', evaluator_email: 'boss@sil.org', decision: 'confirm' }),
+      verdict({
+        observation_id: 'o-8',
+        evaluator_email: 'boss@sil.org',
+        decision: 'adjust',
+        adjusted_designation: 3,
+      }),
     ],
     dayOpts: {},
     withGate: false,

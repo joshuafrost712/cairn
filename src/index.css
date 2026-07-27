@@ -1,9 +1,11 @@
-/* Base layer. Tokens come first, then layout (the only file with @media queries),
-   then the dashboard density layer. Everything below this block is the original
-   component styling for the capture flow and is deliberately unchanged. */
+/* Base layer. Tokens come first, then layout (the only file with @media queries
+   for the shell), then the dashboard density layer, then the workbench. Everything
+   below this block is the original component styling for the capture flow and is
+   deliberately unchanged. */
 @import './styles/tokens.css';
 @import './styles/layout.css';
 @import './styles/dashboard.css';
+@import './styles/workbench.css';
 
 * { box-sizing: border-box; }
 

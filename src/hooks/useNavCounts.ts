@@ -20,9 +20,15 @@ export interface NavCounts {
   conversationsNeeded: number
   /** Conflicting rollups with no recorded resolution. Chief-only; 0 otherwise. */
   openDiscrepancies: number
+  /**
+   * Outgoing drafts still in draft state, plus any whose edits went stale.
+   * Counted with a Dexie count() rather than through the report pipeline: the
+   * drafts already hold their own flags, so there is nothing to recompute.
+   */
+  draftsNeedingAttention: number
 }
 
-const EMPTY: NavCounts = { conversationsNeeded: 0, openDiscrepancies: 0 }
+const EMPTY: NavCounts = { conversationsNeeded: 0, openDiscrepancies: 0, draftsNeedingAttention: 0 }
 
 /**
  * Badge counts for the sidebar.
@@ -45,6 +51,12 @@ export function useNavCounts(): NavCounts {
   const conversationsNeeded = useLiveQuery(
     () => db.mentoringConversations.where('status').equals('needed').count(),
     [],
+    0,
+  )
+
+  const draftsNeedingAttention = useLiveQuery(
+    () => (isChief ? db.docDrafts.where('status').equals('draft').count() : Promise.resolve(0)),
+    [isChief],
     0,
   )
 
@@ -102,8 +114,12 @@ export function useNavCounts(): NavCounts {
   return useMemo(
     () =>
       isChief || conversationsNeeded
-        ? { conversationsNeeded: conversationsNeeded ?? 0, openDiscrepancies }
+        ? {
+            conversationsNeeded: conversationsNeeded ?? 0,
+            openDiscrepancies,
+            draftsNeedingAttention: draftsNeedingAttention ?? 0,
+          }
         : EMPTY,
-    [isChief, conversationsNeeded, openDiscrepancies],
+    [isChief, conversationsNeeded, openDiscrepancies, draftsNeedingAttention],
   )
 }

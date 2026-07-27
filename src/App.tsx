@@ -32,6 +32,8 @@ import { Settings } from './pages/admin/Settings'
 import { DataPage } from './pages/admin/DataPage'
 import { Conversations } from './pages/Conversations'
 import { Inbox } from './pages/Inbox'
+import { Outgoing } from './pages/Outgoing'
+import { Workbench } from './pages/Workbench'
 import { DevFeedbackRoot } from './devfeedback/DevFeedbackRoot'
 
 function Shell() {
@@ -95,6 +97,8 @@ function Shell() {
         <Route element={<RequireRole roles={CHIEF_ROLES} />}>
           <Route path="/inbox" element={<Inbox />} />
           <Route path="/day-email" element={<DayEmail />} />
+          <Route path="/outgoing" element={<Outgoing />} />
+          <Route path="/outgoing/:draftId" element={<Workbench />} />
           <Route path="/export" element={<Export />} />
           <Route path="/builder" element={<Builder />} />
 

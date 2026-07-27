@@ -61,7 +61,12 @@ Here are the highlights and growth areas for 2026-06-29, drawn from the facilita
 
 ## CIT One (Team A)
 
-_Verification: 0/2 verified, 1 pending, 1 disputed (needs 2 confirmations each); not yet cleared to finalize._
+**Highlights to encourage**
+- Strong work on Checking (strong, 3/3).
+  - josh rated 3/3 (adjusted from 2): did a thing
+    > "quote"
+
+_Verification: 1/2 verified, 1 pending (needs 2 confirmations each); not yet cleared to finalize._
 "
 `;
 
@@ -205,15 +210,20 @@ exports[`rendered output is frozen > participant report: flagged items and no si
 
 Psalms Workshop, Team A. Draft evidence summary generated 2026-06-29 from facilitator observations. Numbers are draft 0–3 designations and the evidence levels behind them are still being finalized, so treat this as input to a human judgment rather than a final score.
 
-Evidence has been recorded against 0 of 3 competency areas, with 2 item(s) flagged for review.
+Evidence has been recorded against 1 of 3 competency areas, with 1 item(s) flagged for review.
 
 ## Evidence by competency area
 
-No counting evidence has been recorded for this participant yet.
+### CHECK: Checking
+
+**Designation: 3/3 (strong).**
+
+- 3/3 (adjusted from 2): did a thing
+  > "quote"
 
 ### Competency areas without evidence yet
 
-No observations have been recorded for: GENRE (Genre Theory); CHECK (Checking); FACIL (Facilitation).
+No observations have been recorded for: GENRE (Genre Theory); FACIL (Facilitation).
 
 ## Items flagged for review
 
@@ -221,16 +231,14 @@ These observations need a human decision before they count toward a designation,
 
 - **GENRE**: did a thing (low confidence)
   > "quote"
-- **CHECK**: did a thing (high confidence)
-  > "quote"
 
 ## CBC competency mapping
 
 Draft designations grouped by the CBC sub-points each competency area feeds, as a starting point for the eventual CBC submission.
 
-- **1.2 Exegesis**: GENRE (no evidence), CHECK (no evidence)
+- **1.2 Exegesis**: GENRE (no evidence), CHECK 3/3
 - **2.4 Team**: FACIL (no evidence)
-- **3.1 Quality**: CHECK (no evidence)
+- **3.1 Quality**: CHECK 3/3
 ",
 ]
 `;

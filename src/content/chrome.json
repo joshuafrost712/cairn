@@ -50,6 +50,10 @@
       "label": "Discrepancy inbox"
     },
     {
+      "id": "nav.outgoing",
+      "label": "Outgoing email"
+    },
+    {
       "id": "nav.day-email",
       "label": "End-of-day email"
     },

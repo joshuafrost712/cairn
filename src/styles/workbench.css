@@ -1,0 +1,202 @@
+/**
+ * The review workbench: document on the left, evidence pinned on the right.
+ *
+ * Desktop-first and unapologetically so. The 9pm job is reading twenty-six
+ * drafts against their evidence, which needs two columns; the phone story is
+ * "readable in a pinch", where the evidence moves into a bottom sheet.
+ */
+
+.wb {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--s-4);
+  align-items: start;
+}
+
+@media (min-width: 900px) {
+  .wb {
+    /* The document gets the wider column: it is what you are reading. The
+       evidence column is a reference, and a fixed width stops a long quote
+       from stealing space from the text it is evidence for. */
+    grid-template-columns: minmax(0, 1fr) 22rem;
+  }
+
+  .wb__aside {
+    position: sticky;
+    top: var(--s-4);
+    max-height: calc(100vh - var(--s-8));
+    overflow-y: auto;
+  }
+}
+
+@media (min-width: 1280px) {
+  .wb {
+    grid-template-columns: minmax(0, 1fr) 26rem;
+  }
+}
+
+/* ---- the document -------------------------------------------------------- */
+
+.doc {
+  font-size: var(--t-0);
+  line-height: 1.55;
+}
+
+.seg {
+  display: block;
+  width: 100%;
+  text-align: left;
+  border: 1px solid transparent;
+  border-radius: var(--r-2);
+  background: transparent;
+  padding: var(--s-1) var(--s-2);
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  white-space: pre-wrap;
+  /* The generated text is markdown, so preserve its indentation exactly: a
+     nested evidence bullet reads as nested only because of its two spaces. */
+  font-variant-numeric: tabular-nums;
+}
+
+.seg:hover {
+  background: var(--surface-2);
+}
+
+.seg[aria-selected='true'] {
+  background: var(--accent-wash);
+  border-color: #bfdbfe;
+}
+
+.seg[data-kind='heading'] {
+  font-weight: var(--fw-bold);
+}
+
+.seg[data-level='1'] {
+  font-size: var(--t-2);
+}
+
+.seg[data-level='2'] {
+  font-size: var(--t-1);
+}
+
+/* A line nobody can edit should not invite a click that does nothing visible. */
+.seg[data-editable='false'] {
+  color: var(--muted);
+}
+
+.seg[data-edited='true'] {
+  border-left: 3px solid var(--accent);
+}
+
+.seg[data-flagged='true'] {
+  border-left: 3px solid var(--warn);
+  background: var(--wash-warn);
+}
+
+.seg[data-deleted='true'] {
+  text-decoration: line-through;
+  opacity: 0.5;
+}
+
+.seg__badges {
+  float: right;
+  display: inline-flex;
+  gap: var(--s-1);
+  margin-left: var(--s-2);
+}
+
+.seg__n {
+  font-size: var(--t--2);
+  color: var(--muted);
+  border: 1px solid var(--line);
+  border-radius: var(--r-1);
+  padding: 0 var(--s-1);
+}
+
+.seg-edit {
+  width: 100%;
+  font: inherit;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: var(--t--1);
+  line-height: 1.5;
+  resize: vertical;
+}
+
+.seg-edit__bar {
+  display: flex;
+  gap: var(--s-2);
+  align-items: center;
+  margin-top: var(--s-1);
+}
+
+/* ---- the evidence pane --------------------------------------------------- */
+
+.ev-card {
+  border: 1px solid var(--line);
+  border-radius: var(--r-2);
+  padding: var(--s-3);
+  background: var(--card);
+}
+
+.ev-card + .ev-card {
+  margin-top: var(--s-3);
+}
+
+.ev-card--missing {
+  border-style: dashed;
+  background: var(--surface-2);
+}
+
+.ev-card__quote {
+  margin: var(--s-2) 0 0;
+  padding-left: var(--s-3);
+  border-left: 3px solid var(--line-strong);
+  font-style: italic;
+  color: var(--ink);
+}
+
+.ev-card__meta {
+  font-size: var(--t--2);
+  color: var(--muted);
+  margin-top: var(--s-2);
+}
+
+.ev-note {
+  font-size: var(--t--1);
+  color: var(--muted);
+  border-left: 3px solid var(--line);
+  padding-left: var(--s-2);
+  margin-bottom: var(--s-3);
+}
+
+/* ---- approval bar -------------------------------------------------------- */
+
+.approvebar {
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-2);
+  align-items: center;
+  padding: var(--s-3);
+  border-top: 1px solid var(--line);
+  background: var(--card);
+}
+
+.blockers {
+  margin: 0;
+  padding-left: var(--s-4);
+  font-size: var(--t--1);
+  color: var(--warn);
+}
+
+/* ---- the queue ----------------------------------------------------------- */
+
+.queue-status {
+  font-size: var(--t--2);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}

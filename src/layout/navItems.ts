@@ -61,6 +61,12 @@ export const NAV_GROUPS: NavGroup[] = [
         to: '/inbox',
         count: (c) => c.openDiscrepancies,
       },
+      {
+        labelId: 'nav.outgoing',
+        to: '/outgoing',
+        end: true,
+        count: (c) => c.draftsNeedingAttention,
+      },
       { labelId: 'nav.day-email', to: '/day-email' },
       { labelId: 'nav.export', to: '/export' },
     ],

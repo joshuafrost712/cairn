@@ -1,10 +1,11 @@
 /**
  * App shell, navigation, drawer, and grids.
  *
- * This is the ONLY file in the app with @media queries, so all responsive
- * behaviour is in one place. Every query is min-width (mobile-first), which is
- * the guarantee that nothing below 900px changes: the phone capture flow renders
- * off the base rules alone and cannot be broken by anything added here.
+ * This file owns the shell's responsive behaviour; the only other file with
+ * @media queries is workbench.css, which owns the two-pane review layout. Every
+ * query in both is min-width (mobile-first), and that is the guarantee that
+ * nothing below 900px changes: the phone capture flow renders off the base rules
+ * alone and cannot be broken by anything added here.
  *
  * Breakpoints are hardcoded because CSS cannot read a custom property inside an
  * @media condition. The --bp-* tokens in tokens.css document these same values;
@@ -361,4 +362,27 @@
   outline: 2px solid var(--focus);
   outline-offset: 2px;
   border-radius: var(--r-1);
+}
+
+
+/* ---- responsive visibility ---------------------------------------------- */
+
+/*
+ * For the rare case where the same content needs a different container at
+ * different widths (the workbench's evidence: a pinned column on a Mac, a bottom
+ * sheet on a phone). Prefer restyling one element over rendering two; use these
+ * only when the two really are different components.
+ */
+.only-wide {
+  display: none;
+}
+
+@media (min-width: 900px) {
+  .only-wide {
+    display: block;
+  }
+
+  .only-narrow {
+    display: none;
+  }
 }
