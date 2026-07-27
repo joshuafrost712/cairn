@@ -1,0 +1,437 @@
+/**
+ * The density layer: tables, stat tiles, chips, and the data marks.
+ *
+ * This is an analyst's tool, not a consumer app, so the defaults here are dense
+ * on purpose: 13px table text, 32px rows, tabular numerals on every numeric
+ * column. Additive to the capture flow, and deletable without touching it.
+ *
+ * Two rules run through everything below and are not negotiable:
+ *   - EMPTY IS NOT ZERO. A cell with no evidence is grey with a middle dot,
+ *     never a 0-coloured fill.
+ *   - THE NUMERAL IS ALWAYS PRESENT. Colour is the redundant channel, which is
+ *     what makes the plain table view a faithful twin rather than a downgrade.
+ */
+
+/* ---- table: the primary component of this dashboard --------------------- */
+
+.dt-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--line);
+  border-radius: var(--r-3);
+  background: var(--card);
+}
+
+.dt {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: var(--t--1);
+}
+
+.dt caption {
+  text-align: left;
+  padding: var(--s-3) var(--s-4);
+  font-weight: var(--fw-bold);
+  color: var(--ink);
+}
+
+.dt caption .muted {
+  font-weight: 400;
+}
+
+.dt th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--card);
+  text-align: left;
+  font-weight: var(--fw-med);
+  color: var(--muted);
+  padding: var(--s-2) var(--s-3);
+  border-bottom: 1px solid var(--line-strong);
+  white-space: nowrap;
+}
+
+.dt th.sortable {
+  cursor: pointer;
+  color: var(--ink);
+  user-select: none;
+}
+
+.dt th.sortable:hover {
+  background: var(--surface-2);
+}
+
+.dt th .sort-caret {
+  color: var(--muted);
+  font-size: var(--t--2);
+  margin-left: var(--s-1);
+}
+
+.dt td {
+  padding: var(--s-2) var(--s-3);
+  border-bottom: 1px solid var(--line);
+  vertical-align: middle;
+}
+
+.dt tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.dt tbody tr.clickable {
+  cursor: pointer;
+}
+
+.dt tbody tr.clickable:hover {
+  background: var(--accent-wash);
+}
+
+.dt tbody tr.selected {
+  background: var(--accent-wash);
+}
+
+.dt .num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.dt .sticky-col {
+  position: sticky;
+  left: 0;
+  background: var(--card);
+  z-index: 2;
+}
+
+.dt th.sticky-col {
+  z-index: 3;
+}
+
+.dt tfoot td {
+  border-top: 1px solid var(--line-strong);
+  border-bottom: 0;
+  font-weight: var(--fw-med);
+  color: var(--muted);
+}
+
+/* ---- stat tile ---------------------------------------------------------- */
+
+.tile {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--r-3);
+  padding: var(--s-4);
+  display: block;
+  text-align: left;
+  width: 100%;
+  color: inherit;
+  text-decoration: none;
+}
+
+a.tile:hover,
+button.tile:hover {
+  border-color: var(--accent);
+}
+
+.tile__label {
+  font-size: var(--t--1);
+  color: var(--muted);
+  margin-bottom: var(--s-1);
+}
+
+.tile__value {
+  /* Proportional figures on purpose: a headline number reads better than it
+     aligns, and there is nothing above or below it to align to. */
+  font-size: var(--t-3);
+  font-weight: var(--fw-bold);
+  line-height: var(--lh-tight);
+}
+
+.tile__sub {
+  font-size: var(--t--2);
+  color: var(--muted);
+  margin-top: var(--s-1);
+}
+
+.tile--attention {
+  border-color: var(--warn);
+  background: var(--wash-warn);
+}
+
+/* ---- designation chip: the atom ----------------------------------------- */
+
+.chip-d {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.55rem;
+  height: 1.55rem;
+  padding: 0 var(--s-1);
+  border-radius: var(--r-1);
+  font-size: var(--t--1);
+  font-weight: var(--fw-bold);
+  font-variant-numeric: tabular-nums;
+  position: relative;
+}
+
+.chip-d[data-d='0'] { background: var(--d0); color: var(--d0-ink); }
+.chip-d[data-d='1'] { background: var(--d1); color: var(--d1-ink); }
+.chip-d[data-d='2'] { background: var(--d2); color: var(--d2-ink); }
+.chip-d[data-d='3'] { background: var(--d3); color: var(--d3-ink); }
+
+.chip-d[data-d='none'] {
+  background: var(--d-empty);
+  color: var(--d-empty-ink);
+  font-weight: var(--fw-med);
+}
+
+.chip-d[data-deemph='true'] {
+  background: var(--deemph);
+  color: var(--ink);
+}
+
+/* Conflict is a GLYPH, not a hue: a corner notch in ink, so it survives
+   greyscale, colourblindness, and the plain table view. */
+.chip-d[data-conflict='true']::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  border: 5px solid transparent;
+  border-top-color: var(--ink);
+  border-right-color: var(--ink);
+  border-top-right-radius: var(--r-1);
+}
+
+/* ---- low-n marker ------------------------------------------------------- */
+
+.n-badge {
+  font-size: var(--t--2);
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.n-badge--low {
+  color: var(--warn);
+  font-weight: var(--fw-med);
+}
+
+/* ---- viz marks ---------------------------------------------------------- */
+
+.distbar {
+  display: flex;
+  gap: var(--gap-mark);
+  height: 20px;
+  border-radius: var(--r-1);
+  overflow: hidden;
+  background: var(--card);
+  min-width: 80px;
+}
+
+.distbar__seg {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--t--2);
+  font-weight: var(--fw-bold);
+  min-width: 0;
+  overflow: hidden;
+}
+
+.distbar__seg[data-d='0'] { background: var(--d0); color: var(--d0-ink); }
+.distbar__seg[data-d='1'] { background: var(--d1); color: var(--d1-ink); }
+.distbar__seg[data-d='2'] { background: var(--d2); color: var(--d2-ink); }
+.distbar__seg[data-d='3'] { background: var(--d3); color: var(--d3-ink); }
+.distbar__seg[data-deemph='true'] { background: var(--deemph); color: var(--ink); }
+
+.distbar--empty {
+  background: var(--d-empty);
+}
+
+.barrow {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+}
+
+.barrow__track {
+  flex: 1;
+  height: 12px;
+  background: var(--surface-2);
+  border-radius: var(--r-1);
+  min-width: 40px;
+}
+
+.barrow__fill {
+  height: 100%;
+  /* Rounded at the data end, square at the baseline. */
+  border-radius: 0 var(--r-bar) var(--r-bar) 0;
+}
+
+.barrow__value {
+  font-variant-numeric: tabular-nums;
+  font-size: var(--t--1);
+  color: var(--ink);
+  min-width: 2.2rem;
+  text-align: right;
+}
+
+/* ---- heatmap ------------------------------------------------------------ */
+
+.heat-wrap {
+  overflow-x: auto;
+}
+
+.heat {
+  border-collapse: separate;
+  border-spacing: var(--gap-mark);
+  font-size: var(--t--1);
+}
+
+.heat caption {
+  text-align: left;
+  padding: 0 0 var(--s-3);
+  color: var(--muted);
+  font-size: var(--t--1);
+}
+
+.heat th {
+  font-size: var(--t--2);
+  font-weight: var(--fw-med);
+  color: var(--muted);
+  padding: var(--s-1);
+  white-space: nowrap;
+}
+
+.heat th[scope='row'] {
+  text-align: left;
+  position: sticky;
+  left: 0;
+  background: var(--bg);
+  z-index: 1;
+  font-size: var(--t--1);
+  color: var(--ink);
+  font-weight: 400;
+  padding-right: var(--s-3);
+  max-width: 12rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.heat th[scope='row'] button {
+  all: unset;
+  cursor: pointer;
+  color: var(--ink);
+}
+
+.heat th[scope='row'] button:hover {
+  color: var(--accent);
+  text-decoration: underline;
+}
+
+.heat td {
+  padding: 0;
+}
+
+.heat__cell {
+  width: 30px;
+  height: 28px;
+  border: 0;
+  padding: 0;
+  border-radius: var(--r-1);
+  cursor: pointer;
+  font-size: var(--t--1);
+  font-weight: var(--fw-bold);
+  font-variant-numeric: tabular-nums;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.heat__cell[data-d='0'] { background: var(--d0); color: var(--d0-ink); }
+.heat__cell[data-d='1'] { background: var(--d1); color: var(--d1-ink); }
+.heat__cell[data-d='2'] { background: var(--d2); color: var(--d2-ink); }
+.heat__cell[data-d='3'] { background: var(--d3); color: var(--d3-ink); }
+.heat__cell[data-d='none'] { background: var(--d-empty); color: var(--d-empty-ink); }
+.heat__cell[data-deemph='true'] { background: var(--deemph); color: var(--ink); }
+
+.heat__cell[data-conflict='true']::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  border: 5px solid transparent;
+  border-top-color: var(--ink);
+  border-right-color: var(--ink);
+  border-top-right-radius: var(--r-1);
+}
+
+.heat__margin {
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  padding: 0 var(--s-2);
+  text-align: right;
+  font-size: var(--t--2);
+}
+
+.heat--plain .heat__cell {
+  background: var(--card);
+  color: var(--ink);
+  border: 1px solid var(--line);
+}
+
+/* ---- legend ------------------------------------------------------------- */
+
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-3);
+  align-items: center;
+  font-size: var(--t--2);
+  color: var(--muted);
+  padding-top: var(--s-3);
+}
+
+.legend__item {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-1);
+}
+
+.legend__swatch {
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+  display: inline-block;
+}
+
+/* ---- sparkline ---------------------------------------------------------- */
+
+.spark {
+  display: block;
+  overflow: visible;
+}
+
+/* ---- empty state -------------------------------------------------------- */
+
+.empty {
+  padding: var(--s-6) var(--s-4);
+  text-align: center;
+  color: var(--muted);
+  font-size: var(--t--1);
+}
+
+.empty__title {
+  font-weight: var(--fw-med);
+  color: var(--ink);
+  margin-bottom: var(--s-1);
+}
+
+/* ---- small utility buttons (replacing the inline styles in Inbox.tsx) ---- */
+
+.btn--sm {
+  font-size: var(--t--1);
+  padding: var(--s-1) var(--s-2);
+  border-radius: var(--r-1);
+}

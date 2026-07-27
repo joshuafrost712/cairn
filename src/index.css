@@ -3,6 +3,7 @@
    component styling for the capture flow and is deliberately unchanged. */
 @import './styles/tokens.css';
 @import './styles/layout.css';
+@import './styles/dashboard.css';
 
 * { box-sizing: border-box; }
 
