@@ -6,6 +6,10 @@ dropped into other apps we refine. Cairn is the reference implementation; the
 Local Genres app already runs the same module. Origo (vanilla JS) gets a
 variant, sketched at the end.
 
+The standing rule that this capability ships by default in a new web app lives in
+the vault at `_Meta/Web-App-Build-Protocol.md`. This file is the implementation
+detail behind it.
+
 ## What the interaction is
 
 While using the app, Josh leaves feedback in place instead of context-switching
@@ -129,6 +133,55 @@ Vite, Dexie, react-router, vite-plugin-pwa).
 Requirements on the host app: it uses Vite, react-router (for `useLocation`),
 and has `dexie` + `dexie-react-hooks` as dependencies (both Cairn-stack apps do).
 
+## Edit-in-place (built 2026-07-27)
+
+The second half of the widget: highlight an addressable string and an "✏️ Edit"
+button appears beside "💬 Comment". Two things make it work.
+
+**The prerequisite is a content layer, not the widget.** A literal inlined in JSX
+has no address to write back to. Chrome copy lives in `src/content/chrome.json`
+keyed by stable node id, is read through `src/lib/content/chrome.ts`, and is
+rendered by `src/components/Copy.tsx`, which stamps `data-dfb-node`,
+`data-dfb-field`, and `data-dfb-source` into the DOM. `SelectionLayer` walks up
+from the selection to the nearest `[data-dfb-node]`; no tag, no Edit button.
+Reference data (KSAs, activities, workshops) is tagged the same way with
+`data-dfb-source="ref"` plus `data-dfb-table`.
+
+**Two transports, chosen by who can see the text.**
+
+| | chrome copy | reference copy |
+|---|---|---|
+| lives in | `src/content/chrome.json` | Supabase (`ksa`, `activity`, `workshop`) |
+| visible to others | only after a deploy | immediately, on every device |
+| on save | patched on disk via `POST /__content-edit` | filed as a pending proposal, changes nothing |
+| applied by | the save itself (hot reload + git diff) | approving in the Admin ProposalPanel |
+| concurrency | 409 when `oldText` no longer matches | same check re-run at approve time |
+
+Applying a reference edit goes through `db/referenceWrite.ts`
+(`upsertKsa` / `upsertActivity` / `upsertWorkshop`), never a direct Supabase call.
+Those write the Dexie cache and queue the upsert in `referenceOutbox`, which
+`loadReferenceData()` drains *before* its destructive pull and which blocks that
+overwrite while anything is pending. A direct write works online and silently
+loses the edit offline.
+
+Each applied reference edit is appended to `feedback/content-edits/<date>.md` via
+`POST /__content-log`, because the database is now ahead of `src/data/seed.ts`.
+That log is committed, unlike the batch files. Logging is best-effort: the write
+already happened and is not rolled back if the log fails.
+
+Files added: `EditWindow.tsx`, `applyEdit.ts`, `refField.ts` (the single
+interpreter of the dotted field path `guiding_questions.2` / `evidence_levels.3`,
+shared by the DOM attribute, the value the panel opens on, and the write — it has
+its own tests because a read/write drift would silently block every apply),
+`ProposalPanel.tsx`, plus `proposals` in `db.ts` and two Vite plugins.
+
+Not reachable by highlight-to-edit: copy in attributes (`placeholder`, `title`,
+`aria-label`), since it cannot be selected. It still belongs in `chrome.json` for
+single-source authoring. Also deliberately excluded: `lib/ruleset.ts`'s
+`INPUT_RULES` and `RULESET_VERSION`, which evaluators attest to and which are
+stamped onto every evaluation, so changing one is a versioned act rather than a
+wording tweak.
+
 ## Reliability invariants (carry these into every port)
 
 Two bugs shipped in the original module and had to be fixed in every copy
@@ -146,10 +199,15 @@ Two bugs shipped in the original module and had to be fixed in every copy
    once as singletons with no `key`, so their local `text`/`comment` state survives
    across edit targets. Because the seeded value wins over the freshly-computed
    `oldText` (`value = text ?? oldText`), a previous target's typed text leaks into the
-   next panel that opens. Fix: reset local draft state whenever the target identity
-   changes — a `useEffect` keyed on `editDraft?.nodeId`/`editDraft?.field` (or a
-   remount `key` on the panel). Never rely solely on clearing state on successful
-   save; a cancelled draft must clear too.
+   next panel that opens. Never rely solely on clearing state on successful save; a
+   cancelled draft must clear too.
+
+   **Prefer a remount `key` over an effect.** Cairn's `EditWindow` is now a thin
+   outer component that renders `<EditPanel key={source:nodeId:field} …>`; all local
+   state lives in the inner one, so changing target resets it by construction. This
+   is sturdier than a `useEffect` that clears state (it cannot be half-applied) and
+   it satisfies the `react-hooks/set-state-in-effect` lint rule, which rejects the
+   effect version outright.
 
 ## Origo variant (built)
 
