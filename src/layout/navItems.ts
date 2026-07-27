@@ -73,6 +73,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { labelId: 'nav.workshop-health', to: '/admin/workshop' },
       { labelId: 'nav.events', to: '/admin/events', end: true },
       { labelId: 'nav.participants', to: '/admin/participants', end: true },
+      { labelId: 'nav.evaluators', to: '/admin/evaluators', end: true },
     ],
   },
   {

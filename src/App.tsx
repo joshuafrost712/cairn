@@ -25,6 +25,8 @@ import { EventList } from './pages/admin/EventList'
 import { EventDetail } from './pages/admin/EventDetail'
 import { ParticipantList } from './pages/admin/ParticipantList'
 import { ParticipantDetail } from './pages/admin/ParticipantDetail'
+import { EvaluatorList } from './pages/admin/EvaluatorList'
+import { EvaluatorDetail } from './pages/admin/EvaluatorDetail'
 import { Conversations } from './pages/Conversations'
 import { Inbox } from './pages/Inbox'
 import { DevFeedbackRoot } from './devfeedback/DevFeedbackRoot'
@@ -99,6 +101,8 @@ function Shell() {
           <Route path="/admin/events/:activityId" element={<EventDetail />} />
           <Route path="/admin/participants" element={<ParticipantList />} />
           <Route path="/admin/participants/:participantId" element={<ParticipantDetail />} />
+          <Route path="/admin/evaluators" element={<EvaluatorList />} />
+          <Route path="/admin/evaluators/:email" element={<EvaluatorDetail />} />
         </Route>
 
         <Route element={<RequireRole roles={ADMIN_ROLES} />}>
