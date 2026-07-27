@@ -12,28 +12,27 @@
 // flag on a spread of 2+); this only selects and renders it. Formatting follows the
 // vault conventions: no "---" dividers, a sentence of body between heading levels,
 // em dashes used sparingly.
+//
+// Structure now comes out as DocSegments (see segments.ts) so the workbench can
+// show the evidence behind any one line. renderDayEmailMarkdown is a thin wrapper
+// over that and its output is byte-identical to what it produced before, which the
+// golden round-trip test in test/reportSegments.test.ts holds in place.
 
 import type { ParticipantReport, KsaRollup } from './build'
 import type { AnnotatedObservation, Gate } from './verification'
-
-const LEVEL_WORD: Record<number, string> = {
-  0: 'not yet demonstrated',
-  1: 'emerging',
-  2: 'competent',
-  3: 'strong',
-}
-
-// A confirmed designation at or below this level is treated as a growth signal
-// worth a mentoring conversation. Kept as a named constant so the threshold is
-// visible and easy to change.
-const MENTORING_THRESHOLD = 1
-
-/** Short identifier for an evaluator from their email (local-part), for attribution. */
-function evaluatorLabel(email: string | null | undefined): string {
-  if (!email) return 'an evaluator'
-  const at = email.indexOf('@')
-  return at > 0 ? email.slice(0, at) : email
-}
+import {
+  LEVEL_WORD,
+  MENTORING_THRESHOLD,
+  SEGMENT_ID_VERSION,
+  claimEvidence,
+  endBlock,
+  evidenceSegment,
+  push,
+  segId,
+  segmentsToMarkdown,
+  slug,
+  type DocSegment,
+} from './segments'
 
 /** Per-participant verification summary, shown only when the gate is not yet clear. */
 function gateLine(gate: Gate | undefined): string | null {
@@ -46,7 +45,7 @@ function gateLine(gate: Gate | undefined): string | null {
 }
 
 /** The strongest single piece of counting evidence for a KSA, for a one-line highlight. */
-function strongestEvidence(k: KsaRollup<AnnotatedObservation>): AnnotatedObservation | null {
+export function strongestEvidence(k: KsaRollup<AnnotatedObservation>): AnnotatedObservation | null {
   if (!k.contributing.length) return null
   return [...k.contributing].sort((a, b) => {
     const d = b.effective_designation - a.effective_designation
@@ -57,17 +56,6 @@ function strongestEvidence(k: KsaRollup<AnnotatedObservation>): AnnotatedObserva
   })[0]
 }
 
-/** One evidence bullet: who saw it, the designation, and the verbatim excerpt. */
-function evidenceBullet(o: AnnotatedObservation): string[] {
-  const who = evaluatorLabel(o.evaluator_email)
-  const eff = o.effective_designation
-  const adjusted = eff !== o.evidence_designation ? ` (adjusted from ${o.evidence_designation})` : ''
-  const group = o.origin === 'group' ? ' [group observation]' : ''
-  const out = [`  - ${who} rated ${eff}/3${adjusted}${group}: ${o.text}`]
-  if (o.source_excerpt) out.push(`    > "${o.source_excerpt}"`)
-  return out
-}
-
 export interface DayEmailOptions {
   /** Greeting recipient, e.g. "team". Defaults to a generic opener. */
   toName?: string
@@ -76,45 +64,60 @@ export interface DayEmailOptions {
 }
 
 /**
- * Build the end-of-day email body. `reports` and `gates` come straight from the
- * existing pipeline (buildAllReports over annotated observations, participantGate
- * per participant), so the numbers match the Reports page exactly.
+ * Build the end-of-day email as segments. `reports` and `gates` come straight
+ * from the existing pipeline (buildAllReports over annotated observations,
+ * participantGate per participant), so the numbers match the Reports page.
  */
-export function renderDayEmailMarkdown(
+export function buildDayEmailSegments(
   reports: ParticipantReport<AnnotatedObservation>[],
   gates: Map<string, Gate>,
   workshopName: string,
   dateLabel: string,
   opts: DayEmailOptions = {},
-): string {
+): DocSegment[] {
+  const root = segId(SEGMENT_ID_VERSION, 'de')
   const withEvidence = reports.filter(
     (r) => r.totals.evidencedKsas > 0 || (gates.get(r.participant_id)?.total ?? 0) > 0,
   )
 
-  const lines: string[] = []
-  lines.push(`# End-of-day evaluation summary: ${workshopName}`)
-  lines.push('')
-  lines.push(opts.toName ? `Hi ${opts.toName},` : 'Hi all,')
-  lines.push('')
-  lines.push(
-    `Here are the highlights and growth areas for ${dateLabel}, drawn from the facilitator observations captured today. These are draft 0–3 designations meant as input to a human judgment, not final scores. Where more than one of us evaluated the same participant, the summary notes whether we agreed or need to reconcile.`,
-  )
-  lines.push('')
+  const out: DocSegment[] = []
+
+  push(out, { id: segId(root, 'title'), kind: 'heading', level: 1, text: `# End-of-day evaluation summary: ${workshopName}` })
+  endBlock(out)
+  push(out, { id: segId(root, 'greeting'), kind: 'paragraph', text: opts.toName ? `Hi ${opts.toName},` : 'Hi all,' })
+  endBlock(out)
+  push(out, {
+    id: segId(root, 'intro'),
+    kind: 'paragraph',
+    text: `Here are the highlights and growth areas for ${dateLabel}, drawn from the facilitator observations captured today. These are draft 0–3 designations meant as input to a human judgment, not final scores. Where more than one of us evaluated the same participant, the summary notes whether we agreed or need to reconcile.`,
+  })
+  endBlock(out)
 
   if (withEvidence.length === 0) {
-    lines.push('No observations have been recorded yet today. Once captures are routed, this summary will fill in per participant.')
-    lines.push('')
+    push(out, {
+      id: segId(root, 'none'),
+      kind: 'paragraph',
+      text: 'No observations have been recorded yet today. Once captures are routed, this summary will fill in per participant.',
+    })
+    endBlock(out)
     if (opts.fromName) {
-      lines.push('Thanks,')
-      lines.push(opts.fromName)
+      push(out, { id: segId(root, 'signoff'), kind: 'paragraph', text: `Thanks,\n${opts.fromName}` })
     }
-    return lines.join('\n')
+    return out
   }
 
   for (const r of withEvidence) {
+    const pid = r.participant_id
+    const pRoot = segId(root, `p:${slug(pid)}`)
     const team = r.team_name ? ` (${r.team_name})` : ''
-    lines.push(`## ${r.participant_name}${team}`)
-    lines.push('')
+    push(out, {
+      id: segId(pRoot, 'h'),
+      kind: 'heading',
+      level: 2,
+      text: `## ${r.participant_name}${team}`,
+      participantId: pid,
+    })
+    endBlock(out)
 
     const evidenced = r.ksaRollups.filter((k) => k.representative !== null)
 
@@ -126,14 +129,32 @@ export function renderDayEmailMarkdown(
       .slice(0, 3)
 
     if (highlightKsas.length) {
-      lines.push('**Highlights to encourage**')
+      push(out, { id: segId(pRoot, 'hl', 'h'), kind: 'heading', level: 4, text: '**Highlights to encourage**', participantId: pid })
       for (const k of highlightKsas) {
+        const kRoot = segId(pRoot, 'hl', `k:${slug(k.ksa_code)}`)
         const best = strongestEvidence(k)
         const word = LEVEL_WORD[k.representative ?? 0] ?? ''
-        lines.push(`- Strong work on ${k.area} (${word}, ${k.representative}/3).`)
-        if (best) lines.push(...evidenceBullet(best))
+        push(out, {
+          id: segId(kRoot, 'claim'),
+          kind: 'bullet',
+          text: `- Strong work on ${k.area} (${word}, ${k.representative}/3).`,
+          participantId: pid,
+          ksaCode: k.ksa_code,
+          evidence: claimEvidence(k),
+        })
+        if (best) {
+          out.push(
+            evidenceSegment(best, {
+              id: segId(kRoot, `ev:${slug(best.id)}`),
+              indent: '  ',
+              showEvaluator: true,
+              participantId: pid,
+              ksaCode: k.ksa_code,
+            }),
+          )
+        }
       }
-      lines.push('')
+      endBlock(out)
     }
 
     // Growth areas: KSAs whose best evidence is still 0–1.
@@ -142,52 +163,105 @@ export function renderDayEmailMarkdown(
       .sort((a, b) => (a.representative ?? 0) - (b.representative ?? 0))
 
     if (growthKsas.length) {
-      lines.push('**Growth areas**')
+      push(out, { id: segId(pRoot, 'gr', 'h'), kind: 'heading', level: 4, text: '**Growth areas**', participantId: pid })
       for (const k of growthKsas) {
+        const kRoot = segId(pRoot, 'gr', `k:${slug(k.ksa_code)}`)
         const word = LEVEL_WORD[k.representative ?? 0] ?? ''
-        lines.push(`- ${k.area}: ${word} (${k.representative}/3).`)
+        push(out, {
+          id: segId(kRoot, 'claim'),
+          kind: 'bullet',
+          text: `- ${k.area}: ${word} (${k.representative}/3).`,
+          participantId: pid,
+          ksaCode: k.ksa_code,
+          evidence: claimEvidence(k),
+        })
         const best = strongestEvidence(k)
-        if (best) lines.push(...evidenceBullet(best))
+        if (best) {
+          out.push(
+            evidenceSegment(best, {
+              id: segId(kRoot, `ev:${slug(best.id)}`),
+              indent: '  ',
+              showEvaluator: true,
+              participantId: pid,
+              ksaCode: k.ksa_code,
+            }),
+          )
+        }
       }
-      lines.push('')
+      endBlock(out)
     }
 
     // Reconciliation: any KSA where two evaluators conflicted (spread of 2+).
+    // Note the distinct 'rc' prefix: a KSA can legitimately be both a highlight
+    // and a conflict, with the same strongest observation under each.
     const conflicts = evidenced.filter((k) => k.conflict)
     if (conflicts.length) {
-      lines.push('**Needs reconciliation**')
+      push(out, { id: segId(pRoot, 'rc', 'h'), kind: 'heading', level: 4, text: '**Needs reconciliation**', participantId: pid })
       for (const k of conflicts) {
+        const kRoot = segId(pRoot, 'rc', `k:${slug(k.ksa_code)}`)
         const lo = k.designations[0]
         const hi = k.designations[k.designations.length - 1]
-        lines.push(`- ${k.area}: evaluators conflicted here (scores ranged ${lo}–${hi}). Flagged for review before this is finalized.`)
+        push(out, {
+          id: segId(kRoot, 'claim'),
+          kind: 'bullet',
+          text: `- ${k.area}: evaluators conflicted here (scores ranged ${lo}–${hi}). Flagged for review before this is finalized.`,
+          participantId: pid,
+          ksaCode: k.ksa_code,
+          evidence: claimEvidence(k),
+        })
         // Show every side of the conflict so the disagreement is fully traceable.
-        for (const o of k.contributing) lines.push(...evidenceBullet(o))
+        for (const o of k.contributing) {
+          out.push(
+            evidenceSegment(o, {
+              id: segId(kRoot, `ev:${slug(o.id)}`),
+              indent: '  ',
+              showEvaluator: true,
+              participantId: pid,
+              ksaCode: k.ksa_code,
+            }),
+          )
+        }
       }
-      lines.push('')
+      endBlock(out)
     }
 
     // Mentoring recommendation: any confirmed (counting) observation at or below
     // the threshold means a short follow-up conversation is warranted tomorrow.
-    const lowConfirmed = evidenced
+    const low = evidenced
       .flatMap((k) => k.contributing)
-      .some((o) => o.effective_designation <= MENTORING_THRESHOLD)
-    if (lowConfirmed) {
-      lines.push(
-        `**Recommended follow-up:** A short mentoring conversation tomorrow to work through the growth area(s) above, agree on specific next steps, and note how the feedback is received.`,
-      )
-      lines.push('')
+      .filter((o) => o.effective_designation <= MENTORING_THRESHOLD)
+    if (low.length) {
+      push(out, {
+        id: segId(pRoot, 'fu'),
+        kind: 'paragraph',
+        text: `**Recommended follow-up:** A short mentoring conversation tomorrow to work through the growth area(s) above, agree on specific next steps, and note how the feedback is received.`,
+        participantId: pid,
+        evidence: low.map((o) => o.id),
+        note: `Triggered by ${low.length} confirmed observation${low.length === 1 ? '' : 's'} at or below ${MENTORING_THRESHOLD}/3.`,
+      })
+      endBlock(out)
     }
 
-    const gl = gateLine(gates.get(r.participant_id))
+    const gl = gateLine(gates.get(pid))
     if (gl) {
-      lines.push(gl)
-      lines.push('')
+      push(out, { id: segId(pRoot, 'gate'), kind: 'meta', text: gl, participantId: pid })
+      endBlock(out)
     }
   }
 
   if (opts.fromName) {
-    lines.push('Thanks,')
-    lines.push(opts.fromName)
+    push(out, { id: segId(root, 'signoff'), kind: 'paragraph', text: `Thanks,\n${opts.fromName}` })
   }
-  return lines.join('\n')
+  return out
+}
+
+/** The same document as markdown. Kept as the stable public entry point. */
+export function renderDayEmailMarkdown(
+  reports: ParticipantReport<AnnotatedObservation>[],
+  gates: Map<string, Gate>,
+  workshopName: string,
+  dateLabel: string,
+  opts: DayEmailOptions = {},
+): string {
+  return segmentsToMarkdown(buildDayEmailSegments(reports, gates, workshopName, dateLabel, opts))
 }

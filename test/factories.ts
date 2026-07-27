@@ -20,7 +20,9 @@ export function obs(partial: Partial<ObservationRecord> = {}): ObservationRecord
     participant_name: partial.participant_name ?? 'CIT One',
     ksa_code: partial.ksa_code ?? 'GENRE',
     text: partial.text ?? 'did a thing',
-    source_excerpt: partial.source_excerpt ?? 'quote',
+    // `?? ` would swallow an explicit null, and a fixture that asks for an
+    // observation with no excerpt is asking to exercise the no-excerpt branch.
+    source_excerpt: 'source_excerpt' in partial ? (partial.source_excerpt ?? null) : 'quote',
     evidence_designation: partial.evidence_designation ?? 2,
     sentiment_flag: partial.sentiment_flag ?? 'neutral',
     confidence: partial.confidence ?? 'high',
@@ -99,7 +101,7 @@ export function participant(partial: Partial<Participant> = {}): Participant {
     workshop_id: partial.workshop_id ?? 'w-1',
     name: partial.name ?? 'CIT One',
     registered_email: partial.registered_email ?? null,
-    team_id: partial.team_id ?? 't-1',
+    team_id: 'team_id' in partial ? (partial.team_id ?? null) : 't-1',
     preferred_language: partial.preferred_language ?? 'English',
   }
 }
