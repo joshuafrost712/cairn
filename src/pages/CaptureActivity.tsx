@@ -6,7 +6,9 @@ import { ksasForActivity } from '../db/reference'
 import { coverageForActivity } from '../db/coverage'
 import { saveAnswers, submitEvaluation, undoLastEdit } from '../db/evaluations'
 import { composeSourceText } from '../lib/compose'
-import { INPUT_RULES, INPUT_RULES_SHORT, DICTATION_HINT } from '../lib/ruleset'
+import { INPUT_RULES } from '../lib/ruleset'
+import { c } from '../lib/content/chrome'
+import { Copy } from '../components/Copy'
 import { QuickRating } from '../components/QuickRating'
 import { Glossary } from '../components/Glossary'
 import type { Ksa, Participant, ParticipantScopeEntry, QuickRatings } from '../lib/types'
@@ -170,7 +172,9 @@ export function CaptureActivity() {
   if (!record) {
     return (
       <main>
-        <div className="banner warn">Evaluation not found. <Link to="/">Back home</Link></div>
+        <div className="banner warn">
+          <Copy id="capture.not-found.before" /> <Link to="/">{c('capture.not-found.link')}</Link>
+        </div>
       </main>
     )
   }
@@ -178,21 +182,32 @@ export function CaptureActivity() {
   return (
     <main>
       <div className="card">
-        <h1>{activity?.title ?? 'Activity'}</h1>
+        <h1>
+          {activity ? (
+            <span
+              data-dfb-node={activity.id}
+              data-dfb-field="title"
+              data-dfb-source="ref"
+              data-dfb-table="activity"
+            >
+              {activity.title}
+            </span>
+          ) : (
+            c('capture.activity-fallback')
+          )}
+        </h1>
         <div className="banner info">
-          {alreadySubmitted
-            ? 'Submitted. You can edit, add to, or correct this evaluation; changes save instantly.'
-            : DICTATION_HINT}
+          <Copy id={alreadySubmitted ? 'capture.submitted-banner' : 'capture.dictation-hint'} />
         </div>
         <div className="row" style={{ justifyContent: 'space-between' }}>
-          <span className="muted small">{INPUT_RULES_SHORT}</span>
+          <Copy id="capture.input-rules-short" className="muted small" />
           <Glossary />
         </div>
       </div>
 
       <div className="card">
         <div className="row" style={{ justifyContent: 'space-between' }}>
-          <label style={{ margin: 0 }}>Who are you watching?</label>
+          <Copy id="capture.watching-prompt" as="label" style={{ margin: 0 }} />
           <button
             type="button"
             className={`rubric-toggle ${focusMode ? 'primary' : ''}`}
@@ -200,7 +215,7 @@ export function CaptureActivity() {
             onMouseDown={(e) => e.preventDefault()}
             onClick={toggleFocusMode}
           >
-            {focusMode ? 'Focus: one CIT' : 'Focus on one CIT'}
+            {focusMode ? c('capture.focus-on') : c('capture.focus-off')}
           </button>
         </div>
         {(() => {
@@ -209,14 +224,13 @@ export function CaptureActivity() {
           const remaining = total - covered
           if (total === 0) return null
           return (
-            <p
+            <Copy
+              id={remaining === 0 ? 'capture.coverage-all' : 'capture.coverage-remaining'}
+              tokens={{ total, remaining }}
+              as="p"
               className={`small coverage-summary ${remaining === 0 ? 'ok' : ''}`}
               style={{ marginTop: 8, marginBottom: 0 }}
-            >
-              {remaining === 0
-                ? `All ${total} participants have an evaluation for this activity.`
-                : `${remaining} of ${total} still need evaluation.`}
-            </p>
+            />
           )
         })()}
         <div className="row" style={{ marginTop: 8 }}>
@@ -225,8 +239,11 @@ export function CaptureActivity() {
             const cov = coverage?.get(p.id)
             const evs = cov?.evaluators ?? []
             const title = cov
-              ? `Evaluated ${cov.count}× by ${evs.join(', ') || 'unknown'}`
-              : 'Not yet evaluated for this activity'
+              ? c('capture.coverage-evaluated', 'label', {
+                  count: cov.count,
+                  evaluators: evs.join(', ') || c('capture.coverage-unknown'),
+                })
+              : c('capture.coverage-none')
             return (
               <button
                 key={p.id}
@@ -255,25 +272,52 @@ export function CaptureActivity() {
             )
           })}
         </div>
-        <p className="muted small" style={{ marginTop: 8 }}>
-          {focusMode
-            ? 'Focus mode: everything you capture is attributed to the one CIT you picked.'
-            : 'Tag who an observation is about as you dictate. Whole-group remarks are fine; the AI step (later) distributes them to each individual.'}
-        </p>
+        <Copy
+          id={focusMode ? 'capture.focus-help' : 'capture.tag-help'}
+          as="p"
+          className="muted small"
+          style={{ marginTop: 8 }}
+        />
       </div>
 
       {ksas.map((k) => (
         <div className="card" key={k.id}>
           <label htmlFor={`ksa-${k.id}`} className="ksa-title">
-            {k.short_label || k.code}
+            {k.short_label ? (
+              <span
+                data-dfb-node={k.id}
+                data-dfb-field="short_label"
+                data-dfb-source="ref"
+                data-dfb-table="ksa"
+              >
+                {k.short_label}
+              </span>
+            ) : (
+              k.code
+            )}
           </label>
-          <p className="ksa-cue" style={{ marginTop: 2 }}>
+          <p
+            className="ksa-cue"
+            style={{ marginTop: 2 }}
+            data-dfb-node={k.id}
+            data-dfb-field="evaluator_facing_prompt"
+            data-dfb-source="ref"
+            data-dfb-table="ksa"
+          >
             {k.evaluator_facing_prompt}
           </p>
           {k.guiding_questions && k.guiding_questions.length > 0 && (
             <ul className="muted small" style={{ marginTop: 4 }}>
-              {k.guiding_questions.map((q) => (
-                <li key={q}>{q}</li>
+              {k.guiding_questions.map((q, i) => (
+                <li
+                  key={q}
+                  data-dfb-node={k.id}
+                  data-dfb-field={`guiding_questions.${i}`}
+                  data-dfb-source="ref"
+                  data-dfb-table="ksa"
+                >
+                  {q}
+                </li>
               ))}
             </ul>
           )}
@@ -281,9 +325,10 @@ export function CaptureActivity() {
             id={`ksa-${k.id}`}
             value={answers[k.id] ?? ''}
             onChange={(e) => onAnswerChange(k.id, e.target.value)}
-            placeholder="Dictate or type what you observed…"
+            placeholder={c('capture.answer-placeholder')}
           />
           <QuickRating
+            ksaId={k.id}
             levels={k.evidence_levels}
             value={quickRatings[k.id]}
             onChange={(level) => onRatingChange(k.id, level)}
@@ -292,7 +337,7 @@ export function CaptureActivity() {
       ))}
 
       <div className="card">
-        <h2>Before you submit</h2>
+        <Copy id="capture.before-submit" as="h2" />
         <ul className="small muted">
           {INPUT_RULES.map((r) => (
             <li key={r}>{r}</li>
@@ -305,15 +350,15 @@ export function CaptureActivity() {
             checked={attested}
             onChange={(e) => setAttested(e.target.checked)}
           />
-          <span>This text is what I meant, and I followed the input rules.</span>
+          <Copy id="capture.attestation" />
         </label>
         <div className="row" style={{ marginTop: 12 }}>
           <button className="primary" disabled={!attested || !hasContent} onClick={submit}>
-            {alreadySubmitted ? 'Save changes' : 'Submit'}
+            {alreadySubmitted ? c('capture.save-changes') : c('capture.submit')}
           </button>
           {record.edit_history.length > 0 && (
             <button className="ghost" onClick={onUndo}>
-              Undo last edit
+              {c('capture.undo')}
             </button>
           )}
         </div>

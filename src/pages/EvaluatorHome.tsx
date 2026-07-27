@@ -3,6 +3,8 @@ import { Link, useNavigate } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '../db/local'
 import { useActiveWorkshopId } from '../lib/activeWorkshop'
+import { c } from '../lib/content/chrome'
+import { Copy } from '../components/Copy'
 import { useAuth, useIsChief } from '../auth/AuthContext'
 import { createDraft } from '../db/evaluations'
 import { buildAllReports } from '../reports/build'
@@ -136,7 +138,8 @@ export function EvaluatorHome() {
     return (
       <main>
         <div className="banner warn">
-          No workshop loaded on this device yet. Open <Link to="/admin">Admin</Link> to load one.
+          <Copy id="home.no-workshop.before" /> <Link to="/admin">{c('nav.admin')}</Link>{' '}
+          <Copy id="home.no-workshop.after" />
         </div>
       </main>
     )
@@ -145,9 +148,11 @@ export function EvaluatorHome() {
   return (
     <main>
       <div className="card">
-        <h1>{workshop.name}</h1>
+        <h1 data-dfb-node={workshop.id} data-dfb-field="name" data-dfb-source="ref" data-dfb-table="workshop">
+          {workshop.name}
+        </h1>
         <p className="muted small">{workshop.location}</p>
-        <p className="small">Pick the activity you're evaluating. The suggested one is based on the time now.</p>
+        <Copy id="home.pick-activity" as="p" className="small" />
       </div>
 
       {(activities ?? []).map((a) => (
@@ -157,26 +162,28 @@ export function EvaluatorHome() {
           onClick={() => start(a.id)}
         >
           <span>
-            <strong>{a.title}</strong>
+            <strong data-dfb-node={a.id} data-dfb-field="title" data-dfb-source="ref" data-dfb-table="activity">
+              {a.title}
+            </strong>
             <br />
             <span className="muted small">
               {fmtTime(a.start_time)}
               {a.end_time ? `–${fmtTime(a.end_time)}` : ''} {a.genre_group ? `· ${a.genre_group}` : ''}
             </span>
           </span>
-          {a.id === suggestedId && <span className="pill">suggested</span>}
+          {a.id === suggestedId && <Copy id="home.suggested-pill" className="pill" />}
         </button>
       ))}
 
       <div className="card row">
-        <Link to="/evaluations">View my evaluations</Link>
+        <Link to="/evaluations">{c('nav.my-evaluations')}</Link>
         <span className="spacer" />
-        <Link to="/routing">Routing</Link>
+        <Link to="/routing">{c('nav.routing')}</Link>
         <span className="spacer" />
-        <Link to="/reports">Reports</Link>
+        <Link to="/reports">{c('nav.reports')}</Link>
         <span className="spacer" />
         <Link to="/conversations" style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}>
-          Conversations
+          {c('nav.conversations')}
           {(neededConvCount ?? 0) > 0 && (
             <span className="pill queued" style={{ fontSize: '0.7rem', padding: '0.1rem 0.4rem' }}>
               {neededConvCount}
@@ -187,7 +194,7 @@ export function EvaluatorHome() {
           <>
             <span className="spacer" />
             <Link to="/inbox" style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}>
-              Discrepancy inbox
+              {c('nav.discrepancy-inbox')}
               {openDiscrepancyCount > 0 && (
                 <span className="pill queued" style={{ fontSize: '0.7rem', padding: '0.1rem 0.4rem' }}>
                   {openDiscrepancyCount}
@@ -197,11 +204,11 @@ export function EvaluatorHome() {
           </>
         )}
         <span className="spacer" />
-        <Link to="/day-email">End-of-day email</Link>
+        <Link to="/day-email">{c('nav.day-email')}</Link>
         <span className="spacer" />
-        <Link className="small muted" to="/builder">Scenario Builder</Link>
+        <Link className="small muted" to="/builder">{c('nav.builder')}</Link>
         <span className="spacer" />
-        <Link className="small muted" to="/admin">Admin</Link>
+        <Link className="small muted" to="/admin">{c('nav.admin')}</Link>
       </div>
     </main>
   )

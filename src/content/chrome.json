@@ -1,0 +1,129 @@
+{
+  "version": "1.0.0",
+  "nodes": [
+    { "id": "nav.home", "label": "Home" },
+    { "id": "nav.admin", "label": "Admin" },
+    { "id": "nav.routing", "label": "Routing" },
+    { "id": "nav.reports", "label": "Reports" },
+    { "id": "nav.observations", "label": "Observations" },
+    { "id": "nav.conversations", "label": "Conversations" },
+    { "id": "nav.my-evaluations", "label": "View my evaluations" },
+    { "id": "nav.discrepancy-inbox", "label": "Discrepancy inbox" },
+    { "id": "nav.day-email", "label": "End-of-day email" },
+    { "id": "nav.builder", "label": "Scenario Builder" },
+    { "id": "nav.back-to-routing", "label": "Back to routing" },
+
+    { "id": "home.no-workshop.before", "label": "No workshop loaded on this device yet. Open" },
+    { "id": "home.no-workshop.after", "label": "to load one." },
+    {
+      "id": "home.pick-activity",
+      "label": "Pick the activity you're evaluating. The suggested one is based on the time now."
+    },
+    { "id": "home.suggested-pill", "label": "suggested" },
+
+    { "id": "capture.not-found.before", "label": "Evaluation not found." },
+    { "id": "capture.not-found.link", "label": "Back home" },
+    { "id": "capture.activity-fallback", "label": "Activity" },
+    {
+      "id": "capture.submitted-banner",
+      "label": "Submitted. You can edit, add to, or correct this evaluation; changes save instantly."
+    },
+    {
+      "id": "capture.dictation-hint",
+      "label": "Dictate with Wispr Flow (the default input for this workshop). Typed text works too."
+    },
+    {
+      "id": "capture.input-rules-short",
+      "label": "Name who you mean, describe what you observed, one activity per capture."
+    },
+    { "id": "capture.watching-prompt", "label": "Who are you watching?" },
+    { "id": "capture.focus-on", "label": "Focus: one CIT" },
+    { "id": "capture.focus-off", "label": "Focus on one CIT" },
+    {
+      "id": "capture.coverage-all",
+      "label": "All {total} participants have an evaluation for this activity."
+    },
+    { "id": "capture.coverage-remaining", "label": "{remaining} of {total} still need evaluation." },
+    { "id": "capture.coverage-evaluated", "label": "Evaluated {count}× by {evaluators}" },
+    { "id": "capture.coverage-unknown", "label": "unknown" },
+    { "id": "capture.coverage-none", "label": "Not yet evaluated for this activity" },
+    {
+      "id": "capture.focus-help",
+      "label": "Focus mode: everything you capture is attributed to the one CIT you picked."
+    },
+    {
+      "id": "capture.tag-help",
+      "label": "Tag who an observation is about as you dictate. Whole-group remarks are fine; the AI step (later) distributes them to each individual."
+    },
+    { "id": "capture.answer-placeholder", "label": "Dictate or type what you observed…" },
+    { "id": "capture.before-submit", "label": "Before you submit" },
+    {
+      "id": "capture.attestation",
+      "label": "This text is what I meant, and I followed the input rules."
+    },
+    { "id": "capture.save-changes", "label": "Save changes" },
+    { "id": "capture.submit", "label": "Submit" },
+    { "id": "capture.undo", "label": "Undo last edit" },
+
+    { "id": "rating.quick-read", "label": "Quick read (optional):" },
+    { "id": "rating.clear", "label": "clear" },
+    { "id": "rating.hide-levels", "label": "Hide levels" },
+    { "id": "rating.all-levels", "label": "All levels" },
+    { "id": "rating.levels-region", "label": "Evidence levels" },
+    { "id": "rating.no-rubric", "label": "No rubric content yet (pending authoring)." },
+
+    { "id": "glossary.show", "label": "Terms" },
+    { "id": "glossary.hide", "label": "Hide terms" },
+    { "id": "glossary.region", "label": "Glossary of terms" },
+    {
+      "id": "glossary.term.mtt",
+      "label": "MTT",
+      "guidance": "Mother-tongue translator; a local speaker on the translation team."
+    },
+    {
+      "id": "glossary.term.clat",
+      "label": "CLAT",
+      "guidance": "Creating Local Arts Together; the workflow for translating Scripture into a local art form."
+    },
+    {
+      "id": "glossary.term.ethnopoetics",
+      "label": "Ethnopoetics",
+      "guidance": "The study of how a culture's verbal art (poetry, song, story) works and what it does."
+    },
+    {
+      "id": "glossary.term.ane",
+      "label": "ANE",
+      "guidance": "Ancient Near East; the cultural world surrounding ancient Israel."
+    },
+    {
+      "id": "glossary.term.four-es",
+      "label": "Four Es / SENSES",
+      "guidance": "Internalization frameworks from earlier workshops for taking a text deeply in before drafting."
+    },
+    {
+      "id": "glossary.term.fia",
+      "label": "FIA",
+      "guidance": "A set of exegetical and translation-helps materials used in preparation."
+    },
+    {
+      "id": "glossary.term.scripture-as-resources",
+      "label": "Scripture-as-Resources",
+      "guidance": "Drawing on other Scripture passages as a resource during exegesis and drafting."
+    },
+
+    { "id": "obs.title", "label": "Observations & verification" },
+    {
+      "id": "obs.intro",
+      "label": "Per-individual evidence routed from captures. Each observation needs confirmation by the required number of evaluators before it counts toward a finalized report. Numbers are draft 0–3 designations."
+    },
+    { "id": "obs.sign-in", "label": "Sign in to record verdicts." },
+    { "id": "obs.nothing-yet.before", "label": "Nothing yet. Route some captures from" },
+    { "id": "obs.nothing-yet.after", "label": "." },
+    { "id": "obs.unattributed", "label": "(unattributed)" },
+    { "id": "obs.ready", "label": "ready to finalize" },
+    { "id": "obs.verified", "label": "{verified}/{total} verified" },
+    { "id": "obs.designation", "label": "designation" },
+    { "id": "obs.evaluator-read", "label": "evaluator read {level}/3" },
+    { "id": "obs.routing-flagged", "label": "routing flagged" }
+  ]
+}
