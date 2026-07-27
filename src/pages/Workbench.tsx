@@ -14,6 +14,7 @@ import { DocumentPane } from '../components/workbench/DocumentPane'
 import { EvidencePane } from '../components/workbench/EvidencePane'
 import { ApprovalBar } from '../components/workbench/ApprovalBar'
 import { StaleBanner } from '../components/workbench/StaleBanner'
+import { SendQueue } from '../components/workbench/SendQueue'
 import { EmptyState } from '../components/data/EmptyState'
 import { Drawer } from '../components/data/Drawer'
 import type { Gate } from '../reports/verification'
@@ -230,6 +231,8 @@ export function Workbench() {
           <EvidencePane segment={selected} ctx={ctx} />
         </Drawer>
       </div>
+
+      <SendQueue draft={draft} onSave={(next) => saveDraft(next)} />
 
       <details className="card">
         <summary>The document as it will be sent</summary>
