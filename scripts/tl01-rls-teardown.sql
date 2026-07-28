@@ -22,6 +22,7 @@ delete from workshop where id in (
 );
 
 drop function if exists tl01_try(text, text, uuid, text);
+drop function if exists tl01_assert(text, boolean, text);
 drop table if exists tl01_results;
 
 select
