@@ -5,6 +5,7 @@ import { SyncStatusBar } from '../components/SyncStatusBar'
 import { c } from '../lib/content/chrome'
 import { MobileNav } from './MobileNav'
 import { Nav } from './Nav'
+import { useWorkshopRole } from './roles'
 
 /**
  * The app frame.
@@ -22,6 +23,10 @@ import { Nav } from './Nav'
  */
 export function AppShell({ mode }: { mode: 'narrow' | 'wide' }) {
   const { identity, signOut } = useAuth()
+  // The role shown here is the one held in the ACTIVE workshop, not a global
+  // rank: the same person can be an admin in one workshop and an evaluator in
+  // another, and the header has to say which hat they are wearing right now.
+  const role = useWorkshopRole()
   const loc = useLocation()
   const [menuOpen, setMenuOpen] = useState(false)
   const onHome = loc.pathname === '/'
@@ -55,7 +60,8 @@ export function AppShell({ mode }: { mode: 'narrow' | 'wide' }) {
             <SyncStatusBar />
             {identity && (
               <div className="small">
-                {identity.name} <span className="muted">({identity.role})</span>{' '}
+                {identity.name}{' '}
+                {role && <span className="muted">({c(`role.${role}`)})</span>}{' '}
                 <button className="ghost small" onClick={signOut}>
                   {c('nav.sign-out')}
                 </button>

@@ -77,11 +77,57 @@ export interface ActivityKsa {
   sort_order: number
 }
 
+/**
+ * The platform tier. Deliberately tiny, and not an evaluation role.
+ *
+ * `platform_owner` exists because membership cannot bootstrap itself: a fresh
+ * deployment needs somebody able to create the first workshop before any
+ * membership row exists. It grants exactly three powers (create a workshop,
+ * manage the allowlist, recover a workshop whose chief admin is gone) and grants
+ * nothing inside a workshop it holds no membership in.
+ *
+ * Everything an evaluator, consultant, or admin can do is a `WorkshopRole` held
+ * through `WorkshopMember`.
+ */
+export type PlatformRole = 'platform_owner' | 'member'
+
+/** A role held inside one workshop. Ordered most to least privileged. */
+export const WORKSHOP_ROLES = [
+  'chief_admin',
+  'admin',
+  'chief_evaluator',
+  'consultant',
+  'evaluator',
+  'participant',
+] as const
+
+export type WorkshopRole = (typeof WORKSHOP_ROLES)[number]
+
 export interface AppUser {
   id: string
   name: string
   email: string
-  role: 'evaluator' | 'consultant' | 'chief_evaluator' | 'admin' | 'participant'
+  role: PlatformRole
+}
+
+/**
+ * One person's role in one workshop. The authoritative copy lives in Postgres
+ * (`workshop_member`) and is enforced by RLS; the client caches it in Dexie so
+ * role resolution survives a cold offline start.
+ *
+ * The cache is a convenience for deciding what to render. It is NEVER an
+ * authorization source: every read and write is re-checked server-side against
+ * `auth.uid()`, so a tampered cache changes what the UI offers and nothing about
+ * what the database returns.
+ */
+export interface WorkshopMember {
+  /** `${workshop_id}::${app_user_id}` — the composite key flattened for Dexie. */
+  pk: string
+  workshop_id: string
+  app_user_id: string
+  role: WorkshopRole
+  added_by?: string | null
+  added_at?: string | null
 }
 
 /** A name/id the evaluator was watching during a capture. */
@@ -250,6 +296,21 @@ export interface ReferenceOutboxEntry {
   /** the Postgres row to upsert; null for a delete. */
   payload: object | null
   at: string
+  /**
+   * Set when the backend REFUSED this write on authorization grounds rather than
+   * failing transiently. Retrying cannot fix it: the caller does not hold the role
+   * the policy requires.
+   *
+   * This distinction became load-bearing with tl-01. Before per-workshop RLS, every
+   * failure here was a network problem, so "stay queued and retry" was always
+   * right, and `loadReferenceData()` could safely refuse to refresh while anything
+   * was pending. A permanently rejected entry under that rule would block reference
+   * refresh on the device forever, silently — so rejected entries are excluded from
+   * the pending count while being kept for inspection rather than discarded.
+   */
+  rejected?: boolean
+  /** The backend's own message for a rejected entry. Kept verbatim, for diagnosis. */
+  rejectedReason?: string | null
 }
 
 /** One evaluator's verdict on one observation (the multi-evaluator gate). */

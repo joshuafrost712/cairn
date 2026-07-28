@@ -9,6 +9,7 @@ import { AppShell } from './layout/AppShell'
 import { RequireRole } from './layout/RequireRole'
 import { ADMIN_ROLES, CHIEF_ROLES } from './layout/roles'
 import { SignIn } from './pages/SignIn'
+import { NoWorkshop } from './pages/NoWorkshop'
 import { EvaluatorHome } from './pages/EvaluatorHome'
 import { CaptureActivity } from './pages/CaptureActivity'
 import { MyEvaluations } from './pages/MyEvaluations'
@@ -37,23 +38,31 @@ import { Workbench } from './pages/Workbench'
 import { DevFeedbackRoot } from './devfeedback/DevFeedbackRoot'
 
 function Shell() {
-  const { identity, status } = useAuth()
+  const { identity, status, memberships, membershipStatus } = useAuth()
 
   useEffect(() => {
     const stopSync = startSyncLoop()
-    // Start coverage sync after reference data lands so the workshop cache exists.
+    return stopSync
+  }, [])
+
+  // Reference data is loaded once the session question is settled, and AGAIN when
+  // it changes, because since tl-01 the reference tables require an authenticated
+  // membership-scoped session. Loading only on mount would leave a user who just
+  // signed in looking at the bundled seed until they reloaded the page.
+  useEffect(() => {
+    if (status === 'checking') return
     let stopCoverage: (() => void) | null = null
     let cancelled = false
+    // Coverage sync starts after reference data lands, so the workshop cache exists.
     void loadReferenceData().then(() => {
       if (cancelled) return
       stopCoverage = startCoverageSync()
     })
     return () => {
       cancelled = true
-      stopSync()
       stopCoverage?.()
     }
-  }, [])
+  }, [status])
 
   // Distinct from signed-out: we haven't resolved the stored session yet.
   // Showing the sign-in form here would flash it at an already-signed-in user,
@@ -73,6 +82,27 @@ function Shell() {
     return (
       <Routes>
         <Route path="*" element={<SignIn />} />
+      </Routes>
+    )
+  }
+
+  // Same reasoning one level down: an unsettled membership load must not render
+  // as "you belong to nowhere". Only a settled, genuinely empty list does.
+  if (membershipStatus === 'loading') {
+    return (
+      <main className="shell__content" style={{ maxWidth: 720 }}>
+        <div className="card">
+          <h1>Throughline</h1>
+          <p className="muted small">Checking your session…</p>
+        </div>
+      </main>
+    )
+  }
+
+  if (memberships.length === 0) {
+    return (
+      <Routes>
+        <Route path="*" element={<NoWorkshop />} />
       </Routes>
     )
   }

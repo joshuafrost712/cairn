@@ -431,6 +431,51 @@
     {
       "id": "verify.clear",
       "label": "clear ({what})"
+    },
+    {
+      "id": "role.chief_admin",
+      "label": "chief admin"
+    },
+    {
+      "id": "role.admin",
+      "label": "admin"
+    },
+    {
+      "id": "role.chief_evaluator",
+      "label": "chief evaluator"
+    },
+    {
+      "id": "role.consultant",
+      "label": "consultant"
+    },
+    {
+      "id": "role.evaluator",
+      "label": "evaluator"
+    },
+    {
+      "id": "role.participant",
+      "label": "participant"
+    },
+    {
+      "id": "membership.none.title",
+      "label": "You have not been added to a workshop yet"
+    },
+    {
+      "id": "membership.none.body",
+      "label": "Your account is active, but nobody has added you to a workshop, so there is nothing here to work on yet.",
+      "guidance": "Ask the person who invited you, or the workshop's administrator, to add you. If you administer this workshop yourself, sign in on the account that set it up."
+    },
+    {
+      "id": "membership.none.signed-in-as",
+      "label": "Signed in as {email}"
+    },
+    {
+      "id": "membership.none.recheck",
+      "label": "Check again"
+    },
+    {
+      "id": "membership.none.rechecking",
+      "label": "Checking…"
     }
   ]
 }

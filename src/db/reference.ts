@@ -5,13 +5,37 @@ import * as seed from '../data/seed'
 import type { Activity, Ksa } from '../lib/types'
 
 /**
+ * Whether there is a session to read reference data with. Never throws: no
+ * session and "could not tell" both mean the same thing here, which is to fall
+ * back to the cache or the seed.
+ */
+async function hasSession(): Promise<boolean> {
+  if (!isSupabaseConfigured || !supabase) return false
+  try {
+    const { data } = await supabase.auth.getSession()
+    return data.session != null
+  } catch {
+    return false
+  }
+}
+
+/**
  * Load reference data (workshops, activities, KSAs, etc.) into the local cache.
- * - Supabase configured + online: fetch fresh and overwrite the cache.
+ * - Supabase configured + online + AUTHENTICATED: fetch fresh and overwrite the cache.
  * - Otherwise: if the cache is empty, prime it from the local seed so the app works.
  * Capture always reads from the local cache, so it works offline after first load.
+ *
+ * The authenticated requirement arrived with tl-01. Reads on the reference tables
+ * used to be open to `anon` precisely so this function could run on a cold,
+ * pre-auth start, and that openness is what made per-workshop roles meaningless:
+ * anybody holding the public anon key could read every workshop in the
+ * deployment. Now a session is required and rows are membership-scoped, so a
+ * pre-auth device shows the bundled seed rather than real workshop data. That is
+ * a visible behaviour change, and the intended one.
  */
 export async function loadReferenceData(): Promise<void> {
-  if (isSupabaseConfigured && supabase && navigator.onLine) {
+  const authed = await hasSession()
+  if (isSupabaseConfigured && supabase && navigator.onLine && authed) {
     // Drain any locally-authored reference edits (Scenario Builder / roster) up to
     // the backend first, so the destructive pull below reflects them rather than
     // clobbering them. If anything is still pending afterward (e.g. a transient

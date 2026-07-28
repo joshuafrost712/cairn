@@ -2,13 +2,15 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
 import { isSupabaseConfigured } from '../lib/supabase'
-import type { AppUser } from '../lib/types'
+import type { WorkshopRole } from '../lib/types'
 
-// Roles offered at self-signup. Elevated roles (chief_evaluator, admin) are never
-// self-serve — they are assigned from the server-side allowlist, so they are not
-// listed here. The requested role is honored only if the account's allowlist entry
-// permits it; otherwise the server assigns the account's default role.
-const SIGNUP_ROLES: { value: AppUser['role']; label: string }[] = [
+// Workshop roles offered at self-signup. Elevated roles (chief_evaluator, admin,
+// chief_admin) are never self-serve — they are assigned from the server-side
+// allowlist, so they are not listed here. The requested role is honored only if
+// the account's allowlist entry permits it; otherwise the server assigns the
+// account's default role, and it lands on workshop_member rather than on the
+// account itself (tl-01).
+const SIGNUP_ROLES: { value: WorkshopRole; label: string }[] = [
   { value: 'evaluator', label: 'Evaluator' },
   { value: 'consultant', label: 'Consultant' },
 ]
@@ -25,7 +27,7 @@ function SupabaseSignIn() {
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [role, setRole] = useState<AppUser['role']>('evaluator')
+  const [role, setRole] = useState<WorkshopRole>('evaluator')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [confirmationPending, setConfirmationPending] = useState(false)
@@ -155,7 +157,7 @@ function SupabaseSignIn() {
             <select
               id="role"
               value={role}
-              onChange={(e) => setRole(e.target.value as AppUser['role'])}
+              onChange={(e) => setRole(e.target.value as WorkshopRole)}
             >
               {SIGNUP_ROLES.map((r) => (
                 <option key={r.value} value={r.value}>{r.label}</option>

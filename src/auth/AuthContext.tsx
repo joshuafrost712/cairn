@@ -1,8 +1,11 @@
 /* eslint-disable react-refresh/only-export-components -- provider + its hook are co-located by design */
-import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
+import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import type { Session, User } from '@supabase/supabase-js'
-import type { AppUser } from '../lib/types'
+import type { PlatformRole, WorkshopMember, WorkshopRole } from '../lib/types'
 import { supabase, isSupabaseConfigured } from '../lib/supabase'
+import { refreshMemberships, synthesizeLocalMembership, cachedMemberships } from '../db/membership'
+import { activeWorkshopNeedsCorrection, resolveActiveWorkshopId } from './membership'
+import { getActiveWorkshopId, setActiveWorkshopId } from '../lib/activeWorkshop'
 
 // ---------------------------------------------------------------------------
 // Identity shape (shared by both auth paths)
@@ -11,9 +14,25 @@ import { supabase, isSupabaseConfigured } from '../lib/supabase'
 export interface Identity {
   name: string
   email: string
-  role: AppUser['role']
+  /**
+   * The platform tier only. Every evaluation-facing role is per-workshop and
+   * lives in `memberships` — ask `useWorkshopRole()`, not this field.
+   */
+  platformRole: PlatformRole
+  /** `app_user.id`, the key memberships hang off. Null until the row is read. */
+  appUserId: string | null
   signedInAt: string // ISO timestamp
 }
+
+/**
+ * Whether the caller's memberships have been resolved yet.
+ *
+ * Same problem `AuthStatus` solves, one level down: an empty membership list means
+ * both "still loading" and "you belong to no workshop", and those two demand
+ * opposite renders. Conflating them flashes the "nobody has added you yet" screen
+ * at every legitimate member on every cold load.
+ */
+export type MembershipStatus = 'loading' | 'ready'
 
 // ---------------------------------------------------------------------------
 // Local-only fallback (no Supabase configured)
@@ -46,6 +65,12 @@ const SIGNIN_TIMEOUT_MS = 15_000
 /** Bound on the initial session bootstrap before we fall back to signed-out. */
 const BOOTSTRAP_TIMEOUT_MS = 10_000
 
+/**
+ * The stable id a local-only profile hangs its cached memberships off. There is
+ * no `app_user` row in this mode, so the email is the identity.
+ */
+const localAppUserId = (email: string) => `local::${email.trim().toLowerCase()}`
+
 function loadLocal(): Identity | null {
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
@@ -57,7 +82,15 @@ function loadLocal(): Identity | null {
       localStorage.removeItem(STORAGE_KEY)
       return null
     }
-    return parsed as Identity
+    // An identity stored before tl-01 carries the old `role` field and no
+    // appUserId. Normalize rather than discard, so a local-mode profile is not
+    // silently signed out by an upgrade; the workshop role comes back from the
+    // cached memberships keyed on this same id.
+    return {
+      ...parsed,
+      platformRole: parsed.platformRole === 'platform_owner' ? 'platform_owner' : 'member',
+      appUserId: parsed.appUserId ?? localAppUserId(parsed.email),
+    } as Identity
   } catch {
     return null
   }
@@ -79,9 +112,14 @@ export type AuthStatus = 'checking' | 'signedIn' | 'signedOut'
 interface AuthValue {
   identity: Identity | null
   status: AuthStatus
+  /** The caller's own memberships. Empty and `membershipStatus === 'ready'` means no workshop. */
+  memberships: WorkshopMember[]
+  membershipStatus: MembershipStatus
+  /** Re-read memberships from the backend (after being added to a workshop, say). */
+  reloadMemberships: () => Promise<void>
   /** Supabase path: email + password. Local path: name + email (password ignored). */
-  signIn: (emailOrName: string, emailOrPassword: string, passwordOrRole?: string, roleForLocal?: AppUser['role']) => Promise<{ error: string | null }>
-  signUp: (name: string, email: string, password: string, role: AppUser['role']) => Promise<{ error: string | null; confirmationRequired?: boolean }>
+  signIn: (emailOrName: string, emailOrPassword: string, passwordOrRole?: string, roleForLocal?: WorkshopRole) => Promise<{ error: string | null }>
+  signUp: (name: string, email: string, password: string, role: WorkshopRole) => Promise<{ error: string | null; confirmationRequired?: boolean }>
   signOut: () => Promise<void>
   /** True when operating on local-only identity (no Supabase configured). */
   isLocalMode: boolean
@@ -93,37 +131,39 @@ const AuthContext = createContext<AuthValue | null>(null)
 // Helper: convert a Supabase session + optional app_user row into Identity
 // ---------------------------------------------------------------------------
 
+interface AppUserRow {
+  id: string
+  name: string
+  role: string
+}
+
 /**
  * Build an Identity from a session, optionally enriched by the user's `app_user`
  * row.
  *
- * Role is deliberately NOT taken from `user_metadata`. That field is written by
- * the user at signup (SignIn's role picker), so trusting it would let an account
- * self-assert `admin` and get the elevated UI. The `app_user` row is the only
- * authoritative source, so a session on its own yields the least-privileged role
- * and we elevate once the row arrives. Display name still falls back to metadata,
+ * Neither the platform tier nor any workshop role is taken from `user_metadata`.
+ * That field is written by the user at signup (SignIn's role picker), so trusting
+ * it would let an account self-assert its way into the elevated UI. The `app_user`
+ * row is the only source for the platform tier, and `workshop_member` the only
+ * source for a workshop role, so a session on its own yields the least privilege
+ * and we elevate once the rows arrive. Display name still falls back to metadata,
  * which is harmless.
  *
  * This only governs what the client renders; the real boundary is RLS
- * (supabase/migrations/20260707000600_role_allowlist_and_rls.sql).
+ * (supabase/migrations/20260728000700_workshop_membership.sql).
  */
-function identityFromSession(
-  user: User,
-  appUser: { name: string; role: string } | null,
-): Identity {
+function identityFromSession(user: User, appUser: AppUserRow | null): Identity {
   const meta = (user.user_metadata ?? {}) as Record<string, unknown>
   const name =
-    (appUser?.name as string | undefined) ??
+    appUser?.name ??
     (meta.name as string | undefined) ??
     user.email ??
     'Unknown'
-  const rawRole = appUser?.role ?? 'evaluator'
-  const allowed: AppUser['role'][] = ['evaluator', 'consultant', 'chief_evaluator', 'admin', 'participant']
-  const role: AppUser['role'] = (allowed.includes(rawRole as AppUser['role']) ? rawRole : 'evaluator') as AppUser['role']
   return {
     name,
     email: user.email ?? '',
-    role,
+    platformRole: appUser?.role === 'platform_owner' ? 'platform_owner' : 'member',
+    appUserId: appUser?.id ?? null,
     signedInAt: new Date().toISOString(),
   }
 }
@@ -132,22 +172,22 @@ function identityFromSession(
  * Fetch the caller's `app_user` row. Bounded and never throws: a failure here
  * must degrade the identity, never block sign-in.
  */
-async function fetchAppUser(email: string): Promise<{ name: string; role: string } | null> {
+async function fetchAppUser(email: string): Promise<AppUserRow | null> {
   if (!supabase) return null
   try {
     const { data, error } = await supabase
       .from('app_user')
-      .select('name, role')
+      .select('id, name, role')
       .eq('email', email)
       .abortSignal(AbortSignal.timeout(PROFILE_TIMEOUT_MS))
       .maybeSingle()
     if (error) {
       // Not fatal: the session still stands, the user just keeps the
-      // least-privileged role and their email/metadata name.
+      // least-privileged tier and their email/metadata name.
       console.warn('app_user lookup failed; continuing with session-derived identity.', error)
       return null
     }
-    return data as { name: string; role: string } | null
+    return data as AppUserRow | null
   } catch (err) {
     console.warn('app_user lookup threw; continuing with session-derived identity.', err)
     return null
@@ -175,6 +215,81 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // callbacks (visibility, online, watchdog) that must not depend on a rendered
   // `status` value, so it lives in a ref rather than state.
   const resolved = useRef(false)
+
+  // ---- Memberships ----
+  //
+  // Held as "whose memberships these are, and what they were", rather than as a
+  // list plus a separate status flag. Keeping the owner in the same state value is
+  // what makes the loading question derivable: if the loaded id is not the current
+  // account's, the answer on screen belongs to somebody else and the correct
+  // status is 'loading'. A separate flag would need resetting from an effect on
+  // every account change, which is both a cascading render and a window in which
+  // the previous account's roles are reported as current.
+  const [loaded, setLoaded] = useState<{ id: string | null; rows: WorkshopMember[] }>({
+    id: null,
+    rows: [],
+  })
+
+  // Whether the `app_user` lookup has finished, successfully or not. Needed
+  // because `appUserId === null` on a signed-in account means two different
+  // things: "the row has not arrived yet" (wait) and "the row could not be read"
+  // (a terminal state the UI must name). Without this the second case would sit
+  // forever on a spinner. Local-only mode has no row to look up.
+  const [profileChecked, setProfileChecked] = useState(!isSupabaseConfigured)
+
+  const appUserId = identity?.appUserId ?? null
+  // Memoized because the empty-list branch would otherwise be a fresh array on
+  // every render, and it is an effect dependency below.
+  const memberships = useMemo(
+    () => (loaded.id === appUserId ? loaded.rows : []),
+    [loaded, appUserId],
+  )
+  const membershipStatus: MembershipStatus =
+    status === 'checking' ? 'loading'
+    : !identity ? 'ready'
+    : appUserId == null ? (profileChecked ? 'ready' : 'loading')
+    : loaded.id === appUserId ? 'ready'
+    : 'loading'
+
+  // Load whenever the answer on screen belongs to a different account than the
+  // one signed in. The Supabase path fetches and re-caches; the local-only path
+  // reads the cache written at sign-in. Either way the result is the same shape,
+  // so nothing downstream needs to know which mode it is in.
+  useEffect(() => {
+    if (!appUserId || loaded.id === appUserId) return
+    let cancelled = false
+    const load = isSupabaseConfigured
+      ? refreshMemberships(appUserId)
+      : cachedMemberships(appUserId)
+    void load.then((rows) => {
+      if (cancelled) return
+      setLoaded({ id: appUserId, rows })
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [appUserId, loaded.id])
+
+  const reloadMemberships = async () => {
+    if (!appUserId) return
+    const rows = isSupabaseConfigured
+      ? await refreshMemberships(appUserId)
+      : await cachedMemberships(appUserId)
+    setLoaded({ id: appUserId, rows })
+  }
+
+  // ---- Validate the device's active-workshop selection ----
+  //
+  // `localStorage` stays the transport, but it is now validated input rather than
+  // an authorization claim: an id the user does not hold a membership in is
+  // discarded, not honored. Runs only once memberships are settled, so a slow
+  // fetch cannot clear a perfectly good selection on the way past.
+  useEffect(() => {
+    if (membershipStatus !== 'ready') return
+    const stored = getActiveWorkshopId()
+    if (!activeWorkshopNeedsCorrection(stored, memberships)) return
+    setActiveWorkshopId(resolveActiveWorkshopId(stored, memberships))
+  }, [memberships, membershipStatus])
 
   // ---- Supabase session bootstrap ----
   useEffect(() => {
@@ -205,6 +320,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       //    briefly downgrade an enriched role back to least privilege.
       if (isNewAccount) {
         applied.current = { email, authoritative: false, enriching: false }
+        // A different account's profile question is unanswered again. Without this
+        // reset, signing in as somebody else would inherit the previous account's
+        // "settled" flag and flash the no-workshop screen while the row loads.
+        setProfileChecked(false)
         setIdentity(identityFromSession(user, null))
       }
       setStatus('signedIn')
@@ -219,6 +338,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (disposed) return
         if (applied.current?.email !== email) return // a different account signed in meanwhile
         applied.current = { email, authoritative: row !== null, enriching: false }
+        // Settled either way. A null row means the lookup failed or the account has
+        // no `app_user` record; both leave the session with no resolvable
+        // memberships, which the UI names rather than spins on.
+        setProfileChecked(true)
         if (row) setIdentity(identityFromSession(user, row))
       })
     }
@@ -309,7 +432,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     emailOrName: string,
     emailOrPassword: string,
     _passwordOrRole?: string,
-    roleForLocal: AppUser['role'] = 'evaluator',
+    roleForLocal: WorkshopRole = 'evaluator',
   ): Promise<{ error: string | null }> => {
     if (isSupabaseConfigured && supabase) {
       const client = supabase
@@ -348,12 +471,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const name = emailOrName
     const email = emailOrPassword
     if (!name.trim() || !email.trim()) return { error: 'Name and email are required.' }
+    const id = localAppUserId(email)
     const next: Identity = {
       name: name.trim(),
       email: email.trim().toLowerCase(),
-      role: roleForLocal,
+      platformRole: 'member',
+      appUserId: id,
       signedInAt: new Date().toISOString(),
     }
+    // Write the synthesized membership BEFORE the identity lands, or the effect
+    // that reads the cache races the write and settles on "no workshop".
+    const rows = await synthesizeLocalMembership(id, roleForLocal)
+    setLoaded({ id, rows })
     setIdentity(next)
     setStatus('signedIn')
     return { error: null }
@@ -366,7 +495,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     name: string,
     email: string,
     password: string,
-    role: AppUser['role'],
+    role: WorkshopRole,
   ): Promise<{ error: string | null; confirmationRequired?: boolean }> => {
     if (!isSupabaseConfigured || !supabase) {
       return { error: 'Supabase is not configured; use local-only sign-in.' }
@@ -406,11 +535,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.removeItem(STORAGE_KEY)
     setIdentity(null)
     setStatus('signedOut')
+    setLoaded({ id: null, rows: [] })
   }
 
   return (
     <AuthContext.Provider
-      value={{ identity, status, signIn, signUp, signOut, isLocalMode: !isSupabaseConfigured }}
+      value={{
+        identity,
+        status,
+        memberships,
+        membershipStatus,
+        reloadMemberships,
+        signIn,
+        signUp,
+        signOut,
+        isLocalMode: !isSupabaseConfigured,
+      }}
     >
       {children}
     </AuthContext.Provider>
@@ -423,10 +563,6 @@ export function useAuth(): AuthValue {
   return ctx
 }
 
-// ---------------------------------------------------------------------------
-// Convenience helper for chief-evaluator gating (does not hide routes yet)
-// ---------------------------------------------------------------------------
-export function useIsChief(): boolean {
-  const { identity } = useAuth()
-  return identity?.role === 'chief_evaluator' || identity?.role === 'admin'
-}
+// The chief-evaluator convenience helper now lives in ../layout/roles.ts, because
+// the question it answers ("is this person a chief here?") is per-workshop and
+// needs the active-workshop selection that roles.ts already resolves.

@@ -1,12 +1,12 @@
 import { NavLink } from 'react-router-dom'
-import { useAuth } from '../auth/AuthContext'
 import { c } from '../lib/content/chrome'
 import { useNavCounts } from '../hooks/useNavCounts'
 import { NAV_GROUPS } from './navItems'
+import { useWorkshopRole } from './roles'
 import type { NavGroup } from './navItems'
-import type { AppUser } from '../lib/types'
+import type { WorkshopRole } from '../lib/types'
 
-function visible(roles: AppUser['role'][] | undefined, role: AppUser['role'] | null): boolean {
+function visible(roles: WorkshopRole[] | undefined, role: WorkshopRole | null): boolean {
   if (!roles) return true
   return role != null && roles.includes(role)
 }
@@ -20,9 +20,8 @@ function visible(roles: AppUser['role'][] | undefined, role: AppUser['role'] | n
  * accessible state and the visible state are the same fact.
  */
 export function Nav({ onNavigate }: { onNavigate?: () => void }) {
-  const { identity } = useAuth()
   const counts = useNavCounts()
-  const role = identity?.role ?? null
+  const role = useWorkshopRole()
 
   const groups: NavGroup[] = NAV_GROUPS.filter((g) => visible(g.roles, role))
 

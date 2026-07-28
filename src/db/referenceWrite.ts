@@ -41,16 +41,51 @@ async function enqueue(entry: Omit<ReferenceOutboxEntry, 'at'>): Promise<void> {
 }
 
 /**
- * Replay queued reference writes to Supabase. Parents are upserted before children
- * and children deleted before parents so foreign keys always hold. A failed entry
- * stays queued and retries on the next call. Returns how many pushed and how many
- * remain pending (pending > 0 protects the cache from the overwrite in load).
+ * Whether an error is the backend REFUSING the write rather than failing to
+ * deliver it.
+ *
+ * `42501` is Postgres's insufficient_privilege, which is what both an RLS policy
+ * violation and a missing table grant surface as. Matching on the message as well
+ * because PostgREST does not always carry the code through, and being wrong in the
+ * safe direction here means treating a permanent refusal as transient — which is
+ * the failure this function exists to prevent.
  */
-export async function pushReferenceOutbox(): Promise<{ pushed: number; pending: number }> {
+export function isAuthorizationRefusal(error: { code?: string; message?: string }): boolean {
+  if (error.code === '42501') return true
+  return /row-level security|permission denied|insufficient_privilege/i.test(error.message ?? '')
+}
+
+/** Entries still worth retrying: queued, and not permanently refused. */
+async function pendingCount(): Promise<number> {
+  const all = await db.referenceOutbox.toArray()
+  return all.filter((e) => !e.rejected).length
+}
+
+/**
+ * Replay queued reference writes to Supabase. Parents are upserted before children
+ * and children deleted before parents so foreign keys always hold.
+ *
+ * A transiently failed entry stays queued and retries on the next call. An entry
+ * the backend REFUSES on authorization grounds is marked `rejected` and stops
+ * counting as pending: retrying it cannot succeed, and leaving it in the pending
+ * count would permanently block `loadReferenceData()` from ever refreshing this
+ * device (pending > 0 is what protects unsynced authoring from the destructive
+ * pull). The entry is kept rather than deleted so the local edit and the reason are
+ * still inspectable.
+ *
+ * Returns how many pushed, how many remain worth retrying, and how many were
+ * refused outright.
+ */
+export async function pushReferenceOutbox(): Promise<{
+  pushed: number
+  pending: number
+  rejected: number
+}> {
   if (!isSupabaseConfigured || !supabase || !navigator.onLine) {
-    return { pushed: 0, pending: await db.referenceOutbox.count() }
+    return { pushed: 0, pending: await pendingCount(), rejected: 0 }
   }
-  const entries = await db.referenceOutbox.toArray()
+  // Refused entries are not retried on every pass; they would just fail again.
+  const entries = (await db.referenceOutbox.toArray()).filter((e) => !e.rejected)
   entries.sort((a, b) => {
     if (a.op !== b.op) return a.op === 'upsert' ? -1 : 1
     return a.op === 'upsert'
@@ -59,8 +94,9 @@ export async function pushReferenceOutbox(): Promise<{ pushed: number; pending: 
   })
 
   let pushed = 0
+  let rejected = 0
   for (const e of entries) {
-    let error: { message: string } | null
+    let error: { message: string; code?: string } | null
     if (e.op === 'upsert') {
       const onConflict = e.table === 'activity_ksa' ? 'activity_id,ksa_id' : 'id'
       ;({ error } = await supabase.from(e.table).upsert(e.payload as object, { onConflict }))
@@ -73,11 +109,29 @@ export async function pushReferenceOutbox(): Promise<{ pushed: number; pending: 
     if (!error) {
       await db.referenceOutbox.delete(e.id)
       pushed++
+    } else if (isAuthorizationRefusal(error)) {
+      // Not retryable. Keep the entry, stop counting it, and say so loudly: the
+      // local edit stands on this device but will never reach the backend, and a
+      // silent divergence between the two is exactly what this branch prevents.
+      await db.referenceOutbox.update(e.id, { rejected: true, rejectedReason: error.message })
+      rejected++
+      console.warn(
+        `[throughline] reference write REFUSED for ${e.id} (not retryable): ${error.message}`,
+      )
     } else {
-      console.warn(`[cairn] reference push failed for ${e.id}:`, error.message)
+      console.warn(`[throughline] reference push failed for ${e.id}, will retry:`, error.message)
     }
   }
-  return { pushed, pending: await db.referenceOutbox.count() }
+  return { pushed, pending: await pendingCount(), rejected }
+}
+
+/**
+ * Queued reference writes the backend refused. Nothing surfaces these yet; tl-07
+ * owns the Setup surface where an administrator should see "this edit was not
+ * accepted" rather than having to open a console.
+ */
+export async function rejectedReferenceWrites(): Promise<ReferenceOutboxEntry[]> {
+  return (await db.referenceOutbox.toArray()).filter((e) => e.rejected === true)
 }
 
 // ---------------------------------------------------------------------------

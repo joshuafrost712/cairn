@@ -1,4 +1,4 @@
-import type { AppUser } from '../lib/types'
+import type { WorkshopRole } from '../lib/types'
 import type { NavCounts } from '../hooks/useNavCounts'
 import { ADMIN_ROLES, CHIEF_ROLES } from './roles'
 
@@ -11,13 +11,13 @@ export interface NavItem {
   /** Which count, if any, renders as the badge. */
   count?: (c: NavCounts) => number
   /** Narrower than the group's roles, for the odd item that needs it. */
-  roles?: AppUser['role'][]
+  roles?: WorkshopRole[]
 }
 
 export interface NavGroup {
   labelId: string
   /** Undefined means every signed-in user sees it. */
-  roles?: AppUser['role'][]
+  roles?: WorkshopRole[]
   items: NavItem[]
 }
 

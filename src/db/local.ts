@@ -13,6 +13,7 @@ import type {
   Team,
   VerificationVerdict,
   Workshop,
+  WorkshopMember,
 } from '../lib/types'
 import type { DraftDoc } from '../drafts/types'
 
@@ -39,6 +40,7 @@ class CairnDB extends Dexie {
   coverage!: EntityTable<CoverageRow, 'client_id'>
   referenceOutbox!: EntityTable<ReferenceOutboxEntry, 'id'>
   docDrafts!: EntityTable<DraftDoc, 'id'>
+  workshopMembers!: EntityTable<WorkshopMember, 'pk'>
 
   constructor() {
     super('cairn')
@@ -84,6 +86,12 @@ class CairnDB extends Dexie {
     // function: Dexie creates the store and leaves every existing table alone.
     this.version(8).stores({
       docDrafts: 'id, kind, subjectKey, status, dateLabel, updatedAt',
+    })
+    // v9: cached per-workshop memberships, so role resolution survives a cold
+    // offline start. A convenience for the UI only — never an authorization
+    // source; RLS re-derives the same fact from auth.uid() on every request.
+    this.version(9).stores({
+      workshopMembers: 'pk, workshop_id, app_user_id, role',
     })
   }
 }

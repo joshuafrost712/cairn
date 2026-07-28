@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '../db/local'
-import { useIsChief } from '../auth/AuthContext'
+import { useIsChief } from '../layout/roles'
 import { buildAllReports } from '../reports/build'
 import { annotateObservations } from '../reports/verification'
 import { buildCaptureTimeMap, discrepancyId, findDiscrepancies } from '../reports/discrepancy'
