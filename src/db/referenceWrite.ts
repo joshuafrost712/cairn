@@ -27,18 +27,72 @@ import type {
  * authored edits are never lost.
  */
 
-const TABLE_ORDER: Record<ReferenceTable, number> = {
-  workshop: 0,
-  team: 1,
-  participant: 2,
-  activity: 3,
-  ksa: 4,
-  activity_ksa: 5,
+/**
+ * Per-table facts the replay needs: how deep in the foreign-key tree the table
+ * sits, and which columns form its primary key.
+ *
+ * `keyFields` drives BOTH halves of a round trip. An upsert passes them to
+ * PostgREST as `onConflict`; a delete zips them against `rowKey.split('::')` to
+ * build a `.match()`. That is why the field ORDER here must stay identical to
+ * the order the matching `*Pk()` helper in ./local.ts joins them in. Composite
+ * keys used to be one special case for `activity_ksa` written out twice; Wave 2
+ * added two more tables with composite keys, and a third and fourth copy of a
+ * special case is how the two halves drift apart.
+ *
+ * `order` sorts upserts parents-first and deletes children-first, so foreign
+ * keys hold at every point in the replay.
+ */
+const TABLE_SPEC: Record<ReferenceTable, { order: number; keyFields: string[] }> = {
+  workshop: { order: 0, keyFields: ['id'] },
+  team: { order: 1, keyFields: ['id'] },
+  participant: { order: 2, keyFields: ['id'] },
+  activity: { order: 3, keyFields: ['id'] },
+  ksa: { order: 4, keyFields: ['id'] },
+  activity_ksa: { order: 5, keyFields: ['activity_id', 'ksa_id'] },
+  workshop_setting: { order: 6, keyFields: ['workshop_id', 'key'] },
+  report_assignment: {
+    order: 7,
+    keyFields: ['workshop_id', 'participant_id', 'evaluator_email', 'kind'],
+  },
 }
 
-async function enqueue(entry: Omit<ReferenceOutboxEntry, 'at'>): Promise<void> {
+/** The columns forming a table's primary key, in the order `rowKey` joins them. */
+export function referenceKeyFields(table: ReferenceTable): string[] {
+  return TABLE_SPEC[table].keyFields
+}
+
+/**
+ * Turn an outbox `rowKey` back into the column/value pairs that identify the
+ * Postgres row, for a delete.
+ *
+ * Split out and exported so the round trip is testable without a network: this
+ * is the exact function the delete branch calls, not a re-implementation of it.
+ * The pairing it produces is correct only while the `*Pk()` helpers in ./local.ts
+ * join their fields in the same order `TABLE_SPEC` lists them, which is what
+ * test/referenceOutbox.test.ts pins.
+ */
+export function matchFromRowKey(table: ReferenceTable, rowKey: string): Record<string, string> {
+  const fields = TABLE_SPEC[table].keyFields
+  const parts = rowKey.split('::')
+  return Object.fromEntries(fields.map((f, i) => [f, parts[i]]))
+}
+
+/**
+ * Queue one backend write.
+ *
+ * Exported so the Wave 2 tables (db/settings.ts, db/assignments.ts) reach the
+ * backend through this same replay rather than each growing its own push. They
+ * live in their own modules because their local caches are shaped differently,
+ * but there should only ever be one thing in this app that knows how to retry a
+ * reference write and how to tell a refusal from a dropped connection.
+ */
+export async function enqueueReferenceWrite(
+  entry: Omit<ReferenceOutboxEntry, 'at'>,
+): Promise<void> {
   await db.referenceOutbox.put({ ...entry, at: new Date().toISOString() })
 }
+
+const enqueue = enqueueReferenceWrite
 
 /**
  * Whether an error is the backend REFUSING the write rather than failing to
@@ -89,22 +143,23 @@ export async function pushReferenceOutbox(): Promise<{
   entries.sort((a, b) => {
     if (a.op !== b.op) return a.op === 'upsert' ? -1 : 1
     return a.op === 'upsert'
-      ? TABLE_ORDER[a.table] - TABLE_ORDER[b.table]
-      : TABLE_ORDER[b.table] - TABLE_ORDER[a.table]
+      ? TABLE_SPEC[a.table].order - TABLE_SPEC[b.table].order
+      : TABLE_SPEC[b.table].order - TABLE_SPEC[a.table].order
   })
 
   let pushed = 0
   let rejected = 0
   for (const e of entries) {
+    const keyFields = TABLE_SPEC[e.table].keyFields
     let error: { message: string; code?: string } | null
     if (e.op === 'upsert') {
-      const onConflict = e.table === 'activity_ksa' ? 'activity_id,ksa_id' : 'id'
-      ;({ error } = await supabase.from(e.table).upsert(e.payload as object, { onConflict }))
-    } else if (e.table === 'activity_ksa') {
-      const [activity_id, ksa_id] = e.rowKey.split('::')
-      ;({ error } = await supabase.from(e.table).delete().match({ activity_id, ksa_id }))
+      ;({ error } = await supabase
+        .from(e.table)
+        .upsert(e.payload as object, { onConflict: keyFields.join(',') }))
     } else {
-      ;({ error } = await supabase.from(e.table).delete().eq('id', e.rowKey))
+      // `rowKey` is the same `::` join the Dexie primary key uses, so splitting
+      // it against keyFields reconstructs the row's identity exactly.
+      ;({ error } = await supabase.from(e.table).delete().match(matchFromRowKey(e.table, e.rowKey)))
     }
     if (!error) {
       await db.referenceOutbox.delete(e.id)

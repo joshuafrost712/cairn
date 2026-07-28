@@ -146,6 +146,109 @@ export interface WorkshopMember {
   added_at?: string | null
 }
 
+/**
+ * Another person in a workshop you belong to: their membership joined to their
+ * name and email.
+ *
+ * Distinct from `WorkshopMember`, which is deliberately only ever the CALLER's
+ * own rows (see db/membership.ts). Assignment needs the opposite question, "who
+ * else is here", and needs it to include evaluators who have not captured
+ * anything yet, so it cannot be derived from observations.
+ *
+ * Readable without new policy work: `workshop_member_select` already permits the
+ * roster of a workshop you belong to, and `app_user_select` permits people you
+ * share a workshop with. Like every other client cache here it decides what to
+ * render and never what is allowed.
+ */
+export interface WorkshopPerson {
+  /** `${workshop_id}::${app_user_id}` — the composite key flattened for Dexie. */
+  pk: string
+  workshop_id: string
+  app_user_id: string
+  /** Lowercased. The key every evaluator-facing record in this app joins on. */
+  email: string
+  name: string
+  role: WorkshopRole
+}
+
+/**
+ * The settings that belong to a workshop rather than to a device.
+ *
+ * `required_confirmations` lived in localStorage until Wave 2, which made an
+ * administrator's threshold change invisible to every phone but their own. A
+ * quota an admin sets on somebody else's behalf has the same problem and worse
+ * consequences, so both live here now.
+ */
+export const SETTING_KEYS = [
+  'required_confirmations',
+  'review_quota_default',
+  'review_quota_overrides',
+  'observation_quota_default',
+  'observation_quota_overrides',
+] as const
+
+export type SettingKey = (typeof SETTING_KEYS)[number]
+
+/** One `workshop_setting` row, cached locally so settings survive going offline. */
+export interface WorkshopSettingRow {
+  /** `${workshop_id}::${key}` — the composite key flattened for Dexie. */
+  pk: string
+  workshop_id: string
+  key: SettingKey
+  /** jsonb in Postgres: a number for the scalars, an email → n map for the overrides. */
+  value: unknown
+  updated_by?: string | null
+  updated_at?: string | null
+}
+
+/** The resolved settings for one workshop, with every default already applied. */
+export interface WorkshopSettings {
+  /** Evaluators who must confirm an observation before it counts. */
+  requiredConfirmations: number
+  /** How many participants an evaluator is expected to carry, per kind. */
+  reviewQuotaDefault: number | null
+  observationQuotaDefault: number | null
+  /** Per-evaluator overrides, keyed by lowercased email. */
+  reviewQuotaOverrides: Record<string, number>
+  observationQuotaOverrides: Record<string, number>
+}
+
+/**
+ * What an assignment obliges someone to do.
+ *
+ * `review` is ownership of clearing a participant's report through the
+ * verification gate: casting confirm/adjust/reject verdicts on their
+ * observations. `observation` is ownership of watching them and capturing.
+ * They are different jobs held by overlapping people, which is why one kind
+ * column beats two tables.
+ */
+export type AssignmentKind = 'review' | 'observation'
+
+/** How an assignment came to exist. Kept so auto-assign can be audited. */
+export type AssignmentSource = 'auto' | 'manual' | 'transfer'
+
+/**
+ * One evaluator's responsibility for one participant.
+ *
+ * Keyed on `evaluator_email` rather than `app_user.id` because every other
+ * evaluator-keyed record in this app already is (`observation.evaluator_email`,
+ * `VerificationVerdict.evaluator_email`, `CoverageRow.evaluator_email`), and
+ * because local-only mode has no `app_user` row to point at. `WorkshopPerson`
+ * supplies the display name.
+ */
+export interface ReportAssignment {
+  /** `${workshop_id}::${participant_id}::${evaluator_email}::${kind}`. */
+  pk: string
+  workshop_id: string
+  participant_id: string
+  /** Lowercased. */
+  evaluator_email: string
+  kind: AssignmentKind
+  source: AssignmentSource
+  added_by?: string | null
+  added_at?: string | null
+}
+
 /** A name/id the evaluator was watching during a capture. */
 export interface ParticipantScopeEntry {
   participant_id?: string
@@ -301,6 +404,8 @@ export type ReferenceTable =
   | 'activity'
   | 'ksa'
   | 'activity_ksa'
+  | 'workshop_setting'
+  | 'report_assignment'
 
 export interface ReferenceOutboxEntry {
   /** `${table}:${rowKey}` — repeated edits to the same row collapse to one entry. */

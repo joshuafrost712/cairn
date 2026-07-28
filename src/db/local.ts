@@ -10,10 +10,13 @@ import type {
   ObservationRecord,
   Participant,
   ReferenceOutboxEntry,
+  ReportAssignment,
   Team,
   VerificationVerdict,
   Workshop,
   WorkshopMember,
+  WorkshopPerson,
+  WorkshopSettingRow,
 } from '../lib/types'
 import type { DraftDoc } from '../drafts/types'
 
@@ -41,6 +44,9 @@ class CairnDB extends Dexie {
   referenceOutbox!: EntityTable<ReferenceOutboxEntry, 'id'>
   docDrafts!: EntityTable<DraftDoc, 'id'>
   workshopMembers!: EntityTable<WorkshopMember, 'pk'>
+  workshopPeople!: EntityTable<WorkshopPerson, 'pk'>
+  workshopSettings!: EntityTable<WorkshopSettingRow, 'pk'>
+  assignments!: EntityTable<ReportAssignment, 'pk'>
 
   constructor() {
     super('cairn')
@@ -93,6 +99,15 @@ class CairnDB extends Dexie {
     this.version(9).stores({
       workshopMembers: 'pk, workshop_id, app_user_id, role',
     })
+    // v10: the assignment layer. `workshopPeople` is everyone ELSE in a workshop
+    // you belong to (workshopMembers above is only ever yourself); `assignments`
+    // is who owes what; `workshopSettings` moves the verification threshold and
+    // the review quotas off the device and onto the workshop. Purely additive.
+    this.version(10).stores({
+      workshopPeople: 'pk, workshop_id, app_user_id, email, role',
+      workshopSettings: 'pk, workshop_id, key',
+      assignments: 'pk, workshop_id, participant_id, evaluator_email, kind',
+    })
   }
 }
 
@@ -110,3 +125,20 @@ export function getOutbox() {
 }
 
 export const activityKsaPk = (activity_id: string, ksa_id: string) => `${activity_id}::${ksa_id}`
+
+/**
+ * Composite keys, flattened for Dexie and for the reference outbox's `rowKey`.
+ *
+ * The `::` separator is safe for all of these because neither a uuid, a setting
+ * key, an assignment kind, nor an email can contain it. referenceWrite.ts splits
+ * `rowKey` back apart on the same separator to build a Postgres `.match()`, so
+ * the field ORDER here must stay identical to `TABLE_SPEC[...].keyFields` there.
+ */
+export const workshopSettingPk = (workshop_id: string, key: string) => `${workshop_id}::${key}`
+
+export const assignmentPk = (
+  workshop_id: string,
+  participant_id: string,
+  evaluator_email: string,
+  kind: string,
+) => `${workshop_id}::${participant_id}::${evaluator_email.trim().toLowerCase()}::${kind}`

@@ -5,9 +5,11 @@ import { ErrorBoundary } from './components/ErrorBoundary'
 import { loadReferenceData } from './db/reference'
 import { startSyncLoop } from './db/sync'
 import { startCoverageSync } from './db/coverage'
+import { refreshDirectory, synthesizeLocalDirectory } from './db/directory'
+import { mirrorActiveWorkshop } from './db/settings'
 import { AppShell } from './layout/AppShell'
 import { RequireRole } from './layout/RequireRole'
-import { ADMIN_ROLES, CHIEF_ROLES } from './layout/roles'
+import { ADMIN_ROLES, CHIEF_ROLES, useScopedWorkshopId } from './layout/roles'
 import { SignIn } from './pages/SignIn'
 import { NoWorkshop } from './pages/NoWorkshop'
 import { EvaluatorHome } from './pages/EvaluatorHome'
@@ -38,7 +40,10 @@ import { Workbench } from './pages/Workbench'
 import { DevFeedbackRoot } from './devfeedback/DevFeedbackRoot'
 
 function Shell() {
-  const { identity, status, memberships, membershipStatus } = useAuth()
+  const { identity, status, memberships, membershipStatus, isLocalMode } = useAuth()
+  const scopedWorkshopId = useScopedWorkshopId()
+  const selfEmail = identity?.email ?? null
+  const selfName = identity?.name ?? null
 
   useEffect(() => {
     const stopSync = startSyncLoop()
@@ -63,6 +68,36 @@ function Shell() {
       stopCoverage?.()
     }
   }, [status])
+
+  // The two caches that are scoped to ONE workshop rather than to the account:
+  // the people directory (who can hold an assignment) and the settings mirror
+  // (which verification threshold this workshop's gate runs at). Keyed on the
+  // active workshop, so switching scenario moves both rather than leaving the
+  // previous workshop's rota and rule in place.
+  //
+  // loadReferenceData mirrors the settings too, on its own path, because it is
+  // the one that knows when fresh rows have landed. Both are idempotent.
+  useEffect(() => {
+    if (status !== 'signedIn' || !scopedWorkshopId) return
+    let cancelled = false
+    void (async () => {
+      if (isLocalMode) {
+        // No workshop_member table to read in this mode, so the board is built
+        // from the evaluators this device has actually seen.
+        await synthesizeLocalDirectory(
+          scopedWorkshopId,
+          selfEmail ? { email: selfEmail, name: selfName ?? selfEmail } : null,
+        )
+      } else {
+        await refreshDirectory(scopedWorkshopId)
+      }
+      if (cancelled) return
+      await mirrorActiveWorkshop(scopedWorkshopId)
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [status, scopedWorkshopId, isLocalMode, selfEmail, selfName])
 
   // Distinct from signed-out: we haven't resolved the stored session yet.
   // Showing the sign-in form here would flash it at an already-signed-in user,

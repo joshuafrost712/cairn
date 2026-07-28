@@ -1,6 +1,9 @@
 import { db, activityKsaPk } from './local'
 import { supabase, isSupabaseConfigured } from '../lib/supabase'
 import { pushReferenceOutbox } from './referenceWrite'
+import { cacheSettingRows, mirrorActiveWorkshop } from './settings'
+import { cacheAssignmentRows } from './assignments'
+import { getActiveWorkshopId } from '../lib/activeWorkshop'
 import * as seed from '../data/seed'
 import type { Activity, Ksa } from '../lib/types'
 
@@ -47,15 +50,17 @@ export async function loadReferenceData(): Promise<void> {
       return
     }
     try {
-      const [w, t, p, a, k, ak] = await Promise.all([
+      const [w, t, p, a, k, ak, st, ra] = await Promise.all([
         supabase.from('workshop').select('*'),
         supabase.from('team').select('*'),
         supabase.from('participant').select('*'),
         supabase.from('activity').select('*'),
         supabase.from('ksa').select('*'),
         supabase.from('activity_ksa').select('*'),
+        supabase.from('workshop_setting').select('*'),
+        supabase.from('report_assignment').select('*'),
       ])
-      const firstError = [w, t, p, a, k, ak].find((r) => r.error)?.error
+      const firstError = [w, t, p, a, k, ak, st, ra].find((r) => r.error)?.error
       if (firstError) throw firstError
 
       await db.transaction(
@@ -83,6 +88,18 @@ export async function loadReferenceData(): Promise<void> {
           )
         },
       )
+      // Settings and assignments live in their own modules because their caches
+      // are keyed and pruned differently from the six tables above, but they are
+      // server-authoritative in exactly the same way, so they refresh here rather
+      // than growing a second pull the caller has to remember to make.
+      await cacheSettingRows(st.data ?? [])
+      await cacheAssignmentRows(ra.data ?? [])
+      // Re-point the synchronous verification threshold at what just arrived.
+      // It happens HERE rather than in a separate effect so there is no window
+      // in which fresh settings sit in Dexie while the gate still runs on the
+      // previous value. See the header of db/settings.ts for why the mirror
+      // exists at all.
+      await mirrorActiveWorkshop(getActiveWorkshopId())
       return
     } catch (err) {
       // Fall through to whatever is cached; capture must not be blocked by a fetch failure.
