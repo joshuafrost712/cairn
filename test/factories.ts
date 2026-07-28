@@ -103,6 +103,11 @@ export function participant(partial: Partial<Participant> = {}): Participant {
     registered_email: partial.registered_email ?? null,
     team_id: 'team_id' in partial ? (partial.team_id ?? null) : 't-1',
     preferred_language: partial.preferred_language ?? 'English',
+    // The profile fields default to ABSENT, not null, because that is the state
+    // every row on a real roster starts in and the one the code has to handle.
+    ...('sex' in partial ? { sex: partial.sex } : {}),
+    ...('organization' in partial ? { organization: partial.organization } : {}),
+    ...('years_of_service' in partial ? { years_of_service: partial.years_of_service } : {}),
   }
 }
 

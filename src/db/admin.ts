@@ -42,7 +42,14 @@ export async function deleteTeam(id: string): Promise<void> {
 
 export async function addParticipant(
   workshopId: string,
-  fields: { name: string; registered_email?: string | null; team_id?: string | null },
+  fields: {
+    name: string
+    registered_email?: string | null
+    team_id?: string | null
+    sex?: 'male' | 'female' | null
+    organization?: string | null
+    years_of_service?: number | null
+  },
 ): Promise<Participant> {
   const p: Participant = {
     id: newId(),
@@ -51,6 +58,9 @@ export async function addParticipant(
     registered_email: fields.registered_email ?? null,
     team_id: fields.team_id ?? null,
     preferred_language: 'English',
+    sex: fields.sex ?? null,
+    organization: fields.organization ?? null,
+    years_of_service: fields.years_of_service ?? null,
   }
   await upsertParticipant(p)
   return p

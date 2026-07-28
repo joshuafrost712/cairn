@@ -36,6 +36,22 @@ export interface Participant {
   registered_email: string | null
   team_id: string | null
   preferred_language: string | null
+  /**
+   * Optional profile fields, added after the roster already existed. OPTIONAL
+   * rather than nullable-required on purpose: an absent property and an explicit
+   * null mean the same thing to every reader here, and making them required would
+   * force a value into ~45 seed literals and every test factory for no gain.
+   *
+   * None of them is a Dexie index, so they need no `.stores()` declaration and no
+   * schema version. They reach Postgres for free: upsertParticipant() enqueues the
+   * whole object and loadReferenceData() pulls `select('*')`.
+   */
+  /** Used for the per-team composition read on the roster. Blank is a real answer. */
+  sex?: 'male' | 'female' | null
+  /** The organization they serve with, free text (e.g. "SIL Indonesia"). */
+  organization?: string | null
+  /** Years in translation work. Context for reading a low designation, not a score. */
+  years_of_service?: number | null
 }
 
 export interface Activity {
