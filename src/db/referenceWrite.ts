@@ -109,10 +109,24 @@ export function isAuthorizationRefusal(error: { code?: string; message?: string 
   return /row-level security|permission denied|insufficient_privilege/i.test(error.message ?? '')
 }
 
-/** Entries still worth retrying: queued, and not permanently refused. */
+/**
+ * How many times a failing entry is retried before it is set aside.
+ *
+ * Not a network-retry budget: `pushReferenceOutbox` returns early when offline,
+ * so a phone with no signal burns none of these. It only counts round trips that
+ * reached the server and came back failing, which after a handful is not a
+ * connection problem but a request that cannot be satisfied.
+ */
+export const MAX_PUSH_ATTEMPTS = 5
+
+/** Whether an entry has been set aside: refused outright, or failed too often. */
+export const isSetAside = (e: ReferenceOutboxEntry): boolean =>
+  e.rejected === true || (e.attempts ?? 0) >= MAX_PUSH_ATTEMPTS
+
+/** Entries still worth retrying: queued, and not already set aside. */
 async function pendingCount(): Promise<number> {
   const all = await db.referenceOutbox.toArray()
-  return all.filter((e) => !e.rejected).length
+  return all.filter((e) => !isSetAside(e)).length
 }
 
 /**
@@ -138,8 +152,8 @@ export async function pushReferenceOutbox(): Promise<{
   if (!isSupabaseConfigured || !supabase || !navigator.onLine) {
     return { pushed: 0, pending: await pendingCount(), rejected: 0 }
   }
-  // Refused entries are not retried on every pass; they would just fail again.
-  const entries = (await db.referenceOutbox.toArray()).filter((e) => !e.rejected)
+  // Set-aside entries are not retried on every pass; they would just fail again.
+  const entries = (await db.referenceOutbox.toArray()).filter((e) => !isSetAside(e))
   entries.sort((a, b) => {
     if (a.op !== b.op) return a.op === 'upsert' ? -1 : 1
     return a.op === 'upsert'
@@ -174,19 +188,41 @@ export async function pushReferenceOutbox(): Promise<{
         `[honest-eval] reference write REFUSED for ${e.id} (not retryable): ${error.message}`,
       )
     } else {
-      console.warn(`[honest-eval] reference push failed for ${e.id}, will retry:`, error.message)
+      // A real round trip that came back failing. Count it, and stop retrying
+      // once the count says this is not a connection problem. Some permanently
+      // unsatisfiable errors are NOT authorization refusals (a foreign key to a
+      // row somebody else deleted is the common one), and an entry that retries
+      // forever holds `pending` above zero forever, which silently stops
+      // loadReferenceData() from ever refreshing this device again.
+      const attempts = (e.attempts ?? 0) + 1
+      await db.referenceOutbox.update(e.id, { attempts, rejectedReason: error.message })
+      if (attempts >= MAX_PUSH_ATTEMPTS) {
+        rejected++
+        console.warn(
+          `[honest-eval] reference write GIVEN UP for ${e.id} after ${attempts} attempts: ${error.message}`,
+        )
+      } else {
+        console.warn(
+          `[honest-eval] reference push failed for ${e.id} (attempt ${attempts}/${MAX_PUSH_ATTEMPTS}), will retry:`,
+          error.message,
+        )
+      }
     }
   }
   return { pushed, pending: await pendingCount(), rejected }
 }
 
 /**
- * Queued reference writes the backend refused. Nothing surfaces these yet; tl-07
- * owns the Setup surface where an administrator should see "this edit was not
- * accepted" rather than having to open a console.
+ * Queued reference writes that will never reach the backend: refused outright,
+ * or failed enough times to be given up on. Kept rather than discarded, so the
+ * local edit and the backend's reason are still inspectable.
+ *
+ * Nothing surfaces these yet; tl-07 owns the Setup surface where an
+ * administrator should see "this edit was not accepted" rather than having to
+ * open a console.
  */
 export async function rejectedReferenceWrites(): Promise<ReferenceOutboxEntry[]> {
-  return (await db.referenceOutbox.toArray()).filter((e) => e.rejected === true)
+  return (await db.referenceOutbox.toArray()).filter(isSetAside)
 }
 
 // ---------------------------------------------------------------------------

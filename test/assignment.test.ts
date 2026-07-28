@@ -379,6 +379,71 @@ describe('buildBoard', () => {
   })
 })
 
+/**
+ * The regression that mattered most in Wave 2's review.
+ *
+ * Columns used to be derived from the directory alone, so a participant whose
+ * only assignee was not a workshop member rendered NOWHERE: not in the
+ * unassigned pile (which takes only zero-assignee people) and in no column. The
+ * board then reported "everybody has enough assignees" over a cohort that did
+ * not, which is the exact opposite of what it is for.
+ *
+ * This is not a hypothetical arrangement. report_assignment keys on an email
+ * precisely so a rota can be planned before the cohort signs up, and somebody
+ * can also be removed from a workshop or re-roled after being assigned.
+ */
+describe('buildBoard with an off-roster assignee', () => {
+  const participants = [person('p1', 'Amos'), person('p2', 'Ruth')]
+  const evaluators = [evaluator('a@x.org', 'Ann')]
+  // Assigned to somebody who has not signed up yet.
+  const assignments = [assignment('p1', 'future@sil.org')]
+
+  const cols = () =>
+    buildBoard({ participants, evaluators, assignments, kind: 'review', required: 2, quotaOf: uncapped })
+
+  it('gives the unknown assignee a column instead of hiding their work', () => {
+    const col = cols().find((c) => c.evaluator?.email === 'future@sil.org')
+    expect(col).toBeDefined()
+    expect(col!.offRoster).toBe(true)
+    expect(col!.cards.map((c) => c.participant_name)).toEqual(['Amos'])
+  })
+
+  it('still counts that participant as short', () => {
+    // One assignee, two required. Before the fix this returned 1 (Ruth only).
+    expect(underCovered(cols())).toBe(2)
+  })
+
+  it('does not leave the participant out of every column', () => {
+    const everywhere = cols().flatMap((c) => c.cards.map((card) => card.participant_id))
+    expect(everywhere).toContain('p1')
+  })
+
+  it('marks a real directory column as on-roster', () => {
+    const col = cols().find((c) => c.evaluator?.email === 'a@x.org')
+    expect(col?.offRoster).toBe(false)
+  })
+
+  it('gives an off-roster column no quota, since nobody set one for them', () => {
+    const col = buildBoard({
+      participants,
+      evaluators,
+      assignments,
+      kind: 'review',
+      required: 2,
+      quotaOf: () => 1,
+    }).find((c) => c.evaluator?.email === 'future@sil.org')
+    expect(col?.quota).toBeNull()
+    expect(col?.atCapacity).toBe(false)
+  })
+
+  it('orders the workshop’s own people before the strangers', () => {
+    const named = cols()
+      .slice(1)
+      .map((c) => c.evaluator!.email)
+    expect(named).toEqual(['a@x.org', 'future@sil.org'])
+  })
+})
+
 describe('underCovered', () => {
   it('counts each short participant once, not once per column', () => {
     const cols = buildBoard({

@@ -92,8 +92,12 @@ export async function loadReferenceData(): Promise<void> {
       // are keyed and pruned differently from the six tables above, but they are
       // server-authoritative in exactly the same way, so they refresh here rather
       // than growing a second pull the caller has to remember to make.
-      await cacheSettingRows(st.data ?? [])
-      await cacheAssignmentRows(ra.data ?? [])
+      // The workshops this pull was authorized to see. Passed through so the two
+      // caches can tell "no rows because there are none" (prune) apart from "no
+      // rows because RLS filtered the workshop out" (leave alone).
+      const inScope = (w.data ?? []).map((row: { id: string }) => row.id)
+      await cacheSettingRows(st.data ?? [], inScope)
+      await cacheAssignmentRows(ra.data ?? [], inScope)
       // Re-point the synchronous verification threshold at what just arrived.
       // It happens HERE rather than in a separate effect so there is no window
       // in which fresh settings sit in Dexie while the gate still runs on the

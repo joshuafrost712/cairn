@@ -94,23 +94,41 @@ export async function refreshDirectory(workshopId: string | null): Promise<Works
       role: string
       app_user: { id: string; name: string; email: string } | { id: string; name: string; email: string }[] | null
     }
+    const cachedByPk = new Map((await cachedDirectory(workshopId)).map((p) => [p.pk, p]))
     const people: WorkshopPerson[] = []
+    // Memberships that came back but whose app_user could not be read. They are
+    // present in the workshop; we just cannot name them on this response.
+    const unnamed = new Set<string>()
+
     for (const row of (data ?? []) as Row[]) {
       // PostgREST types a to-one embed as an array in some versions; normalize
       // rather than trusting one shape.
       const user = Array.isArray(row.app_user) ? row.app_user[0] : row.app_user
-      // A membership whose app_user row is filtered out by RLS is dropped, not
-      // rendered nameless: an unlabelled column on the assignment board would be
-      // worse than a column that is honestly absent.
-      if (!user?.email || !isWorkshopRole(row.role)) continue
+      const pk = memberPk(row.workshop_id, row.app_user_id)
+      if (!isWorkshopRole(row.role)) continue
+      if (!user?.email) {
+        // The membership exists, the name did not come back. Keep whatever this
+        // device already knew rather than deleting it: a partially-readable
+        // response is a gap in one answer, not evidence the person left, and
+        // dropping them would empty a column that is carrying real work.
+        unnamed.add(pk)
+        const previously = cachedByPk.get(pk)
+        if (previously) people.push({ ...previously, role: row.role })
+        continue
+      }
       people.push({
-        pk: memberPk(row.workshop_id, row.app_user_id),
+        pk,
         workshop_id: row.workshop_id,
         app_user_id: row.app_user_id,
         email: user.email.trim().toLowerCase(),
         name: user.name || user.email,
         role: row.role,
       })
+    }
+    if (unnamed.size > 0) {
+      console.warn(
+        `[honest-eval] ${unnamed.size} membership(s) came back without a readable account; kept the cached name.`,
+      )
     }
 
     await db.transaction('rw', db.workshopPeople, async () => {

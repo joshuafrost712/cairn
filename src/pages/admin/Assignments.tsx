@@ -91,7 +91,18 @@ export function Assignments() {
     [people],
   )
 
-  const required = settings.requiredConfirmations
+  /**
+   * How many assignees a participant needs, which is NOT the same question for
+   * the two kinds.
+   *
+   * A report needs `requiredConfirmations` reviewers, because that is literally
+   * the same requirement the verification gate applies, seen from the other
+   * side. Watching somebody needs ONE watcher: the page's own copy says what
+   * matters is that nobody goes unwatched, and reusing the confirmation
+   * threshold here would demand two watchers per participant, propose 52 rows
+   * for a 26-person cohort, and mark singly-watched people as short.
+   */
+  const required = kind === 'review' ? settings.requiredConfirmations : 1
   const participants = useMemo(
     () => bundle.participants.map((p) => ({ id: p.id, name: p.name })),
     [bundle.participants],
@@ -380,6 +391,14 @@ function Column({
               : `${col.load} of ${col.quota}${col.atCapacity ? ' · full' : ''}`
             : `${col.cards.length} with nobody`}
         </span>
+        {col.offRoster && (
+          <span
+            className="n-badge n-badge--low"
+            title="This address holds assignments but is not a member of this workshop, either because they have not signed up yet or because they were removed. Their work still counts toward coverage; move it if they are not coming."
+          >
+            not in this workshop
+          </span>
+        )}
       </header>
 
       {col.cards.length === 0 ? (

@@ -1,7 +1,7 @@
 // Who owes what: the assignment rules, as pure functions over plain data.
 //
 // No React, no Dexie, no clock, no randomness. Auto-assignment in particular has
-// to be DETERMINISTIC — running it twice on unchanged data must propose exactly
+// to be DETERMINISTIC: running it twice on unchanged data must propose exactly
 // the same thing, or an administrator cannot tell "the button did nothing"
 // (correct, everyone is covered) from "the button did something different this
 // time" (alarming, and impossible to review).
@@ -235,6 +235,16 @@ export interface BoardColumn {
   load: number
   /** True when this evaluator is carrying at or beyond their ceiling. */
   atCapacity: boolean
+  /**
+   * This column's email holds assignments but is not in the workshop directory.
+   *
+   * Expected, not exceptional. An assignment names an email rather than an
+   * account precisely so a rota can be planned before the cohort signs up, and
+   * somebody can also be removed from the workshop or re-roled to `participant`
+   * after they were assigned. Such a column must still be RENDERED: the whole
+   * point of the board is that nobody carrying work is invisible.
+   */
+  offRoster: boolean
 }
 
 export interface BoardInput {
@@ -258,6 +268,21 @@ export interface BoardInput {
  * participant rather than about the column they are being read in. Recomputing
  * it per column is the obvious mistake and it would show a person as
  * under-assigned in one place and covered in another.
+ *
+ * ## Columns come from the UNION, and that is load-bearing
+ *
+ * Not from `evaluators` alone. An assignment names an email, not an account, so
+ * it can name somebody who has not signed up yet (the migration advertises
+ * exactly this: plan the rota before the cohort arrives), or somebody since
+ * removed from the workshop or re-roled to `participant`.
+ *
+ * Deriving columns only from the directory used to make those participants
+ * vanish: they were not in the unassigned pile, which takes only people with
+ * ZERO assignees, and they had no column to sit in. A participant with one
+ * off-roster assignee out of a required two therefore rendered nowhere and was
+ * missing from `underCovered()`, so the board reported "everybody has enough
+ * assignees" over a cohort that did not. That is the precise opposite of what
+ * this page is for.
  */
 export function buildBoard(input: BoardInput): BoardColumn[] {
   const {
@@ -308,23 +333,41 @@ export function buildBoard(input: BoardInput): BoardColumn[] {
       quota: null,
       load: unassigned.length,
       atCapacity: false,
+      offRoster: false,
     },
   ]
 
-  for (const e of [...evaluators].sort((a, b) => a.name.localeCompare(b.name))) {
+  const inDirectory = new Set(evaluators.map((e) => e.email))
+  const offRoster = [...new Set(assignments.filter((a) => a.kind === kind).map((a) => a.evaluator_email))]
+    .filter((email) => !inDirectory.has(email))
+    // Named by their email, which is all that is known about them. Sorted in
+    // after the directory so the people actually in the workshop come first.
+    .sort()
+    .map((email) => ({ ref: { email, name: email }, off: true }))
+
+  const ordered = [
+    ...[...evaluators].sort((a, b) => a.name.localeCompare(b.name)).map((ref) => ({ ref, off: false })),
+    ...offRoster,
+  ]
+
+  for (const { ref, off } of ordered) {
     const mine = assignments
-      .filter((a) => a.kind === kind && a.evaluator_email === e.email)
-      .map((a) => card(a.participant_id, e.email))
+      .filter((a) => a.kind === kind && a.evaluator_email === ref.email)
+      .map((a) => card(a.participant_id, ref.email))
       .filter((c): c is BoardCard => c !== null)
       .sort((a, b) => a.participant_name.localeCompare(b.participant_name))
-    const cap = quotaOf(e.email)
-    const n = load.get(e.email) ?? 0
+    // An off-roster column has no quota: there is no directory entry to hang an
+    // override on, and capping somebody the workshop does not know about would
+    // be a limit nobody set.
+    const cap = off ? null : quotaOf(ref.email)
+    const n = load.get(ref.email) ?? 0
     columns.push({
-      evaluator: e,
+      evaluator: ref,
       cards: mine,
       quota: cap,
       load: n,
       atCapacity: cap !== null && n >= cap,
+      offRoster: off,
     })
   }
 

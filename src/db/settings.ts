@@ -116,12 +116,20 @@ interface RemoteSettingRow {
  * Replace the cached settings with what the backend returned.
  *
  * Takes rows for every readable workshop at once, because that is the shape
- * `loadReferenceData()` pulls in. Only workshops PRESENT in `rows` are touched:
- * wiping a workshop the pull did not mention would delete the cached settings of
- * a workshop this device still belongs to whenever RLS filtered it out of one
- * response.
+ * `loadReferenceData()` pulls in.
+ *
+ * `inScope` is the set of workshops the pull was actually AUTHORIZED to see,
+ * which the caller knows from its own `workshop` query. Pruning has to key off
+ * that rather than off the ids present in `rows`, or a workshop whose last
+ * setting was deleted elsewhere keeps its stale cached value here forever: zero
+ * rows back would mean zero rows pruned. Keying off authorization instead means
+ * a workshop RLS filtered out entirely is left alone (correct: absence is not
+ * deletion) while a visible workshop that genuinely has no settings is cleared.
  */
-export async function cacheSettingRows(rows: RemoteSettingRow[]): Promise<void> {
+export async function cacheSettingRows(
+  rows: RemoteSettingRow[],
+  inScope?: Iterable<string>,
+): Promise<void> {
   const known = new Set<string>(SETTING_KEYS)
   const typed: WorkshopSettingRow[] = rows
     // A key this build does not recognize is dropped rather than cached. It
@@ -137,7 +145,7 @@ export async function cacheSettingRows(rows: RemoteSettingRow[]): Promise<void> 
       updated_at: r.updated_at ?? null,
     }))
 
-  const touched = new Set(rows.map((r) => r.workshop_id))
+  const touched = new Set([...(inScope ?? []), ...rows.map((r) => r.workshop_id)])
   await db.transaction('rw', db.workshopSettings, async () => {
     for (const workshopId of touched) {
       const stale = await db.workshopSettings.where('workshop_id').equals(workshopId).toArray()

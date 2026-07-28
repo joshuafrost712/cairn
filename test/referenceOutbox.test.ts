@@ -1,7 +1,9 @@
 import { describe, it, expect } from 'vitest'
 import {
   isAuthorizationRefusal,
+  isSetAside,
   matchFromRowKey,
+  MAX_PUSH_ATTEMPTS,
   referenceKeyFields,
 } from '../src/db/referenceWrite'
 import { activityKsaPk, assignmentPk, workshopSettingPk } from '../src/db/local'
@@ -54,6 +56,49 @@ describe('isAuthorizationRefusal', () => {
 
   it('does not choke on an error with no message at all', () => {
     expect(isAuthorizationRefusal({})).toBe(false)
+  })
+})
+
+/**
+ * Giving up on an entry that can never succeed.
+ *
+ * `isAuthorizationRefusal` catches permanent errors of ONE kind. A `23503`
+ * foreign-key violation is correctly classified as retryable, because the parent
+ * row may still be ahead of it in the queue, and yet it can be permanently
+ * unsatisfiable: assign a reviewer while offline, have somebody else delete that
+ * participant, come back online, and the upsert fails forever.
+ *
+ * That was survivable when only the Scenario Builder used this queue. Wave 2
+ * puts every assignment click and every settings change through it, and one
+ * stuck entry holds `pending` above zero forever, which stops
+ * `loadReferenceData()` from ever refreshing that device again with nothing but
+ * a console warning to show for it.
+ */
+describe('isSetAside', () => {
+  const entry = (over = {}) => ({
+    id: 'participant:p1',
+    table: 'participant' as const,
+    op: 'upsert' as const,
+    rowKey: 'p1',
+    payload: {},
+    at: '2026-07-28T00:00:00.000Z',
+    ...over,
+  })
+
+  it('keeps retrying an entry that has failed only a few times', () => {
+    expect(isSetAside(entry())).toBe(false)
+    expect(isSetAside(entry({ attempts: 1 }))).toBe(false)
+    expect(isSetAside(entry({ attempts: MAX_PUSH_ATTEMPTS - 1 }))).toBe(false)
+  })
+
+  it('gives up once the attempts run out', () => {
+    expect(isSetAside(entry({ attempts: MAX_PUSH_ATTEMPTS }))).toBe(true)
+    expect(isSetAside(entry({ attempts: MAX_PUSH_ATTEMPTS + 3 }))).toBe(true)
+  })
+
+  it('still sets aside an outright refusal immediately, whatever the count', () => {
+    expect(isSetAside(entry({ rejected: true }))).toBe(true)
+    expect(isSetAside(entry({ rejected: true, attempts: 0 }))).toBe(true)
   })
 })
 

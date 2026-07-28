@@ -171,7 +171,13 @@ export async function syncDrafts(workshopId: string | null): Promise<DraftSyncRe
     return { ...IDLE, unscoped, error: err instanceof Error ? err.message : 'Sync failed.' }
   }
 
-  const localById = new Map(mine.map((d) => [d.id, d]))
+  // Indexed over EVERY local draft, not just the workshop-matched ones. A local
+  // draft carrying no workshop still has the same deterministic id as its remote
+  // twin, and treating it as absent would drop it into the "never seen this
+  // before" branch below and overwrite it wholesale, losing a human's unsent
+  // edits, which is the one outcome this module exists to prevent. Same id means
+  // same document, so it gets merged like any other.
+  const localById = new Map(local.map((d) => [d.id, d]))
   const remoteById = new Map(remote.map((d) => [d.id, d]))
 
   // --- merge in ------------------------------------------------------------
@@ -185,11 +191,22 @@ export async function syncDrafts(workshopId: string | null): Promise<DraftSyncRe
       continue
     }
     const { winner, draft } = mergeRemoteDraft(l, r)
-    if (winner === 'remote') toWriteLocally.push(draft)
-    else toPush.push(draft)
+    if (winner === 'remote') {
+      toWriteLocally.push(draft)
+    } else if (
+      // Push only when this device genuinely knows better. mergeRemoteDraft
+      // breaks an exact tie toward local, so without this an unchanged draft
+      // would be re-upserted on every single sync, and "Already up to date"
+      // would be unreachable in any workshop that has ever generated one.
+      draft.status !== r.status ||
+      Date.parse(draft.updatedAt) > Date.parse(r.updatedAt)
+    ) {
+      toPush.push(draft)
+    }
   }
 
-  // Anything this device has that the backend has never seen.
+  // Anything this device has that the backend has never seen. Scoped to `mine`:
+  // a draft with no workshop cannot be pushed at all (see `unscoped`).
   for (const l of mine) if (!remoteById.has(l.id)) toPush.push(l)
 
   if (toWriteLocally.length > 0) await db.docDrafts.bulkPut(toWriteLocally)
@@ -198,7 +215,13 @@ export async function syncDrafts(workshopId: string | null): Promise<DraftSyncRe
   let pushed = 0
   let refused = 0
   for (const d of toPush) {
-    const { error } = await client.from('doc_draft').upsert(toRow(d), { onConflict: 'id' })
+    const { error } = await client
+      .from('doc_draft')
+      .upsert(toRow(d), { onConflict: 'id' })
+      // Bounded like the pull. Without it the header's claim that a stalled sync
+      // cannot hang the page was false for this leg, which is the serial one and
+      // therefore the one most able to hang it.
+      .abortSignal(AbortSignal.timeout(SYNC_TIMEOUT_MS))
     if (!error) {
       pushed++
     } else if (isAuthorizationRefusal(error)) {

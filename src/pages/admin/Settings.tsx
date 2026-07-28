@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '../../db/local'
@@ -24,6 +24,7 @@ import type { Activity, AssignmentKind, Ksa, WorkshopPerson } from '../../lib/ty
  */
 export function Settings() {
   const [busy, setBusy] = useState(false)
+  const overrideChain = useRef<Promise<void>>(Promise.resolve())
   const { identity } = useAuth()
   const workshopId = useScopedWorkshopId()
   const activities = useLiveQuery(() => db.activities.toArray(), [], [] as Activity[])
@@ -65,8 +66,25 @@ export function Settings() {
     await saveSetting(workshopId, key, value, identity?.email ?? null)
   }
 
-  /** One evaluator's quota override, or removed when the field is cleared. */
-  const setOverride = async (kind: AssignmentKind, email: string, raw: string) => {
+  /**
+   * One evaluator's quota override, or removed when the field is cleared.
+   *
+   * Serialized through `overrideChain`, because this is a read-modify-write over
+   * the whole override map: two quick edits to two adjacent fields would
+   * otherwise both read the same `current`, and the second write would drop the
+   * first person's number. Chaining costs nothing at typing speed and removes
+   * the interleave entirely.
+   *
+   * Two ADMINS on two devices editing different evaluators can still clobber
+   * each other, since the map is one jsonb value. That needs a row per
+   * evaluator, which is a schema change; noted rather than hidden.
+   */
+  const setOverride = (kind: AssignmentKind, email: string, raw: string) => {
+    overrideChain.current = overrideChain.current.then(() => writeOverride(kind, email, raw))
+    return overrideChain.current
+  }
+
+  const writeOverride = async (kind: AssignmentKind, email: string, raw: string) => {
     if (!workshopId) return
     const current = await getSettings(workshopId)
     const map = {
@@ -149,9 +167,11 @@ export function Settings() {
             assignees each participant needs.
           </p>
           <p className="small muted">
-            This setting belongs to the workshop, not to this device: it reaches every phone on the
-            next sync. It used to be stored per device, which meant an administrator could raise the
-            bar and be the only person whose app knew.
+            This setting belongs to the workshop, not to this device. It used to be stored per
+            device, which meant an administrator could raise the bar and be the only person whose
+            app knew. Other devices pick it up when they next start or reload, not the instant you
+            change it: there is no live channel for settings, so tell people mid-session rather than
+            assuming their phone already knows.
           </p>
         </div>
 

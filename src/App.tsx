@@ -85,6 +85,15 @@ function Shell() {
     if (status !== 'signedIn' || !scopedWorkshopId) return
     let cancelled = false
     void (async () => {
+      // Mirror FIRST, before the directory fetch that can take up to eight
+      // seconds. loadReferenceData also mirrors, but with the RAW stored
+      // workshop id rather than this resolved one, and on a cold start that id
+      // can be null or stale, in which case it mirrors the compiled-in default
+      // and the verification gate quietly runs at 2 in a workshop configured for
+      // 3. This is the write that corrects it, so it must not queue behind a
+      // network round trip.
+      await mirrorActiveWorkshop(scopedWorkshopId)
+      if (cancelled) return
       if (isLocalMode) {
         // No workshop_member table to read in this mode, so the board is built
         // from the evaluators this device has actually seen.
@@ -96,6 +105,8 @@ function Shell() {
         await refreshDirectory(scopedWorkshopId)
       }
       if (cancelled) return
+      // Again after the pull, in case loadReferenceData landed fresh rows while
+      // the directory fetch was in flight. Idempotent.
       await mirrorActiveWorkshop(scopedWorkshopId)
       if (cancelled || !isChief) return
       // Outgoing documents, so "has that gone out yet" reads the same on every

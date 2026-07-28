@@ -156,11 +156,16 @@ const isSource = (s: string): s is AssignmentSource =>
 /**
  * Replace the cached assignments with what the backend returned.
  *
- * Only workshops PRESENT in `rows` are pruned, for the same reason as
- * db/settings.ts: a workshop RLS filtered out of one response is not a workshop
- * whose rota should be deleted from this device.
+ * `inScope` is the set of workshops the pull was authorized to see, and pruning
+ * keys off it rather than off the ids present in `rows`. See the same argument
+ * on `cacheSettingRows`: without it, deleting the last assignment in a workshop
+ * elsewhere leaves this device showing it forever, because zero rows back would
+ * mean zero rows pruned.
  */
-export async function cacheAssignmentRows(rows: RemoteAssignmentRow[]): Promise<void> {
+export async function cacheAssignmentRows(
+  rows: RemoteAssignmentRow[],
+  inScope?: Iterable<string>,
+): Promise<void> {
   const typed: ReportAssignment[] = []
   for (const r of rows) {
     if (!isKind(r.kind)) continue
@@ -177,7 +182,7 @@ export async function cacheAssignmentRows(rows: RemoteAssignmentRow[]): Promise<
     })
   }
 
-  const touched = new Set(rows.map((r) => r.workshop_id))
+  const touched = new Set([...(inScope ?? []), ...rows.map((r) => r.workshop_id)])
   await db.transaction('rw', db.assignments, async () => {
     for (const workshopId of touched) {
       const stale = await db.assignments.where('workshop_id').equals(workshopId).toArray()

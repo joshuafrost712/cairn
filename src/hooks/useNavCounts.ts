@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '../db/local'
-import { useIsChief } from '../layout/roles'
+import { useIsChief, useScopedWorkshopId } from '../layout/roles'
 import { buildAllReports } from '../reports/build'
 import { annotateObservations, getRequiredConfirmations } from '../reports/verification'
 import { buildCaptureTimeMap, discrepancyId, findDiscrepancies } from '../reports/discrepancy'
@@ -63,6 +63,7 @@ const EMPTY: NavCounts = {
  */
 export function useNavCounts(): NavCounts {
   const isChief = useIsChief()
+  const workshopId = useScopedWorkshopId()
 
   const conversationsNeeded = useLiveQuery(
     () => db.mentoringConversations.where('status').equals('needed').count(),
@@ -81,12 +82,20 @@ export function useNavCounts(): NavCounts {
     [isChief],
     [] as Participant[],
   )
+  // Scoped to the active workshop, unlike the counts above it. loadReferenceData
+  // caches every workshop this account can read, so an unscoped count would add
+  // up three scenarios' rosters and compare them against the ACTIVE workshop's
+  // threshold, producing a badge that disagrees with the page it links to.
   const reviewAssignments = useLiveQuery(
     () =>
-      isChief
-        ? db.assignments.where('kind').equals('review').toArray()
+      isChief && workshopId
+        ? db.assignments
+            .where('workshop_id')
+            .equals(workshopId)
+            .filter((a) => a.kind === 'review')
+            .toArray()
         : Promise.resolve([] as ReportAssignment[]),
-    [isChief],
+    [isChief, workshopId],
     [] as ReportAssignment[],
   )
   const ksas = useLiveQuery(
@@ -136,14 +145,16 @@ export function useNavCounts(): NavCounts {
   }, [isChief, participants, ksas, teams, observations, verdicts, evaluations, resolutions])
 
   const underAssigned = useMemo(() => {
-    if (!isChief) return 0
+    if (!isChief || !workshopId) return 0
     const required = getRequiredConfirmations()
     const counts = new Map<string, number>()
     for (const a of reviewAssignments ?? []) {
       counts.set(a.participant_id, (counts.get(a.participant_id) ?? 0) + 1)
     }
-    return (participants ?? []).filter((p) => (counts.get(p.id) ?? 0) < required).length
-  }, [isChief, participants, reviewAssignments])
+    return (participants ?? [])
+      .filter((p) => p.workshop_id === workshopId)
+      .filter((p) => (counts.get(p.id) ?? 0) < required).length
+  }, [isChief, workshopId, participants, reviewAssignments])
 
   return useMemo(
     () =>

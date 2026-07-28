@@ -432,6 +432,27 @@ export interface ReferenceOutboxEntry {
   rejected?: boolean
   /** The backend's own message for a rejected entry. Kept verbatim, for diagnosis. */
   rejectedReason?: string | null
+  /**
+   * How many times the backend has answered this entry with an error. Only
+   * incremented when a request actually reached the server and came back
+   * failing, never while offline.
+   *
+   * Exists because "authorization refusal" is not the only permanent error. A
+   * `23503` foreign-key violation is correctly classified as retryable (the
+   * parent may still be ahead of it in the queue) and yet can be permanently
+   * unsatisfiable: assign a reviewer to a participant while offline, have
+   * somebody else delete that participant, and the upsert can never succeed.
+   *
+   * That mattered little when only the Scenario Builder used this queue. Wave 2
+   * routes every assignment click and every settings change through it, and one
+   * stuck entry makes `pendingCount() > 0` forever, which makes
+   * `loadReferenceData()` skip its pull forever: no workshops, roster,
+   * activities, settings or assignments ever refresh on that device again, with
+   * nothing but a console warning to say so. Giving up after
+   * `MAX_PUSH_ATTEMPTS` trades one lost local edit for a device that keeps
+   * working, and the entry is kept so the edit is still recoverable.
+   */
+  attempts?: number
 }
 
 /** One evaluator's verdict on one observation (the multi-evaluator gate). */
