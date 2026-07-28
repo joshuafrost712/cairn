@@ -88,13 +88,12 @@ export const NAV_GROUPS: NavGroup[] = [
     roles: CHIEF_ROLES,
     items: [
       { labelId: 'nav.builder', to: '/builder' },
+      // No `roles`, so it inherits the group's CHIEF_ROLES. That is deliberate
+      // and matches report_assignment's write policy, which names the same set:
+      // a chief evaluator who may rebalance the rota in the database should see
+      // the link to the page that does it.
+      { labelId: 'nav.assignments', to: '/admin/assignments', count: (c) => c.underAssigned },
       { labelId: 'nav.roster', to: '/admin/roster', roles: ADMIN_ROLES },
-      {
-        labelId: 'nav.assignments',
-        to: '/admin/assignments',
-        roles: ADMIN_ROLES,
-        count: (c) => c.underAssigned,
-      },
       { labelId: 'nav.records', to: '/admin/records', roles: ADMIN_ROLES },
       { labelId: 'nav.settings', to: '/admin/settings', roles: ADMIN_ROLES },
       { labelId: 'nav.data', to: '/admin/data', roles: ADMIN_ROLES },

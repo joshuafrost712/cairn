@@ -181,6 +181,12 @@ function Shell() {
           <Route path="/admin/overview" element={<AdminOverview />} />
           <Route path="/admin/workshop" element={<WorkshopHealth />} />
           <Route path="/admin/progress" element={<Progress />} />
+          {/* CHIEF_ROLES, not ADMIN_ROLES, because that set is exactly the one
+              report_assignment's write policy names. A chief evaluator who can
+              rebalance the rota in the database should be able to reach the page
+              that does it; gating the UI more tightly than the data hides a
+              capability the person legitimately holds. */}
+          <Route path="/admin/assignments" element={<Assignments />} />
           <Route path="/admin/events" element={<EventList />} />
           <Route path="/admin/events/:activityId" element={<EventDetail />} />
           <Route path="/admin/participants" element={<ParticipantList />} />
@@ -191,7 +197,6 @@ function Shell() {
 
         <Route element={<RequireRole roles={ADMIN_ROLES} />}>
           <Route path="/admin/roster" element={<Roster />} />
-          <Route path="/admin/assignments" element={<Assignments />} />
           <Route path="/admin/records" element={<Records />} />
           <Route path="/admin/settings" element={<Settings />} />
           <Route path="/admin/data" element={<DataPage />} />
