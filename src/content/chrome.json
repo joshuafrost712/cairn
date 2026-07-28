@@ -18,6 +18,10 @@
       "label": "Assignments"
     },
     {
+      "id": "nav.progress",
+      "label": "Progress"
+    },
+    {
       "id": "nav.records",
       "label": "Participant records"
     },

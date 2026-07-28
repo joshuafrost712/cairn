@@ -76,6 +76,7 @@ export const NAV_GROUPS: NavGroup[] = [
     roles: CHIEF_ROLES,
     items: [
       { labelId: 'nav.overview', to: '/admin/overview' },
+      { labelId: 'nav.progress', to: '/admin/progress' },
       { labelId: 'nav.workshop-health', to: '/admin/workshop' },
       { labelId: 'nav.events', to: '/admin/events', end: true },
       { labelId: 'nav.participants', to: '/admin/participants', end: true },

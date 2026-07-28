@@ -80,7 +80,11 @@ a { color: var(--accent); text-decoration: none; }
 }
 .pill.local { color: var(--muted); }
 .pill.queued { color: var(--warn); border-color: #fde68a; background: #fffbeb; }
-.pill.synced { color: var(--ok); border-color: #bbf7d0; background: #f0fdf4; }
+/* .synced is about sync state; .ok is about anything else that finished well.
+   Same treatment, because "this is done" should look identical wherever it is
+   said, but a report that is ready to send has nothing to do with an outbox. */
+.pill.synced,
+.pill.ok { color: var(--ok); border-color: #bbf7d0; background: #f0fdf4; }
 .pill.error { color: var(--danger); border-color: #fecaca; background: #fef2f2; }
 
 .activity-item {

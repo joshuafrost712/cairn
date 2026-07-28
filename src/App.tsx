@@ -24,6 +24,7 @@ import { Export } from './pages/Export'
 import { Builder } from './pages/Builder'
 import { AdminOverview } from './pages/admin/AdminOverview'
 import { WorkshopHealth } from './pages/admin/WorkshopHealth'
+import { Progress } from './pages/admin/Progress'
 import { EventList } from './pages/admin/EventList'
 import { EventDetail } from './pages/admin/EventDetail'
 import { ParticipantList } from './pages/admin/ParticipantList'
@@ -179,6 +180,7 @@ function Shell() {
 
           <Route path="/admin/overview" element={<AdminOverview />} />
           <Route path="/admin/workshop" element={<WorkshopHealth />} />
+          <Route path="/admin/progress" element={<Progress />} />
           <Route path="/admin/events" element={<EventList />} />
           <Route path="/admin/events/:activityId" element={<EventDetail />} />
           <Route path="/admin/participants" element={<ParticipantList />} />
