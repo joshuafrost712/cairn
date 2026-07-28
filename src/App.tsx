@@ -9,7 +9,8 @@ import { refreshDirectory, synthesizeLocalDirectory } from './db/directory'
 import { mirrorActiveWorkshop } from './db/settings'
 import { AppShell } from './layout/AppShell'
 import { RequireRole } from './layout/RequireRole'
-import { ADMIN_ROLES, CHIEF_ROLES, useScopedWorkshopId } from './layout/roles'
+import { ADMIN_ROLES, CHIEF_ROLES, useHasWorkshopRole, useScopedWorkshopId } from './layout/roles'
+import { syncDrafts } from './db/draftSync'
 import { SignIn } from './pages/SignIn'
 import { NoWorkshop } from './pages/NoWorkshop'
 import { EvaluatorHome } from './pages/EvaluatorHome'
@@ -43,6 +44,7 @@ import { DevFeedbackRoot } from './devfeedback/DevFeedbackRoot'
 function Shell() {
   const { identity, status, memberships, membershipStatus, isLocalMode } = useAuth()
   const scopedWorkshopId = useScopedWorkshopId()
+  const isChief = useHasWorkshopRole(CHIEF_ROLES)
   const selfEmail = identity?.email ?? null
   const selfName = identity?.name ?? null
 
@@ -94,11 +96,17 @@ function Shell() {
       }
       if (cancelled) return
       await mirrorActiveWorkshop(scopedWorkshopId)
+      if (cancelled || !isChief) return
+      // Outgoing documents, so "has that gone out yet" reads the same on every
+      // chief's device. Gated on the role because doc_draft is chief-only by
+      // policy, and an evaluator's device asking would be a request that can
+      // only ever come back empty.
+      await syncDrafts(scopedWorkshopId)
     })()
     return () => {
       cancelled = true
     }
-  }, [status, scopedWorkshopId, isLocalMode, selfEmail, selfName])
+  }, [status, scopedWorkshopId, isLocalMode, isChief, selfEmail, selfName])
 
   // Distinct from signed-out: we haven't resolved the stored session yet.
   // Showing the sign-in form here would flash it at an already-signed-in user,

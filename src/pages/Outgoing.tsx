@@ -4,6 +4,9 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '../db/local'
 import { useAuth } from '../auth/AuthContext'
 import { generateEventDigests, generateParticipantEmails } from '../db/drafts'
+import { describeSync, syncDrafts } from '../db/draftSync'
+import { useScopedWorkshopId } from '../layout/roles'
+import { isSupabaseConfigured } from '../lib/supabase'
 import { PageHeader } from '../layout/PageHeader'
 import { DataTable } from '../components/data/DataTable'
 import type { Column } from '../components/data/DataTable'
@@ -21,8 +24,10 @@ import type { DraftDoc } from '../drafts/types'
 export function Outgoing() {
   const { identity } = useAuth()
   const navigate = useNavigate()
+  const workshopId = useScopedWorkshopId()
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState<string | null>(null)
+  const [syncMsg, setSyncMsg] = useState<string | null>(null)
   const [day, setDay] = useState(() => new Date().toISOString().slice(0, 10))
   const [facilitators, setFacilitators] = useState('')
 
@@ -179,6 +184,33 @@ export function Outgoing() {
           </button>
         </div>
         {msg && <p className="small muted">{msg}</p>}
+      </div>
+
+      <div className="card form-col">
+        <h2>Share with the other devices</h2>
+        <p className="small muted">
+          {isSupabaseConfigured
+            ? 'Sends this device’s documents up and brings back what anyone else approved or sent, so “has that gone out yet” has one answer rather than one per laptop. A document that has already been sent is never pulled back to an earlier state, whichever device was offline longer.'
+            : 'Local-only mode: documents stay on this device. Configure Supabase to share send state across devices.'}
+        </p>
+        <div className="row">
+          <button
+            className="ghost"
+            disabled={busy || !isSupabaseConfigured || !workshopId}
+            onClick={async () => {
+              setBusy(true)
+              setSyncMsg(null)
+              try {
+                setSyncMsg(describeSync(await syncDrafts(workshopId)))
+              } finally {
+                setBusy(false)
+              }
+            }}
+          >
+            Sync documents
+          </button>
+          {syncMsg && <span className="small muted">{syncMsg}</span>}
+        </div>
       </div>
 
       <div className="card">
