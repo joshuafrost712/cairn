@@ -162,8 +162,8 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.svg', 'apple-touch-icon.png'],
       manifest: {
-        name: 'Throughline — OBT Evaluation',
-        short_name: 'Throughline',
+        name: 'Honest Eval — OBT Evaluation',
+        short_name: 'Honest Eval',
         description: 'Field capture for OBT participant evaluation',
         theme_color: '#1f2937',
         background_color: '#ffffff',

@@ -1,6 +1,6 @@
-# How Throughline Uses AI, and Why You Can Trust the Evaluation
+# How Honest Eval Uses AI, and Why You Can Trust the Evaluation
 
-This page explains, in plain terms, how the Throughline evaluation tool works,
+This page explains, in plain terms, how the Honest Eval evaluation tool works,
 what part technology plays in it, and what part it does not. It is written for
 two audiences: the participants whose growth is being evaluated, and the
 organizations deciding whether to send their people to the workshop. Evaluation
@@ -9,7 +9,7 @@ together.
 
 ## The short version
 
-Throughline does not judge anyone. People do. The tool collects what real human
+Honest Eval does not judge anyone. People do. The tool collects what real human
 evaluators observed, organizes it against a rubric that real humans wrote and
 approved, and drafts a summary that a real human reads, corrects, and signs off
 on before it ever reaches you. At every step the evidence stays visible and
@@ -18,7 +18,7 @@ judgment more careful and more personal, not less human.
 
 ## What the tool does, and what it does not
 
-The AI in Throughline has one narrow job: to take the free-form notes that
+The AI in Honest Eval has one narrow job: to take the free-form notes that
 facilitators write while watching an activity and turn them into tidy, organized
 observations, each tied to a specific skill and a specific piece of evidence. It
 is a clerk, not a judge.
@@ -34,7 +34,7 @@ Put simply: the AI never has the last word, and it never has the only word.
 ## How your evaluation is actually built
 
 Every rating you receive can be traced backward through a clear chain. This is
-the heart of how Throughline works.
+the heart of how Honest Eval works.
 
 First, a facilitator watches you in a real activity and writes down what they
 saw, in their own words, at the time they saw it. That note is timestamped and
@@ -65,7 +65,7 @@ vague impression.
 Most evaluation is either thin or opaque. A busy workshop makes it easy for real
 observations to be forgotten, for feedback to arrive too late to act on, and for
 a final judgment to rest on whoever happened to remember the most at the end.
-Throughline was built to fix that, and the benefits all point the same
+Honest Eval was built to fix that, and the benefits all point the same
 direction: toward more human, more useful evaluation.
 
 It is personal. Because every observation is captured as it happens and tied to
@@ -115,7 +115,7 @@ that feedback is itself something we value and record with care.
 ## For organizations considering the workshop
 
 When you send someone to this workshop, you are trusting us with a decision that
-affects their path. Throughline is how we honor that trust. It does not replace
+affects their path. Honest Eval is how we honor that trust. It does not replace
 human evaluators with a machine. It gives your people evaluations that are more
 individualized, better evidenced, and more accountable than what unaided memory
 and end-of-week impressions can produce, with a clear record you are welcome to

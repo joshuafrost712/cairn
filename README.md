@@ -1,4 +1,4 @@
-# Throughline — OBT Participant Evaluation (foundation slice)
+# Honest Eval — OBT Participant Evaluation (foundation slice)
 
 A mobile-first field tool for capturing observer-led participant evaluation during
 Oral Bible Translation (OBT) consulting workshops. It covers the data model, minimal
@@ -8,9 +8,16 @@ Report generation, the multi-evaluator verification gate, and CBC export are
 **deferred to later phases** — the schema accommodates them but this repo does not
 build them yet.
 
-The app is named **Throughline** — every rating traces back through the evidence
-behind it. (Internal storage identifiers still use the original `cairn` codename
-to avoid orphaning on-device data; that is intentional and not user-visible.)
+The app is named **Honest Eval**: every designation is one a human confirmed, and
+every rating traces back to the evidence behind it.
+
+The product name has changed twice (`cairn` → Throughline → Honest Eval) and the
+internal identifiers have deliberately not followed it. The Dexie database is still
+`cairn`, its localStorage keys are still `cairn.*`, and the Supabase local
+`project_id` is still `throughline`. Renaming those would orphan on-device data on
+every evaluator's phone, which is a real cost for no user-visible gain. So the rule
+is: display strings carry the current name, storage identifiers keep whichever
+codename they were born with.
 
 ## What works now
 
@@ -135,7 +142,7 @@ the workflow in `.github/workflows/deploy.yml` is ready:
 3. Wait for the "Deploy to GitHub Pages" action to finish; it prints an
    `https://<you>.github.io/<repo>/` URL.
 4. Open that URL on your phone → browser menu → **Add to Home Screen**. It installs as
-   the "Throughline" app and works offline.
+   the "Honest Eval" app and works offline.
 
 To route observations from the phone with no setup, use the copy/paste path: on
 Observations/Routing, "Copy pending captures" → paste into the Claude app (Max) with the

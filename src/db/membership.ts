@@ -71,7 +71,7 @@ export async function refreshMemberships(appUserId: string | null): Promise<Work
       .eq('app_user_id', appUserId)
       .abortSignal(AbortSignal.timeout(MEMBERSHIP_TIMEOUT_MS))
     if (error) {
-      console.warn('[throughline] membership fetch failed; using cached memberships.', error)
+      console.warn('[honest-eval] membership fetch failed; using cached memberships.', error)
       return cachedMemberships(appUserId)
     }
     const rows = ((data ?? []) as MemberRow[])
@@ -85,7 +85,7 @@ export async function refreshMemberships(appUserId: string | null): Promise<Work
     })
     return rows
   } catch (err) {
-    console.warn('[throughline] membership fetch threw; using cached memberships.', err)
+    console.warn('[honest-eval] membership fetch threw; using cached memberships.', err)
     return cachedMemberships(appUserId)
   }
 }

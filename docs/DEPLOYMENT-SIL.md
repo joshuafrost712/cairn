@@ -2,7 +2,7 @@
 
 This document is written for SIL's technology team. It describes everything needed
 to host **ThruLine** (the OBT participant-evaluation app; repo codename `cairn`,
-product name "Throughline") as an official SIL-hosted website with the database and
+product name "Honest Eval") as an official SIL-hosted website with the database and
 backend on SIL infrastructure, rather than the current GitHub Pages + managed
 Supabase setup.
 
@@ -30,8 +30,8 @@ is absent the app still runs, in local-only mode, on a single device.
    - **SPA fallback**: unknown paths must serve `index.html` so client-side routes
      and page refreshes resolve. (On GitHub Pages we do this by copying
      `index.html` to `404.html`; on nginx it is `try_files $uri /index.html;`.)
-   - Host at a **domain root** (e.g. `https://thruline.sil.org/`) so the default
-     base path `/` is correct. To host under a subpath (e.g. `.../thruline/`), set
+   - Host at a **domain root** (e.g. `https://honesteval.sil.org/`) so the default
+     base path `/` is correct. To host under a subpath (e.g. `.../honesteval/`), set
      the `VITE_BASE` build variable to that subpath (see below).
 
 2. **A build step.** Node 20+, then `npm ci && npm run build`. The output is
@@ -51,7 +51,7 @@ into the static bundle at build time. There is a `.env.example` in the repo root
 |---|---|---|---|
 | `VITE_SUPABASE_URL` | for backend | Supabase project/instance URL | `src/lib/supabase.ts` |
 | `VITE_SUPABASE_ANON_KEY` | for backend | Supabase anon (publishable) key | `src/lib/supabase.ts` |
-| `VITE_BASE` | if subpath | base path, e.g. `/thruline/`; default `/` | `vite.config.ts` |
+| `VITE_BASE` | if subpath | base path, e.g. `/honesteval/`; default `/` | `vite.config.ts` |
 | `VITE_REQUIRED_CONFIRMATIONS` | optional | evaluators who must confirm an observation (default 2) | `src/reports/verification.ts` |
 | `VITE_ROUTING_REPO`, `VITE_ROUTING_BRANCH` | optional | private GitHub repo for the AI observation-routing round-trip (has a token-free copy/paste fallback) | `src/routing/config.ts` |
 

@@ -46,7 +46,7 @@ export function AppShell({ mode }: { mode: 'narrow' | 'wide' }) {
           </button>
           <div>
             <Link className="shell__brand" to="/">
-              Throughline
+              Honest Eval
             </Link>{' '}
             {!onHome && (
               <Link className="small" to="/">

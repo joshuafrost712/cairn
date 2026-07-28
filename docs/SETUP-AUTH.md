@@ -1,6 +1,6 @@
-# Setting up Supabase Auth for Throughline
+# Setting up Supabase Auth for Honest Eval
 
-This guide walks you through connecting Throughline to a Supabase project so that
+This guide walks you through connecting Honest Eval to a Supabase project so that
 real email/password login works. Without these steps the app runs in local-only
 mode (identity stored on-device, no backend sync).
 

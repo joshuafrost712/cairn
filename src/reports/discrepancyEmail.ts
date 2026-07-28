@@ -99,7 +99,7 @@ export function renderDiscrepancyEmails(
   )
   chiefLines.push(``)
   chiefLines.push(`Thanks,`)
-  chiefLines.push(`Throughline`)
+  chiefLines.push(`Honest Eval`)
 
   // --- 2. Evaluator A email (low scorer) ---
   const evalALines: string[] = []
@@ -126,7 +126,7 @@ export function renderDiscrepancyEmails(
   )
   evalALines.push(``)
   evalALines.push(`Thanks,`)
-  evalALines.push(`Throughline`)
+  evalALines.push(`Honest Eval`)
 
   // --- 3. Evaluator B email (high scorer) ---
   const evalBLines: string[] = []
@@ -153,7 +153,7 @@ export function renderDiscrepancyEmails(
   )
   evalBLines.push(``)
   evalBLines.push(`Thanks,`)
-  evalBLines.push(`Throughline`)
+  evalBLines.push(`Honest Eval`)
 
   return [
     { to: chiefEmail, subject, body: chiefLines.join('\n') },

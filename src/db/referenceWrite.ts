@@ -116,10 +116,10 @@ export async function pushReferenceOutbox(): Promise<{
       await db.referenceOutbox.update(e.id, { rejected: true, rejectedReason: error.message })
       rejected++
       console.warn(
-        `[throughline] reference write REFUSED for ${e.id} (not retryable): ${error.message}`,
+        `[honest-eval] reference write REFUSED for ${e.id} (not retryable): ${error.message}`,
       )
     } else {
-      console.warn(`[throughline] reference push failed for ${e.id}, will retry:`, error.message)
+      console.warn(`[honest-eval] reference push failed for ${e.id}, will retry:`, error.message)
     }
   }
   return { pushed, pending: await pendingCount(), rejected }

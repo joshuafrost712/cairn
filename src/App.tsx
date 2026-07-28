@@ -71,7 +71,7 @@ function Shell() {
     return (
       <main className="shell__content" style={{ maxWidth: 720 }}>
         <div className="card">
-          <h1>Throughline</h1>
+          <h1>Honest Eval</h1>
           <p className="muted small">Checking your session…</p>
         </div>
       </main>
@@ -92,7 +92,7 @@ function Shell() {
     return (
       <main className="shell__content" style={{ maxWidth: 720 }}>
         <div className="card">
-          <h1>Throughline</h1>
+          <h1>Honest Eval</h1>
           <p className="muted small">Checking your session…</p>
         </div>
       </main>
