@@ -25,10 +25,11 @@ export function ParticipantDetail() {
   const { participantId } = useParams()
   const filters = useDashboardFilters()
   const bundle = useAnalyticsBundle(filters)
-  const { reports, gates, ksas, flagged, situated, activities, loading } = bundle
+  const { reports, gates, ksas, flagged, situated, activities, participants, loading } = bundle
   const [showEmpty, setShowEmpty] = useState(false)
 
   const report = reports.find((r) => r.participant_id === participantId)
+  const person = participants.find((p) => p.id === participantId)
   const gate = participantId ? gates.get(participantId) : undefined
   const flag = flagged.find((f) => f.participant_id === participantId)
 
@@ -158,6 +159,42 @@ export function ParticipantDetail() {
           attention={gate?.status !== 'ready'}
         />
       </div>
+
+      {person && (
+        <div className="card">
+          <h2>Who this is</h2>
+          <p className="muted small">
+            Edit these on the <Link to="/admin/roster">Roster</Link>. Blank means not recorded, which
+            is a normal state early in a workshop.
+          </p>
+          <dl className="factlist">
+            <dt>Email</dt>
+            <dd>
+              {person.registered_email ? (
+                <a href={`mailto:${person.registered_email}`}>{person.registered_email}</a>
+              ) : (
+                <span className="muted">none, so no email can be sent</span>
+              )}
+            </dd>
+            <dt>Organization</dt>
+            <dd>{person.organization || <span className="muted">not recorded</span>}</dd>
+            <dt>Years of service</dt>
+            <dd>
+              {person.years_of_service != null ? (
+                person.years_of_service
+              ) : (
+                <span className="muted">not recorded</span>
+              )}
+            </dd>
+            <dt>Team</dt>
+            <dd>{report.team_name ?? <span className="muted">unassigned</span>}</dd>
+            <dt>Sex</dt>
+            <dd>{person.sex ?? <span className="muted">not recorded</span>}</dd>
+            <dt>Preferred language</dt>
+            <dd>{person.preferred_language || <span className="muted">not recorded</span>}</dd>
+          </dl>
+        </div>
+      )}
 
       <div className="card">
         <div className="row">

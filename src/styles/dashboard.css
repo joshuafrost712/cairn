@@ -95,6 +95,35 @@
   font-variant-numeric: tabular-nums;
 }
 
+/*
+ * A control that lives inside a cell.
+ *
+ * Table rows are dense, and the app's default input styling is sized for the
+ * phone capture flow: full width, 1rem text, 0.65rem padding. Dropped into a
+ * 32px row it dominates the row it sits in, which on the roster meant the team
+ * menu outweighed the person's name. It also has to read as a MENU rather than
+ * as a button, so it takes the recessed surface and the stronger hairline while
+ * every button on the page keeps a white face.
+ */
+select.cell-select {
+  width: auto;
+  min-width: 8rem;
+  margin: 0;
+  padding: var(--s-1) var(--s-2);
+  font-size: var(--t--1);
+  border-radius: var(--r-1);
+  border-color: var(--line-strong);
+  background: var(--surface-2);
+}
+
+/* An editable text field inside a cell or a tight form row. Same reasoning. */
+.input--cell {
+  margin: 0;
+  padding: var(--s-1) var(--s-2);
+  font-size: var(--t--1);
+  border-radius: var(--r-1);
+}
+
 .dt .sticky-col {
   position: sticky;
   left: 0;
@@ -104,6 +133,13 @@
 
 .dt th.sticky-col {
   z-index: 3;
+}
+
+/* The in-place edit panel opened beneath a row. Recessed, so it reads as
+   belonging to the row above it rather than as another row. */
+.dt-detail > td {
+  background: var(--surface-2);
+  padding: var(--s-3) var(--s-4);
 }
 
 .dt tfoot td {
@@ -454,6 +490,26 @@ button.danger:disabled {
   cursor: not-allowed;
 }
 
+/*
+ * The quietest step of the same red: a delete that has not been armed yet.
+ *
+ * This exists because the unarmed trigger used to be `ghost small`, identical in
+ * colour to every other control on the roster, so nothing on the page said which
+ * button was the one that removes a person. It carries the danger ink but no
+ * fill, which leaves three legible steps rather than two: quiet red to arm,
+ * washed red (.danger) to confirm, and only then does anything happen. Keeping
+ * the fill off here is the same judgment as the note above about a wall of red.
+ */
+button.danger-quiet {
+  color: var(--danger);
+  border-color: #fecaca;
+  background: transparent;
+}
+
+button.danger-quiet:hover {
+  background: var(--wash-danger);
+}
+
 .confirm {
   display: flex;
   flex-direction: column;
@@ -466,6 +522,105 @@ button.danger:disabled {
 
 .confirm input {
   margin: 0;
+}
+
+/* ---- a list of facts about one thing ------------------------------------ */
+
+/*
+ * Label above value, wrapping into as many columns as fit. Not a table: these are
+ * six unrelated facts about one person, and a table would imply you might want to
+ * compare a column down the page.
+ */
+.factlist {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+  gap: var(--s-3);
+  margin: 0;
+}
+
+.factlist dt {
+  font-size: var(--t--1);
+  color: var(--muted);
+}
+
+.factlist dd {
+  margin: 0;
+  font-size: var(--t-0);
+}
+
+/* ---- the teams panel ---------------------------------------------------- */
+
+/*
+ * A team is a disclosure, not a row of inputs.
+ *
+ * Collapsed, it has to answer "how big, and what mix" without being opened,
+ * because that is the question you have when you are looking at a list of teams.
+ * The name is the loudest thing in it; the count and the composition read beneath
+ * in muted small. Previously this panel was a rename field and a delete button,
+ * which answered neither question.
+ */
+.team {
+  border: 1px solid var(--line);
+  border-radius: var(--r-2);
+  margin-bottom: var(--s-2);
+  overflow: hidden;
+}
+
+.team--open {
+  border-color: var(--line-strong);
+}
+
+.team__summary {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: var(--s-2) var(--s-3);
+  border: 0;
+  border-radius: 0;
+  background: var(--card);
+  font-size: var(--t-0);
+}
+
+.team__summary:hover {
+  background: var(--surface-2);
+}
+
+.team__name {
+  font-weight: var(--fw-bold);
+}
+
+.team__body {
+  padding: var(--s-3);
+  border-top: 1px solid var(--line);
+  background: var(--surface-2);
+}
+
+/* A team member, removable. Ink rather than muted: these are people's names, and
+   they are the content of the panel, not a label on it. */
+.member-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-1);
+  font-size: var(--t--1);
+  padding: var(--s-1) var(--s-2);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-pill);
+  background: var(--card);
+  color: var(--ink);
+}
+
+.member-chip button {
+  padding: 0 var(--s-1);
+  border: 0;
+  border-radius: var(--r-pill);
+  background: transparent;
+  color: var(--muted);
+  font-size: var(--t--1);
+  line-height: 1;
+}
+
+.member-chip button:hover {
+  color: var(--danger);
 }
 
 /* ---- the roster / settings form column ---------------------------------- */

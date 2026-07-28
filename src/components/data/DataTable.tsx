@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { Fragment, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
 
 export interface Column<T> {
@@ -35,6 +35,8 @@ export function DataTable<T>({
   defaultDir = 'desc',
   onRowClick,
   selectedKey,
+  expandedKey,
+  renderDetail,
   empty,
   footer,
 }: {
@@ -46,6 +48,17 @@ export function DataTable<T>({
   defaultDir?: 'asc' | 'desc'
   onRowClick?: (row: T) => void
   selectedKey?: string | null
+  /** The one row currently expanded, if any. Pairs with `renderDetail`. */
+  expandedKey?: string | null
+  /**
+   * Extra panel rendered in a full-width row directly beneath the expanded row.
+   *
+   * This is for editing a row in place. Putting the panel in the table rather
+   * than above it matters on a 28-person roster: a form that opens at the top of
+   * the card is off-screen for anyone you scrolled down to reach, so you would be
+   * editing a name you can no longer see.
+   */
+  renderDetail?: (row: T) => ReactNode
   empty?: ReactNode
   footer?: ReactNode
 }) {
@@ -112,25 +125,35 @@ export function DataTable<T>({
         <tbody>
           {sorted.map((row) => {
             const key = rowKey(row)
+            const expanded = expandedKey != null && expandedKey === key
             return (
-              <tr
-                key={key}
-                className={[onRowClick ? 'clickable' : '', selectedKey === key ? 'selected' : '']
-                  .filter(Boolean)
-                  .join(' ')}
-                onClick={onRowClick ? () => onRowClick(row) : undefined}
-              >
-                {columns.map((c) => (
-                  <td
-                    key={c.key}
-                    className={[c.numeric ? 'num' : '', c.sticky ? 'sticky-col' : '']
-                      .filter(Boolean)
-                      .join(' ')}
-                  >
-                    {c.render(row)}
-                  </td>
-                ))}
-              </tr>
+              <Fragment key={key}>
+                <tr
+                  className={[
+                    onRowClick ? 'clickable' : '',
+                    selectedKey === key || expanded ? 'selected' : '',
+                  ]
+                    .filter(Boolean)
+                    .join(' ')}
+                  onClick={onRowClick ? () => onRowClick(row) : undefined}
+                >
+                  {columns.map((c) => (
+                    <td
+                      key={c.key}
+                      className={[c.numeric ? 'num' : '', c.sticky ? 'sticky-col' : '']
+                        .filter(Boolean)
+                        .join(' ')}
+                    >
+                      {c.render(row)}
+                    </td>
+                  ))}
+                </tr>
+                {expanded && renderDetail && (
+                  <tr className="dt-detail">
+                    <td colSpan={columns.length}>{renderDetail(row)}</td>
+                  </tr>
+                )}
+              </Fragment>
             )
           })}
         </tbody>
