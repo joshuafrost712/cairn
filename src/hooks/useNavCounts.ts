@@ -3,7 +3,7 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '../db/local'
 import { useIsChief } from '../layout/roles'
 import { buildAllReports } from '../reports/build'
-import { annotateObservations } from '../reports/verification'
+import { annotateObservations, getRequiredConfirmations } from '../reports/verification'
 import { buildCaptureTimeMap, discrepancyId, findDiscrepancies } from '../reports/discrepancy'
 import type {
   DiscrepancyResolution,
@@ -11,6 +11,7 @@ import type {
   Ksa,
   ObservationRecord,
   Participant,
+  ReportAssignment,
   Team,
   VerificationVerdict,
 } from '../lib/types'
@@ -26,9 +27,24 @@ export interface NavCounts {
    * drafts already hold their own flags, so there is nothing to recompute.
    */
   draftsNeedingAttention: number
+  /**
+   * Participants with fewer review assignees than the verification threshold
+   * requires. Chief-only; 0 otherwise.
+   *
+   * Counted from the rows directly rather than through `buildBoard`, because the
+   * board also resolves names, quotas and per-evaluator progress, none of which
+   * a badge needs. The threshold read is the synchronous one, which the settings
+   * mirror keeps pointed at the active workshop.
+   */
+  underAssigned: number
 }
 
-const EMPTY: NavCounts = { conversationsNeeded: 0, openDiscrepancies: 0, draftsNeedingAttention: 0 }
+const EMPTY: NavCounts = {
+  conversationsNeeded: 0,
+  openDiscrepancies: 0,
+  draftsNeedingAttention: 0,
+  underAssigned: 0,
+}
 
 /**
  * Badge counts for the sidebar.
@@ -64,6 +80,14 @@ export function useNavCounts(): NavCounts {
     () => (isChief ? db.participants.toArray() : Promise.resolve([] as Participant[])),
     [isChief],
     [] as Participant[],
+  )
+  const reviewAssignments = useLiveQuery(
+    () =>
+      isChief
+        ? db.assignments.where('kind').equals('review').toArray()
+        : Promise.resolve([] as ReportAssignment[]),
+    [isChief],
+    [] as ReportAssignment[],
   )
   const ksas = useLiveQuery(
     () => (isChief ? db.ksas.toArray() : Promise.resolve([] as Ksa[])),
@@ -111,6 +135,16 @@ export function useNavCounts(): NavCounts {
     ).length
   }, [isChief, participants, ksas, teams, observations, verdicts, evaluations, resolutions])
 
+  const underAssigned = useMemo(() => {
+    if (!isChief) return 0
+    const required = getRequiredConfirmations()
+    const counts = new Map<string, number>()
+    for (const a of reviewAssignments ?? []) {
+      counts.set(a.participant_id, (counts.get(a.participant_id) ?? 0) + 1)
+    }
+    return (participants ?? []).filter((p) => (counts.get(p.id) ?? 0) < required).length
+  }, [isChief, participants, reviewAssignments])
+
   return useMemo(
     () =>
       isChief || conversationsNeeded
@@ -118,8 +152,9 @@ export function useNavCounts(): NavCounts {
             conversationsNeeded: conversationsNeeded ?? 0,
             openDiscrepancies,
             draftsNeedingAttention: draftsNeedingAttention ?? 0,
+            underAssigned,
           }
         : EMPTY,
-    [isChief, conversationsNeeded, openDiscrepancies, draftsNeedingAttention],
+    [isChief, conversationsNeeded, openDiscrepancies, draftsNeedingAttention, underAssigned],
   )
 }

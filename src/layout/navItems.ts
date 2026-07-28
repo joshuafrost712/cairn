@@ -88,6 +88,12 @@ export const NAV_GROUPS: NavGroup[] = [
     items: [
       { labelId: 'nav.builder', to: '/builder' },
       { labelId: 'nav.roster', to: '/admin/roster', roles: ADMIN_ROLES },
+      {
+        labelId: 'nav.assignments',
+        to: '/admin/assignments',
+        roles: ADMIN_ROLES,
+        count: (c) => c.underAssigned,
+      },
       { labelId: 'nav.records', to: '/admin/records', roles: ADMIN_ROLES },
       { labelId: 'nav.settings', to: '/admin/settings', roles: ADMIN_ROLES },
       { labelId: 'nav.data', to: '/admin/data', roles: ADMIN_ROLES },

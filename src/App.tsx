@@ -30,6 +30,7 @@ import { ParticipantDetail } from './pages/admin/ParticipantDetail'
 import { EvaluatorList } from './pages/admin/EvaluatorList'
 import { EvaluatorDetail } from './pages/admin/EvaluatorDetail'
 import { Roster } from './pages/admin/Roster'
+import { Assignments } from './pages/admin/Assignments'
 import { Records } from './pages/admin/Records'
 import { Settings } from './pages/admin/Settings'
 import { DataPage } from './pages/admin/DataPage'
@@ -180,6 +181,7 @@ function Shell() {
 
         <Route element={<RequireRole roles={ADMIN_ROLES} />}>
           <Route path="/admin/roster" element={<Roster />} />
+          <Route path="/admin/assignments" element={<Assignments />} />
           <Route path="/admin/records" element={<Records />} />
           <Route path="/admin/settings" element={<Settings />} />
           <Route path="/admin/data" element={<DataPage />} />

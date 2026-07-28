@@ -705,3 +705,106 @@ button.btn--block-left {
 .row--top {
   align-items: flex-start;
 }
+
+/* ---- kanban: one column per evaluator ------------------------------------
+   A board, not a table, because the question it answers is "who is carrying
+   too much and who has nobody" and that is read across columns at a glance.
+   The column strip scrolls horizontally rather than reflowing: on a phone in a
+   workshop room, swiping between four evaluators beats four stacked lists that
+   can no longer be compared. */
+
+.kanban {
+  display: flex;
+  gap: var(--s-3);
+  overflow-x: auto;
+  padding-bottom: var(--s-2);
+  /* Cards keep their own scroll; the strip scrolls sideways. */
+  align-items: flex-start;
+}
+
+.kanban__col {
+  flex: 0 0 15rem;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+  padding: var(--s-3);
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: var(--r-2);
+}
+
+/* The unassigned pile reads as a holding area rather than as a person. */
+.kanban__col--none {
+  background: transparent;
+  border-style: dashed;
+}
+
+/* Carrying at or beyond their ceiling. Warn, not danger: being full is a fact
+   about capacity, not a mistake somebody made. */
+.kanban__col--full {
+  border-color: var(--warn);
+}
+
+.kanban__head {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-bottom: var(--s-2);
+  border-bottom: 1px solid var(--line);
+}
+
+.kanban__who {
+  font-weight: var(--fw-bold);
+  font-size: var(--t-0);
+  overflow-wrap: anywhere;
+}
+
+.kanban__card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-1);
+  padding: var(--s-2);
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--line-strong);
+  border-radius: var(--r-1);
+}
+
+/* Joshua's colour rule: fewer assignees than the verification threshold needs.
+   Same warn treatment as .tile--attention, so "needs a look" means one thing
+   everywhere in the app. */
+.kanban__card--under {
+  border-left-color: var(--warn);
+  background: var(--wash-warn);
+}
+
+/* Nobody at all, which is the more urgent of the two. */
+.kanban__card--unassigned {
+  border-left-color: var(--danger);
+  background: var(--wash-danger);
+}
+
+/* More assignees than required. Not a problem, worth seeing. */
+.kanban__card--over {
+  border-left-color: var(--accent);
+}
+
+.kanban__name {
+  font-weight: var(--fw-med);
+  overflow-wrap: anywhere;
+}
+
+.kanban__card select.cell-select {
+  min-width: 0;
+  width: 100%;
+}
+
+/* The proposal list before it is applied: what auto-assign intends to do. */
+.proposal {
+  max-height: 16rem;
+  overflow-y: auto;
+  border: 1px solid var(--line);
+  border-radius: var(--r-1);
+  padding: var(--s-2);
+  background: var(--surface-2);
+}
