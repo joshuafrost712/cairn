@@ -169,6 +169,47 @@ function identityFromSession(user: User, appUser: AppUserRow | null): Identity {
 }
 
 /**
+ * On-device copy of the caller's own `app_user` row, keyed by email.
+ *
+ * Without this, offline is broken in a way that is easy to miss and was: the row
+ * is fetched over the network on every start, so a cold offline start cannot learn
+ * its own `app_user.id`, cannot key the cached memberships off it, and lands a
+ * perfectly legitimate member on "you have not been added to a workshop yet". The
+ * membership cache alone is not enough — the device also has to remember who it is.
+ *
+ * Keyed by email, which is what makes it safe on a shared device: another account
+ * signing in reads its own entry, misses, and waits for the network rather than
+ * inheriting the previous person's id. And like the membership cache it is a render
+ * hint, never an authorization source — RLS re-derives everything from auth.uid(),
+ * so a tampered entry changes what the UI offers and nothing about what comes back.
+ */
+const APP_USER_CACHE_PREFIX = 'cairn.app_user.'
+
+function cacheAppUser(email: string, row: AppUserRow): void {
+  try {
+    localStorage.setItem(APP_USER_CACHE_PREFIX + email.trim().toLowerCase(), JSON.stringify(row))
+  } catch {
+    /* private mode / storage disabled — offline identity just won't persist */
+  }
+}
+
+function cachedAppUser(email: string): AppUserRow | null {
+  try {
+    const raw = localStorage.getItem(APP_USER_CACHE_PREFIX + email.trim().toLowerCase())
+    if (!raw) return null
+    const parsed = JSON.parse(raw) as Partial<AppUserRow>
+    if (!parsed.id || !parsed.name) return null
+    return {
+      id: parsed.id,
+      name: parsed.name,
+      role: parsed.role === 'platform_owner' ? 'platform_owner' : 'member',
+    }
+  } catch {
+    return null
+  }
+}
+
+/**
  * Fetch the caller's `app_user` row. Bounded and never throws: a failure here
  * must degrade the identity, never block sign-in.
  */
@@ -337,12 +378,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       void fetchAppUser(email).then((row) => {
         if (disposed) return
         if (applied.current?.email !== email) return // a different account signed in meanwhile
+        if (row) cacheAppUser(email, row)
+        // Offline, or the lookup failed: fall back to what this device already knows
+        // about this email. `authoritative` stays false in that case, so the next
+        // session event re-fetches rather than trusting the cache indefinitely.
+        const resolved = row ?? cachedAppUser(email)
         applied.current = { email, authoritative: row !== null, enriching: false }
-        // Settled either way. A null row means the lookup failed or the account has
-        // no `app_user` record; both leave the session with no resolvable
-        // memberships, which the UI names rather than spins on.
+        // Settled either way. Still no row and nothing cached means the session has
+        // no resolvable memberships, which the UI names rather than spins on.
         setProfileChecked(true)
-        if (row) setIdentity(identityFromSession(user, row))
+        if (resolved) setIdentity(identityFromSession(user, resolved))
       })
     }
 
