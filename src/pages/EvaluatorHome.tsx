@@ -7,31 +7,9 @@ import { c } from '../lib/content/chrome'
 import { Copy } from '../components/Copy'
 import { useAuth } from '../auth/AuthContext'
 import { createDraft } from '../db/evaluations'
+import { countIn, formatDay, groupActivitiesByDay, suggestActivity } from '../lib/schedule'
+import type { DayGroup } from '../lib/schedule'
 import type { Activity } from '../lib/types'
-
-/** Pick the activity nearest to now: prefer the one currently running, else the
- *  most recently finished, else the next upcoming. Returns its id or null. */
-function suggestActivity(activities: Activity[], now: number): string | null {
-  if (activities.length === 0) return null
-  const withTimes = activities.filter((a) => a.start_time)
-  // currently running
-  const running = withTimes.find((a) => {
-    const s = a.start_time ? Date.parse(a.start_time) : NaN
-    const e = a.end_time ? Date.parse(a.end_time) : NaN
-    return !Number.isNaN(s) && now >= s && (Number.isNaN(e) || now <= e)
-  })
-  if (running) return running.id
-  // most recently finished
-  const finished = withTimes
-    .filter((a) => a.end_time && Date.parse(a.end_time) <= now)
-    .sort((x, y) => Date.parse(y.end_time!) - Date.parse(x.end_time!))
-  if (finished[0]) return finished[0].id
-  // next upcoming
-  const upcoming = withTimes
-    .filter((a) => a.start_time && Date.parse(a.start_time) > now)
-    .sort((x, y) => Date.parse(x.start_time!) - Date.parse(y.start_time!))
-  return upcoming[0]?.id ?? activities[0].id
-}
 
 function fmtTime(iso: string | null): string {
   if (!iso) return ''
@@ -71,6 +49,10 @@ export function EvaluatorHome() {
   // The suggestion legitimately depends on the current wall-clock time.
   // eslint-disable-next-line react-hooks/purity
   const suggestedId = useMemo(() => suggestActivity(activities ?? [], Date.now()), [activities])
+  const schedule = useMemo(
+    () => groupActivitiesByDay(activities ?? [], suggestedId),
+    [activities, suggestedId],
+  )
 
   const start = async (activityId: string) => {
     const draft = await createDraft({
@@ -79,6 +61,45 @@ export function EvaluatorHome() {
       activityId,
     })
     navigate(`/capture/${draft.client_id}`)
+  }
+
+  const activityButton = (a: Activity) => (
+    <button
+      key={a.id}
+      className={`activity-item ${a.id === suggestedId ? 'suggested' : ''}`}
+      onClick={() => start(a.id)}
+    >
+      <span>
+        <strong data-dfb-node={a.id} data-dfb-field="title" data-dfb-source="ref" data-dfb-table="activity">
+          {a.title}
+        </strong>
+        <br />
+        <span className="muted small">
+          {fmtTime(a.start_time)}
+          {a.end_time ? `–${fmtTime(a.end_time)}` : ''} {a.genre_group ? `· ${a.genre_group}` : ''}
+        </span>
+      </span>
+      {a.id === suggestedId && <Copy id="home.suggested-pill" className="pill" />}
+    </button>
+  )
+
+  /** A folded set of days. Closed by default: this is the part you rarely want. */
+  const disclosure = (label: string, groups: DayGroup[]) => {
+    const n = countIn(groups)
+    if (n === 0) return null
+    return (
+      <details className="day-fold">
+        <summary>
+          {label} <span className="n-badge">{n}</span>
+        </summary>
+        {groups.map((g) => (
+          <div key={g.day ?? 'undated'} className="day-fold__day">
+            {g.day && <div className="day-heading day-heading--sub">{formatDay(g.day)}</div>}
+            {g.activities.map(activityButton)}
+          </div>
+        ))}
+      </details>
+    )
   }
 
   if (!workshop) {
@@ -92,6 +113,11 @@ export function EvaluatorHome() {
     )
   }
 
+  // Nothing in the schedule carries a date, so there is no "today" to lead with.
+  // Show the flat list rather than an empty focus section with everything folded
+  // out of sight: a half-authored scenario has to stay usable.
+  const focusDay = schedule.focusDay
+
   return (
     <>
       <div className="card">
@@ -102,26 +128,20 @@ export function EvaluatorHome() {
         <Copy id="home.pick-activity" as="p" className="small" />
       </div>
 
-      {(activities ?? []).map((a) => (
-        <button
-          key={a.id}
-          className={`activity-item ${a.id === suggestedId ? 'suggested' : ''}`}
-          onClick={() => start(a.id)}
-        >
-          <span>
-            <strong data-dfb-node={a.id} data-dfb-field="title" data-dfb-source="ref" data-dfb-table="activity">
-              {a.title}
-            </strong>
-            <br />
-            <span className="muted small">
-              {fmtTime(a.start_time)}
-              {a.end_time ? `–${fmtTime(a.end_time)}` : ''} {a.genre_group ? `· ${a.genre_group}` : ''}
-            </span>
-          </span>
-          {a.id === suggestedId && <Copy id="home.suggested-pill" className="pill" />}
-        </button>
-      ))}
+      {focusDay === null ? (
+        (activities ?? []).map(activityButton)
+      ) : (
+        <>
+          {disclosure('Earlier days', schedule.earlier)}
 
+          <div className="day-heading">{formatDay(focusDay)}</div>
+          {schedule.focus.map(activityButton)}
+
+          {disclosure('Later days', schedule.later)}
+          {schedule.unscheduled.length > 0 &&
+            disclosure('Not yet scheduled', [{ day: null, activities: schedule.unscheduled }])}
+        </>
+      )}
     </>
   )
 }

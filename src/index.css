@@ -98,6 +98,29 @@ a { color: var(--accent); text-decoration: none; }
 }
 .activity-item.suggested { border-color: var(--accent); box-shadow: 0 0 0 2px #dbeafe; }
 
+/* The home screen leads with one day and folds the rest away. Mid-workshop the
+   flat list was ~30 buttons deep, and picking the right one got hardest exactly
+   when people were busiest. */
+.day-heading {
+  font-weight: var(--fw-bold);
+  font-size: 0.95rem;
+  margin: 0.75rem 0 0.4rem;
+}
+.day-heading--sub { font-weight: var(--fw-med); color: var(--muted); font-size: 0.85rem; }
+
+.day-fold { margin-bottom: 0.5rem; }
+.day-fold > summary {
+  cursor: pointer;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface-2);
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+.day-fold[open] > summary { margin-bottom: 0.5rem; }
+.day-fold__day + .day-fold__day { margin-top: 0.5rem; }
+
 .rubric-toggle {
   font-size: 0.82rem;
   padding: 0.3rem 0.6rem;
