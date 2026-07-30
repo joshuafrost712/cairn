@@ -1,7 +1,12 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '../db/local'
 import { useAuth } from '../auth/AuthContext'
+import { useScopedWorkshopId } from '../layout/roles'
+import { isSupabaseConfigured } from '../lib/supabase'
+import { pullPendingCaptures } from '../db/sync'
+import { c } from '../lib/content/chrome'
+import { Copy } from '../components/Copy'
 import { RepoVerdictSync } from '../components/RepoVerdictSync'
 import {
   getRoutingRepo,
@@ -9,6 +14,7 @@ import {
   setRoutingToken,
   clearRoutingToken,
   canPushPull,
+  getRoutingMode,
 } from '../routing/config'
 import {
   listPendingCaptures,
@@ -21,11 +27,18 @@ import {
 // Routing screen: send submitted captures to the routing repo, route them with
 // Claude (Max — no metered API), and bring the per-individual observations back.
 // Works token-free via copy/paste, or automated when a GitHub token is set.
+//
+// ADMINISTRATOR-ONLY since tl-03, at /admin/routing behind RequireRole. It is the
+// one screen in the app that names a repository or holds a credential, and the
+// evaluator's need for it went away when tl-04 gave observations and verdicts a
+// real transport. Nothing here may be linked from an evaluator-facing surface.
 export function Routing() {
   const { identity } = useAuth()
   const email = identity?.email ?? null
   const repo = getRoutingRepo()
   const automated = canPushPull()
+  const mode = getRoutingMode()
+  const workshopId = useScopedWorkshopId()
 
   const pending = useLiveQuery(async () => (await listPendingCaptures()).length, [], 0)
   const observationCount = useLiveQuery(() => db.observations.count(), [], 0)
@@ -40,6 +53,30 @@ export function Routing() {
   const [msg, setMsg] = useState<string | null>(null)
   const [bundle, setBundle] = useState('')
   const [paste, setPaste] = useState('')
+  const [queueMsg, setQueueMsg] = useState<string | null>(null)
+
+  // Pull the workshop's captures as soon as this screen opens, so the queue is
+  // the workshop's rather than this device's. Deliberately not in startSyncLoop:
+  // an evaluator's phone has no routing surface and no reason to hold other
+  // people's captures, and doing it there would fill their own list with them.
+  useEffect(() => {
+    if (!workshopId) return
+    let cancelled = false
+    void (async () => {
+      const r = await pullPendingCaptures(workshopId)
+      if (cancelled) return
+      setQueueMsg(
+        c('routing.queue.result', 'label', {
+          pulled: r.pulled,
+          adopted: r.adopted,
+          markedRouted: r.markedRouted,
+        }),
+      )
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [workshopId])
 
   const run = async (fn: () => Promise<string>) => {
     setBusy(true)
@@ -66,6 +103,38 @@ export function Routing() {
           <strong>{observationCount}</strong> observation{observationCount === 1 ? '' : 's'} imported
           {needsReview ? ` (${needsReview} need review)` : ''}.
         </p>
+      </div>
+
+      {/* The default is not a choice (tl-03 build step 4). One mode exists, it is
+          stated rather than selected, and tl-13 turns this card into the provider
+          configuration it will extend. */}
+      <div className="card">
+        <Copy id="routing.mode.title" as="h2" />
+        <Copy id={`routing.mode.${mode}`} as="p" className="small muted" />
+      </div>
+
+      <div className="card">
+        <Copy id="routing.queue.title" as="h2" />
+        <Copy id="routing.queue.intro" as="p" className="small muted" />
+        {!isSupabaseConfigured && <Copy id="routing.queue.offline" as="p" className="banner warn" />}
+        <button
+          className="ghost small"
+          disabled={busy || !workshopId || !isSupabaseConfigured}
+          onClick={() =>
+            run(async () => {
+              if (!workshopId) return ''
+              const r = await pullPendingCaptures(workshopId)
+              return c('routing.queue.result', 'label', {
+                pulled: r.pulled,
+                adopted: r.adopted,
+                markedRouted: r.markedRouted,
+              })
+            })
+          }
+        >
+          {c('routing.queue.refresh')}
+        </button>
+        {queueMsg && <p className="small muted">{queueMsg}</p>}
       </div>
 
       {!repo && (
@@ -120,7 +189,7 @@ export function Routing() {
             run(async () => {
               const r = await importObservationsText(paste)
               setPaste('')
-              return `Imported ${r.stored} observation${r.stored === 1 ? '' : 's'} from ${r.files} capture${r.files === 1 ? '' : 's'}${r.rejected ? ` (${r.rejected} rejected)` : ''}.`
+              return `Imported ${r.stored} observation${r.stored === 1 ? '' : 's'} from ${r.files} capture${r.files === 1 ? '' : 's'}${r.rejected ? ` (${r.rejected} rejected)` : ''}. Shared ${r.shared} with the other devices.`
             })
           }
         >
@@ -167,7 +236,7 @@ export function Routing() {
             disabled={busy || !automated}
             onClick={() => run(async () => {
               const r = await pullObservationsFromRepo()
-              return `Pulled ${r.files} file${r.files === 1 ? '' : 's'}, ${r.observations} observation${r.observations === 1 ? '' : 's'}${r.rejected ? ` (${r.rejected} rejected)` : ''}.`
+              return `Pulled ${r.files} file${r.files === 1 ? '' : 's'}, ${r.observations} observation${r.observations === 1 ? '' : 's'}${r.rejected ? ` (${r.rejected} rejected)` : ''}. Shared ${r.shared} with the other devices.`
             })}
           >
             Pull observations ← repo

@@ -126,3 +126,26 @@ export async function submitEvaluation(
 export function getEvaluation(clientId: string) {
   return db.evaluations.get(clientId)
 }
+
+/**
+ * The captures that belong to the signed-in evaluator (tl-03).
+ *
+ * `db.evaluations` used to be "everything this device recorded", so /evaluations
+ * could show all of it. Since `pullPendingCaptures` an administrator's device also
+ * holds every other evaluator's submitted capture, and without this filter "My
+ * evaluations" would list colleagues' work as the administrator's own — and offer
+ * to open it in the capture editor.
+ *
+ * A row with no evaluator_email is kept only when it has never reached the server
+ * (`server_id` unset). That is a draft started before sign-in, which by definition
+ * exists on this device alone; a pulled row always carries the server's id, so the
+ * unattributed case cannot leak in through the pull.
+ */
+export function myCaptures(rows: EvaluationRecord[], myEmail: string | null): EvaluationRecord[] {
+  const mine = myEmail?.trim().toLowerCase() ?? null
+  return rows.filter((r) => {
+    const owner = r.evaluator_email?.trim().toLowerCase() ?? null
+    if (owner) return owner === mine
+    return !r.server_id
+  })
+}

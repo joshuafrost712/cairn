@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '../db/local'
 import { useAuth } from '../auth/AuthContext'
+import { ADMIN_ROLES, useHasWorkshopRole } from '../layout/roles'
 import { buildAllReports } from '../reports/build'
 import { renderDayEmailMarkdown } from '../reports/dayEmail'
 import { annotateObservations, participantGate, type Gate } from '../reports/verification'
@@ -15,6 +16,7 @@ import type { Ksa, ObservationRecord, Participant, Team, VerificationVerdict } f
 // text. No backend send: copy it (full content) or open the mail app prefilled.
 export function DayEmail() {
   const { identity } = useAuth()
+  const isAdmin = useHasWorkshopRole(ADMIN_ROLES)
   const participants = useLiveQuery(() => db.participants.toArray(), [], [] as Participant[])
   const ksas = useLiveQuery(() => db.ksas.toArray(), [], [] as Ksa[])
   const teams = useLiveQuery(() => db.teams.toArray(), [], [] as Team[])
@@ -78,7 +80,12 @@ export function DayEmail() {
 
       {evaluatedCount === 0 && (
         <div className="banner">
-          No observations to summarize yet. Route some captures from <Link to="/routing">Routing</Link> first.
+          No observations to summarize yet.{' '}
+          {isAdmin && (
+            <>
+              <Link to="/admin/routing">Process the pending captures</Link> first.
+            </>
+          )}
         </div>
       )}
 

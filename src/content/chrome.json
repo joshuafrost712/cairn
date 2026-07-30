@@ -70,10 +70,6 @@
       "label": "Scenario Builder"
     },
     {
-      "id": "nav.back-to-routing",
-      "label": "Back to routing"
-    },
-    {
       "id": "nav.export",
       "label": "CBC export"
     },
@@ -326,19 +322,19 @@
     },
     {
       "id": "obs.intro",
-      "label": "Per-individual evidence routed from captures. Each observation needs confirmation by the required number of evaluators before it counts toward a finalized report. Numbers are draft 0–3 designations."
+      "label": "Per-individual evidence drawn from the day's captures. Each observation needs confirmation by the required number of evaluators before it counts toward a finalized report. Numbers are draft 0–3 designations."
     },
     {
       "id": "obs.sign-in",
       "label": "Sign in to record verdicts."
     },
     {
-      "id": "obs.nothing-yet.before",
-      "label": "Nothing yet. Route some captures from"
+      "id": "obs.nothing-yet",
+      "label": "Nothing yet. Observations appear here once submitted captures have been processed."
     },
     {
-      "id": "obs.nothing-yet.after",
-      "label": "."
+      "id": "obs.nothing-yet.route",
+      "label": "Process the pending captures"
     },
     {
       "id": "obs.unattributed",
@@ -361,8 +357,8 @@
       "label": "evaluator read {level}/3"
     },
     {
-      "id": "obs.routing-flagged",
-      "label": "routing flagged"
+      "id": "obs.flagged-for-review",
+      "label": "flagged for review"
     },
     {
       "id": "verdictsync.title",
@@ -406,7 +402,43 @@
     },
     {
       "id": "verdictsync.local-only",
-      "label": "This device has no backend configured, so verdicts stay on it. An administrator can share them from the Routing screen."
+      "label": "This device has no shared database configured, so your verdicts stay on it. An administrator can bring them together with everyone else's."
+    },
+    {
+      "id": "routing.mode.title",
+      "label": "How captures are processed"
+    },
+    {
+      "id": "routing.mode.github-claude",
+      "label": "Through the private repository, read by Claude on your own subscription. No metered API and no per-use cost. This is the default and there is nothing to choose; a workshop that needs a different arrangement gets one in a later release."
+    },
+    {
+      "id": "routing.queue.title",
+      "label": "The workshop's queue"
+    },
+    {
+      "id": "routing.queue.intro",
+      "label": "Every submitted capture in this workshop, including the ones recorded on somebody else's phone. Captures whose observations already exist are marked done and are not offered again."
+    },
+    {
+      "id": "routing.queue.refresh",
+      "label": "Check for new captures"
+    },
+    {
+      "id": "routing.queue.result",
+      "label": "{pulled} submitted capture(s) in this workshop; {adopted} new to this device, {markedRouted} already processed elsewhere."
+    },
+    {
+      "id": "routing.queue.offline",
+      "label": "No shared database reachable, so this device can only offer the captures it recorded itself."
+    },
+    {
+      "id": "reports.nothing-yet",
+      "label": "No observations to report yet. They appear here once submitted captures have been processed."
+    },
+    {
+      "id": "reports.nothing-yet.route",
+      "label": "Process the pending captures"
     },
     {
       "id": "myeval.title",
@@ -414,7 +446,7 @@
     },
     {
       "id": "myeval.intro",
-      "label": "Everything captured on this device. Tap one to edit or correct it."
+      "label": "Everything you have captured. Tap one to edit or correct it."
     },
     {
       "id": "myeval.empty",

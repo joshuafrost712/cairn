@@ -1,6 +1,8 @@
 import { Link } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '../db/local'
+import { myCaptures } from '../db/evaluations'
+import { useAuth } from '../auth/AuthContext'
 import { c } from '../lib/content/chrome'
 import { Copy } from '../components/Copy'
 import type { Activity, EvaluationRecord, SyncStatus } from '../lib/types'
@@ -8,9 +10,14 @@ import type { Activity, EvaluationRecord, SyncStatus } from '../lib/types'
 const statusLabel = (s: SyncStatus): string => c(`myeval.status.${s}`)
 
 export function MyEvaluations() {
+  const { identity } = useAuth()
+  const email = identity?.email ?? null
+  // Filtered to the signed-in evaluator since tl-03: an administrator's device now
+  // also holds every colleague's submitted capture, pulled down so it can be
+  // routed. See myCaptures.
   const evals = useLiveQuery(
-    () => db.evaluations.orderBy('updated_at').reverse().toArray(),
-    [],
+    async () => myCaptures(await db.evaluations.orderBy('updated_at').reverse().toArray(), email),
+    [email],
     [] as EvaluationRecord[],
   )
   const activities = useLiveQuery(() => db.activities.toArray(), [], [] as Activity[])

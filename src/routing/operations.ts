@@ -19,17 +19,29 @@ import {
 import { listDir, getFile, putFile } from './github'
 import { getRoutingToken } from './config'
 import { getActiveWorkshopId } from '../lib/activeWorkshop'
-import { pickWorkshopId } from '../db/sync'
+import { pickWorkshopId, pushObservations } from '../db/sync'
 import type { EvaluationRecord, ObservationRecord } from '../lib/types'
 
 export const CAPTURE_BUNDLE_SCHEMA_ID = 'cairn.capture-bundle/v1'
 export const OBSERVATIONS_BUNDLE_SCHEMA_ID = 'cairn.observations-bundle/v1'
 
-/** Submitted captures not yet routed back. (routing_status 'routed' = done.) */
+/**
+ * Submitted captures not yet routed back. (routing_status 'routed' = done.)
+ *
+ * Scoped to the active workshop since tl-03, because the queue is no longer only
+ * this device's own work: `pullPendingCaptures` brings down every submitted
+ * capture in the workshop, and once one deployment hosts several workshops an
+ * unscoped queue would offer an administrator Bali's captures while they are
+ * working the Crash Course. A capture with no workshop at all is kept rather than
+ * hidden — it is real work, and dropping it from the only screen that can route it
+ * is how it goes missing.
+ */
 export async function listPendingCaptures(): Promise<EvaluationRecord[]> {
   const all = await db.evaluations.toArray()
+  const active = getActiveWorkshopId()
   return all
     .filter((e) => e.attestation && e.routing_status !== 'routed' && e.source_text.trim())
+    .filter((e) => !active || !e.workshop_id || e.workshop_id === active)
     .sort((a, b) => a.created_at.localeCompare(b.created_at))
 }
 
@@ -76,7 +88,12 @@ export async function pushPendingCaptures(): Promise<{ pushed: number; skipped: 
  * records from Supabase, and two functions of one name across two transports is
  * how a device ends up reading from the wrong one.
  */
-export async function pullObservationsFromRepo(): Promise<{ files: number; observations: number; rejected: number }> {
+export async function pullObservationsFromRepo(): Promise<{
+  files: number
+  observations: number
+  rejected: number
+  shared: number
+}> {
   const entries = await listDir('routing/outbox')
   let files = 0
   let observations = 0
@@ -90,7 +107,28 @@ export async function pullObservationsFromRepo(): Promise<{ files: number; obser
     observations += result.stored
     rejected += result.rejected
   }
-  return { files, observations, rejected }
+  // Straight up to the backend rather than waiting for the 30-second cycle. What
+  // the administrator has just imported is the thing every other device is
+  // waiting for, and "routed but not yet shared" is a state worth keeping as
+  // short as possible. The loop remains the reliable path if this fails.
+  const shared = await shareImported()
+  return { files, observations, rejected, shared }
+}
+
+/**
+ * Push freshly imported observations now (tl-03 build step 3).
+ *
+ * Best-effort by design: the import has already committed to Dexie, and a failure
+ * here means the next sync cycle sends them instead. Returning the count lets the
+ * page say "shared with the other devices" rather than leaving the administrator
+ * to guess.
+ */
+async function shareImported(): Promise<number> {
+  try {
+    return (await pushObservations()).pushed
+  } catch {
+    return 0
+  }
 }
 
 // ---- manual path (no token) ----------------------------------------------
@@ -108,7 +146,12 @@ export async function buildExportBundle(): Promise<{ json: string; count: number
  * ({results: ObservationsFile[]}), a single ObservationsFile, or a bare array of
  * ObservationsFile. Validates every observation; stores the valid ones.
  */
-export async function importObservationsText(text: string): Promise<{ files: number; stored: number; rejected: number }> {
+export async function importObservationsText(text: string): Promise<{
+  files: number
+  stored: number
+  rejected: number
+  shared: number
+}> {
   let parsed: unknown
   try {
     parsed = JSON.parse(text)
@@ -126,7 +169,8 @@ export async function importObservationsText(text: string): Promise<{ files: num
     stored += r.stored
     rejected += r.rejected
   }
-  return { files, stored, rejected }
+  const shared = await shareImported()
+  return { files, stored, rejected, shared }
 }
 
 // ---- shared ingest --------------------------------------------------------

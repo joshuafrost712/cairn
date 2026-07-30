@@ -11,6 +11,7 @@ import { AppShell } from './layout/AppShell'
 import { RequireRole } from './layout/RequireRole'
 import { ADMIN_ROLES, CHIEF_ROLES, useHasWorkshopRole, useScopedWorkshopId } from './layout/roles'
 import { syncDrafts } from './db/draftSync'
+import { enforceTokenHygiene } from './routing/config'
 import { SignIn } from './pages/SignIn'
 import { NoWorkshop } from './pages/NoWorkshop'
 import { EvaluatorHome } from './pages/EvaluatorHome'
@@ -53,6 +54,24 @@ function Shell() {
     const stopSync = startSyncLoop()
     return stopSync
   }, [])
+
+  // tl-03 token hygiene. After tl-04 only an administrator's device has any use
+  // for a routing PAT, so a token found on anybody else's is a credential left
+  // behind — by a demotion, or by the months when this page was reachable by every
+  // signed-in user. Waits for memberships to settle, because 'loading' looks
+  // exactly like "holds no admin role" and clearing on that would delete a real
+  // administrator's token on every cold start.
+  useEffect(() => {
+    // Judged only against a signed-in account. A signed-out device is a separate
+    // question and answering it here would make every sign-out cost Joshua his
+    // PAT, which is friction bought for no security: the token is only reachable
+    // from a page the gate already closes.
+    if (!identity || membershipStatus !== 'ready') return
+    const adminSomewhere = memberships.some((m) => ADMIN_ROLES.includes(m.role))
+    if (enforceTokenHygiene(adminSomewhere)) {
+      console.info('[cairn] cleared a routing token: this account administers no workshop')
+    }
+  }, [identity, memberships, membershipStatus])
 
   // Reference data is loaded once the session question is settled, and AGAIN when
   // it changes, because since tl-01 the reference tables require an authenticated
@@ -170,7 +189,6 @@ function Shell() {
         <Route path="/" element={<EvaluatorHome />} />
         <Route path="/capture/:clientId" element={<CaptureActivity />} />
         <Route path="/evaluations" element={<MyEvaluations />} />
-        <Route path="/routing" element={<Routing />} />
         <Route path="/conversations" element={<Conversations />} />
       </Route>
 
@@ -211,10 +229,21 @@ function Shell() {
           <Route path="/admin/records" element={<Records />} />
           <Route path="/admin/settings" element={<Settings />} />
           <Route path="/admin/data" element={<DataPage />} />
+          {/* tl-03: routing is an administrator's surface. It used to sit in the
+              capture group where every signed-in user could open it, which is how
+              an evaluator's phone ended up holding a token with write access to a
+              private repo. */}
+          <Route path="/admin/routing" element={<Routing />} />
           {/* The old single Admin page. Bookmarks and the docs both point at it. */}
           <Route path="/admin" element={<Navigate to="/admin/roster" replace />} />
         </Route>
       </Route>
+
+      {/* An installed PWA can hold a cached deep link to the old path, and the
+          catch-all would send it home with no explanation. Redirecting to the new
+          path instead means an admin lands on the page and an evaluator is
+          bounced home by RequireRole — the correct answer for each. */}
+      <Route path="/routing" element={<Navigate to="/admin/routing" replace />} />
 
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

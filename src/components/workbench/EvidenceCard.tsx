@@ -37,7 +37,7 @@ export function EvidenceCard({ v }: { v: EvidenceView }) {
           </span>
         )}
         <span className={`pill ${statusClass(v.status)}`}>{v.status}</span>
-        {v.needsReview && <span className="pill queued">routing flagged</span>}
+        {v.needsReview && <span className="pill queued">flagged for review</span>}
         {v.origin === 'group' && <span className="pill">group</span>}
       </div>
 

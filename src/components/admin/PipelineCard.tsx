@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom'
+import { ADMIN_ROLES, useHasWorkshopRole } from '../../layout/roles'
 import type { AttributionHealth, WorkbenchSummary } from '../../reports/analytics'
 
 function Row({
@@ -49,12 +50,21 @@ export function PipelineCard({
   summary: WorkbenchSummary
   attribution: AttributionHealth
 }) {
+  // This dashboard is CHIEF_ROLES, but routing is ADMIN_ROLES: a chief evaluator
+  // reading the pipeline would otherwise be offered a link that only bounces them
+  // home. See navItems.ts for why the two sets differ here.
+  const isAdmin = useHasWorkshopRole(ADMIN_ROLES)
   return (
     <div className="card">
       <h2>Pipeline</h2>
       <p className="muted small">Where evidence is between capture and report.</p>
       <Row label="observations" value={attribution.total} />
-      <Row label="captures not yet routed" value={summary.capturesNotRouted} warn hint="Submitted, but no observations have come back from routing yet." />
+      <Row
+        label="captures not yet processed"
+        value={summary.capturesNotRouted}
+        warn
+        hint="Submitted, but no observations have come back from them yet."
+      />
       <Row
         label="not attributable to a person"
         value={summary.unattributedObservations}
@@ -73,9 +83,11 @@ export function PipelineCard({
         warn
         hint="Distinct captures referenced by observations but never synced to this device."
       />
-      <p className="small" style={{ marginTop: 'var(--s-3)' }}>
-        <Link to="/routing">open Routing →</Link>
-      </p>
+      {isAdmin && (
+        <p className="small" style={{ marginTop: 'var(--s-3)' }}>
+          <Link to="/admin/routing">open Routing →</Link>
+        </p>
+      )}
     </div>
   )
 }

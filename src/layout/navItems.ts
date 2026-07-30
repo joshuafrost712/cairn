@@ -37,7 +37,6 @@ export const NAV_GROUPS: NavGroup[] = [
     items: [
       { labelId: 'nav.home', to: '/', end: true },
       { labelId: 'nav.my-evaluations', to: '/evaluations' },
-      { labelId: 'nav.routing', to: '/routing' },
       {
         labelId: 'nav.conversations',
         to: '/conversations',
@@ -95,6 +94,11 @@ export const NAV_GROUPS: NavGroup[] = [
       { labelId: 'nav.assignments', to: '/admin/assignments', count: (c) => c.underAssigned },
       { labelId: 'nav.roster', to: '/admin/roster', roles: ADMIN_ROLES },
       { labelId: 'nav.records', to: '/admin/records', roles: ADMIN_ROLES },
+      // tl-03: moved out of the capture group, where it was visible to every
+      // signed-in user. ADMIN_ROLES, not the group's CHIEF_ROLES, because the page
+      // carries a credential field and a chief evaluator has no business holding
+      // the routing repo's token.
+      { labelId: 'nav.routing', to: '/admin/routing', roles: ADMIN_ROLES },
       { labelId: 'nav.settings', to: '/admin/settings', roles: ADMIN_ROLES },
       { labelId: 'nav.data', to: '/admin/data', roles: ADMIN_ROLES },
     ],

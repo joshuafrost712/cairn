@@ -5,7 +5,7 @@ import { db } from '../db/local'
 import { useAuth } from '../auth/AuthContext'
 import { generateEventDigests, generateParticipantEmails } from '../db/drafts'
 import { describeSync, syncDrafts } from '../db/draftSync'
-import { useScopedWorkshopId } from '../layout/roles'
+import { ADMIN_ROLES, useHasWorkshopRole, useScopedWorkshopId } from '../layout/roles'
 import { isSupabaseConfigured } from '../lib/supabase'
 import { PageHeader } from '../layout/PageHeader'
 import { DataTable } from '../components/data/DataTable'
@@ -25,6 +25,7 @@ export function Outgoing() {
   const { identity } = useAuth()
   const navigate = useNavigate()
   const workshopId = useScopedWorkshopId()
+  const isAdmin = useHasWorkshopRole(ADMIN_ROLES)
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState<string | null>(null)
   const [syncMsg, setSyncMsg] = useState<string | null>(null)
@@ -224,8 +225,10 @@ export function Outgoing() {
           onRowClick={(d) => navigate(`/outgoing/${encodeURIComponent(d.id)}`)}
           empty={
             <EmptyState title="Nothing queued">
-              Generate tonight's documents above, or check that observations have been routed on{' '}
-              <Link to="/routing">Routing</Link>.
+              Generate tonight's documents above, or check that the day's captures have been
+              processed{isAdmin ? ' on ' : '.'}
+              {isAdmin && <Link to="/admin/routing">the routing screen</Link>}
+              {isAdmin && '.'}
             </EmptyState>
           }
         />

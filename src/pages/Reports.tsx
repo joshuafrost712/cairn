@@ -8,6 +8,9 @@ import { annotateObservations, participantGate, type AnnotatedObservation, type 
 import { PageHeader } from '../layout/PageHeader'
 import { EmptyState } from '../components/data/EmptyState'
 import { DesignationChip } from '../components/data/DesignationChip'
+import { ADMIN_ROLES, useHasWorkshopRole } from '../layout/roles'
+import { c } from '../lib/content/chrome'
+import { Copy } from '../components/Copy'
 import type { Ksa, ObservationRecord, Participant, Team, VerificationVerdict } from '../lib/types'
 
 /**
@@ -22,6 +25,7 @@ import type { Ksa, ObservationRecord, Participant, Team, VerificationVerdict } f
 export function Reports() {
   const { participantId } = useParams()
   const navigate = useNavigate()
+  const isAdmin = useHasWorkshopRole(ADMIN_ROLES)
 
   const participants = useLiveQuery(() => db.participants.toArray(), [], [] as Participant[])
   const ksas = useLiveQuery(() => db.ksas.toArray(), [], [] as Ksa[])
@@ -87,7 +91,8 @@ export function Reports() {
 
       {withEvidence.length === 0 ? (
         <EmptyState title="No observations to report yet">
-          Route some captures from <Link to="/routing">Routing</Link>.
+          <Copy id="reports.nothing-yet" />{' '}
+          {isAdmin && <Link to="/admin/routing">{c('reports.nothing-yet.route')}</Link>}
         </EmptyState>
       ) : (
         <div className="grid grid--split">

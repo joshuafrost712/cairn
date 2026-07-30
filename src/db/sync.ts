@@ -341,6 +341,161 @@ export async function pushObservations(): Promise<{ pushed: number; failed: numb
   return { pushed, failed, pruned }
 }
 
+// ---------------------------------------------------------------------------
+// tl-03: the administrator pulls other people's captures down to route them.
+//
+// The transport for the other direction. tl-04 moved observations and verdicts;
+// this moves the CAPTURE, which is what an administrator has to be holding
+// before they can route anything they did not personally record. Before it, the
+// routing queue was `db.evaluations` on one device, so the only captures anybody
+// could route were their own — which is why the page had to be evaluator-facing,
+// and why an evaluator's phone had to hold a repo token.
+// ---------------------------------------------------------------------------
+
+/** The subset of a remote `evaluation` row this device needs to route it. */
+export type RemoteCaptureRow = ReturnType<typeof toRow> & { id?: string | null }
+
+/**
+ * Which pulled captures may be written over the local copy.
+ *
+ * A row this device has NOT finished sending is newer than the server's copy of
+ * it by definition, so adopting the server version would silently discard the
+ * administrator's own unsent edit. Everything else is safe: the server is
+ * authoritative for a capture that has already synced, and for one this device
+ * has never seen.
+ *
+ * Pure, because the alternative failure is invisible — the clobbered row still
+ * renders, just with yesterday's text in it.
+ */
+export function capturesToAdopt<T extends { client_id: string }>(
+  remote: T[],
+  localSyncStatus: Map<string, string | undefined>,
+): T[] {
+  return remote.filter((r) => {
+    const status = localSyncStatus.get(r.client_id)
+    if (status === undefined) return true // not held locally at all
+    return status === 'synced'
+  })
+}
+
+/**
+ * Map a pulled row into a local record.
+ *
+ * `sync_status` is 'synced' because it came FROM the server. `routing_status` is
+ * the interesting field: it lives only in Dexie (`toRow` never sends it), so the
+ * server has no opinion about it, and a `bulkPut` of the mapped row would erase
+ * whatever this device knew. That erasure is the double-routing bug in miniature:
+ * a capture this device routed, whose observations have not managed to push yet,
+ * would come back looking pending and be routed a second time. So a local value is
+ * carried forward, and only a capture with no local value is left for
+ * `markRoutedFromObservations` to decide.
+ */
+export function captureRecordFromRow(
+  r: RemoteCaptureRow,
+  localRoutingStatus?: 'sent' | 'routed',
+): EvaluationRecord {
+  return {
+    ...(localRoutingStatus ? { routing_status: localRoutingStatus } : {}),
+    client_id: r.client_id,
+    server_id: r.id ?? undefined,
+    evaluator_email: r.evaluator_email ?? null,
+    activity_id: r.activity_id ?? null,
+    workshop_id: r.workshop_id ?? null,
+    source_language: r.source_language,
+    answers: r.answers ?? {},
+    quick_ratings: r.quick_ratings ?? {},
+    focus_participant_id: r.focus_participant_id ?? null,
+    source_text: r.source_text ?? '',
+    participant_scope: r.participant_scope ?? [],
+    attestation: Boolean(r.attestation),
+    ruleset_version: r.ruleset_version ?? null,
+    edit_history: r.edit_history ?? [],
+    created_at: r.created_at,
+    updated_at: r.updated_at,
+    sync_status: 'synced',
+    sync_error: null,
+  }
+}
+
+/**
+ * Pull every submitted capture for a workshop so an administrator can route the
+ * ones they did not record.
+ *
+ * Admin-only by call site, not by policy: RLS lets any member read the workshop's
+ * evaluations, but pulling them onto an evaluator's phone would fill their own
+ * capture list with other people's work and buy nothing, since they have no
+ * routing surface any more. Called from the routing page (mount and on demand)
+ * rather than from `startSyncLoop` for exactly that reason.
+ */
+export async function pullPendingCaptures(
+  workshopId: string,
+): Promise<{ pulled: number; adopted: number; markedRouted: number }> {
+  if (!canReachBackend()) return { pulled: 0, adopted: 0, markedRouted: 0 }
+  const client = supabase!
+  const { data, error } = await client
+    .from('evaluation')
+    .select('*')
+    .eq('workshop_id', workshopId)
+    .eq('attestation', true)
+  if (error) {
+    console.warn('[cairn] capture pull failed', error)
+    return { pulled: 0, adopted: 0, markedRouted: 0 }
+  }
+  const remote = (data ?? []) as unknown as RemoteCaptureRow[]
+  if (remote.length === 0) return { pulled: 0, adopted: 0, markedRouted: 0 }
+
+  const localStatus = new Map<string, string | undefined>()
+  const localRouting = new Map<string, 'sent' | 'routed' | undefined>()
+  for (const e of await db.evaluations.toArray()) {
+    localStatus.set(e.client_id, e.sync_status)
+    localRouting.set(e.client_id, e.routing_status)
+  }
+  const adopt = capturesToAdopt(remote, localStatus)
+  if (adopt.length > 0) {
+    await db.evaluations.bulkPut(
+      adopt.map((r) => captureRecordFromRow(r, localRouting.get(r.client_id))),
+    )
+  }
+
+  const markedRouted = await markRoutedFromObservations(remote.map((r) => r.client_id))
+  return { pulled: remote.length, adopted: adopt.length, markedRouted }
+}
+
+/**
+ * Set `routing_status: 'routed'` on any capture whose observations already exist
+ * on the server.
+ *
+ * The recovery window is why this matters rather than being a tidy-up. Joshua's
+ * phone holds captures that reached Supabase months ago and were routed on the
+ * desktop; without this the administrator's queue offers every one of them again,
+ * and re-routing them would produce a second set of observations for evidence that
+ * has already been verified. Only captures with no local routing state are
+ * touched, so a locally-known 'sent' is never downgraded.
+ */
+export async function markRoutedFromObservations(captureIds: string[]): Promise<number> {
+  if (!canReachBackend() || captureIds.length === 0) return 0
+  const unknown = (
+    await db.evaluations.where('client_id').anyOf(captureIds).toArray()
+  ).filter((e) => !e.routing_status)
+  if (unknown.length === 0) return 0
+  const { data, error } = await supabase!
+    .from('observation')
+    .select('capture_client_id')
+    .in(
+      'capture_client_id',
+      unknown.map((e) => e.client_id),
+    )
+  if (error || !data) return 0
+  const routed = new Set(data.map((r) => r.capture_client_id as string))
+  let marked = 0
+  for (const e of unknown) {
+    if (!routed.has(e.client_id)) continue
+    await db.evaluations.update(e.client_id, { routing_status: 'routed' })
+    marked++
+  }
+  return marked
+}
+
 /**
  * Pull one workshop's observations into the local store.
  *
