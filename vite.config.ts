@@ -1,6 +1,6 @@
 import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { basename, join } from 'node:path'
-import { defineConfig, type Plugin } from 'vite'
+import { defineConfig, loadEnv, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 
@@ -149,11 +149,50 @@ function contentLogEndpoint(): Plugin {
   }
 }
 
+/**
+ * Refuse to build a production bundle with no backend compiled into it (tl-18).
+ *
+ * `isSupabaseConfigured` is baked in at build time, so a Pages deploy that ran
+ * without the two secrets produces an app that installs, captures, attests, and
+ * can never send a single evaluation anywhere. That is exactly what happened,
+ * and it cost months of phone evaluations that nobody knew were stranded. There
+ * is no runtime check that could have caught it, because the build had already
+ * decided.
+ *
+ * Local-only builds are still possible, but you have to say so out loud:
+ * ALLOW_LOCAL_ONLY_BUILD=1. The point is that it cannot happen by omission.
+ */
+function requireBackendConfig(): Plugin {
+  return {
+    name: 'cairn-require-backend-config',
+    apply: 'build',
+    config(_config, { mode }) {
+      const env = loadEnv(mode, process.cwd(), '')
+      const missing = ['VITE_SUPABASE_URL', 'VITE_SUPABASE_ANON_KEY'].filter((k) => !env[k]?.trim())
+      if (missing.length === 0) return
+      if (env.ALLOW_LOCAL_ONLY_BUILD === '1' || process.env.ALLOW_LOCAL_ONLY_BUILD === '1') {
+        console.warn(
+          `\n[cairn] LOCAL-ONLY BUILD: ${missing.join(', ')} missing. This bundle cannot send ` +
+            `evaluations anywhere. Deploying it will strand every evaluator's work.\n`,
+        )
+        return
+      }
+      throw new Error(
+        `[cairn] Refusing to build: ${missing.join(', ')} not set. A bundle without them can ` +
+          `never send an evaluation, and the app cannot tell you so at runtime because the ` +
+          `decision was made here. Set the variables, or pass ALLOW_LOCAL_ONLY_BUILD=1 to say ` +
+          `you meant it.`,
+      )
+    },
+  }
+}
+
 // https://vite.dev/config/
 export default defineConfig({
   base,
   server: { port: 5180 },
   plugins: [
+    requireBackendConfig(),
     feedbackInbox(),
     contentEditEndpoint(),
     contentLogEndpoint(),

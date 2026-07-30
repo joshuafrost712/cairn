@@ -1,5 +1,6 @@
 import { db, getOutbox } from './local'
 import { supabase, isSupabaseConfigured } from '../lib/supabase'
+import { acquireChannel } from './channelRegistry'
 import type {
   EvaluationRecord,
   MentoringConversation,
@@ -653,6 +654,20 @@ async function syncObservationsAndVerdicts(): Promise<void> {
 }
 
 /**
+ * Everything this device is holding, sent now, in the loop's own order (tl-18).
+ *
+ * The status bar's button used to call `pushOutbox` alone, so a device with a
+ * queued verdict and no queued evaluation showed "1 to send", sent nothing, and
+ * still showed "1 to send". Awaited rather than fired off, so a caller can tell
+ * the user when it has actually finished.
+ */
+export async function syncNow(): Promise<void> {
+  await pushOutbox()
+  await pushMentoringOutbox()
+  await syncObservationsAndVerdicts()
+}
+
+/**
  * Live observations: a newly routed observation reaches the evaluator who has to
  * verify it without waiting for the interval. Additive — the pull is still the
  * reliable path, and this subscription is dropped without ceremony if it proves
@@ -661,6 +676,11 @@ async function syncObservationsAndVerdicts(): Promise<void> {
 export function subscribeObservations(workshopId: string): () => void {
   if (!isSupabaseConfigured || !supabase) return () => {}
   const client = supabase
+  // Refcounted by topic (tl-18). Same StrictMode hazard as subscribeCoverage:
+  // supabase-js returns the channel it already holds for a topic, and `.on()`
+  // after `.subscribe()` throws, killing live observations with no error on any
+  // screen — the exact class of failure the sync-health page exists to surface.
+  return acquireChannel(`observations:${workshopId}`, () => {
   const channel = client
     .channel(`observations:${workshopId}`)
     .on(
@@ -685,9 +705,10 @@ export function subscribeObservations(workshopId: string): () => void {
       },
     )
     .subscribe()
-  return () => {
-    void client.removeChannel(channel)
-  }
+    return () => {
+      void client.removeChannel(channel)
+    }
+  })
 }
 
 /**
@@ -700,9 +721,7 @@ export function subscribeObservations(workshopId: string): () => void {
  */
 export function startSyncLoop(): () => void {
   const cycle = () => {
-    void pushOutbox()
-    void pushMentoringOutbox()
-    void syncObservationsAndVerdicts()
+    void syncNow()
   }
   window.addEventListener('online', cycle)
   const interval = window.setInterval(cycle, 30_000)

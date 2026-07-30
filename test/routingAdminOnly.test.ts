@@ -151,6 +151,15 @@ describe('the routing surface is administrator-only', () => {
     expect(routing.roles).toEqual(ADMIN_ROLES)
   })
 
+  it('gates sync health on ADMIN_ROLES too', () => {
+    // Load-bearing for the copy audit below, which exempts every `sync-health.`
+    // string from the no-mechanism rule on the grounds that no evaluator can
+    // reach them. That is only true while this holds.
+    const syncHealth = items.find((i) => i.to === '/admin/sync-health')!
+    expect(syncHealth).toBeDefined()
+    expect(syncHealth.roles).toEqual(ADMIN_ROLES)
+  })
+
   it('leaves nothing routing-shaped in the capture group', () => {
     const capture = NAV_GROUPS.find((g) => g.labelId === 'nav.group.capture')!
     expect(capture.roles).toBeUndefined() // still everyone's, which is why this matters
@@ -167,8 +176,13 @@ describe('the evaluator-facing copy names no mechanism', () => {
 
   // Prefixes an evaluator never renders. The routing screen is behind the admin
   // gate and the discrepancy inbox behind the chief gate; both may say what they
-  // actually are.
-  const ADMIN_ONLY = /^(routing\.|nav\.routing|nav\.discrepancy-inbox|nav\.builder)/
+  // actually are. tl-18's sync-health page is admin-gated for the same reason and
+  // has to name routing, because "process it on the Routing page" IS the fix it
+  // is pointing at. The exemption is earned, not assumed: the nav test below
+  // asserts that entry is ADMIN_ROLES, so if the gate is ever loosened this
+  // exemption stops being true and that test fails first.
+  const ADMIN_ONLY =
+    /^(routing\.|sync-health\.|nav\.routing|nav\.sync-health|nav\.discrepancy-inbox|nav\.builder)/
 
   const nodes = (chrome as { nodes: Array<Record<string, unknown>> }).nodes
 

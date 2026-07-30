@@ -25,6 +25,7 @@ import { Export } from './pages/Export'
 import { Builder } from './pages/Builder'
 import { AdminOverview } from './pages/admin/AdminOverview'
 import { WorkshopHealth } from './pages/admin/WorkshopHealth'
+import { SyncHealth } from './pages/admin/SyncHealth'
 import { Progress } from './pages/admin/Progress'
 import { EventList } from './pages/admin/EventList'
 import { EventDetail } from './pages/admin/EventDetail'
@@ -234,6 +235,9 @@ function Shell() {
               an evaluator's phone ended up holding a token with write access to a
               private repo. */}
           <Route path="/admin/routing" element={<Routing />} />
+          {/* tl-18: the pipeline gauge. Admin, not chief: it lists other
+              evaluators' stuck work and links to routing. */}
+          <Route path="/admin/sync-health" element={<SyncHealth />} />
           {/* The old single Admin page. Bookmarks and the docs both point at it. */}
           <Route path="/admin" element={<Navigate to="/admin/roster" replace />} />
         </Route>

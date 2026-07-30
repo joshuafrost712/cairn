@@ -1,5 +1,6 @@
 import { db } from './local'
 import { supabase, isSupabaseConfigured } from '../lib/supabase'
+import { acquireChannel } from './channelRegistry'
 import type { CoverageRow, EvaluationRecord } from '../lib/types'
 
 /**
@@ -137,20 +138,25 @@ export async function pullCoverage(workshopId: string): Promise<void> {
 export function subscribeCoverage(workshopId: string): () => void {
   if (!isSupabaseConfigured || !supabase) return () => {}
   const client = supabase
-  const channel = client
-    .channel(`coverage:${workshopId}`)
-    .on(
-      'postgres_changes',
-      { event: '*', schema: 'public', table: 'evaluation', filter: `workshop_id=eq.${workshopId}` },
-      (payload) => {
-        const row = coverageRowFromEvaluation(payload.new as EvalLike)
-        if (row) void upsertCoverage(row)
-      },
-    )
-    .subscribe()
-  return () => {
-    void client.removeChannel(channel)
-  }
+  // Through the registry rather than directly: supabase-js hands back the
+  // channel it already holds for a topic, and `.on()` after `.subscribe()`
+  // throws. See db/channelRegistry.ts for the StrictMode sequence that hit this.
+  return acquireChannel(`coverage:${workshopId}`, () => {
+    const channel = client
+      .channel(`coverage:${workshopId}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'evaluation', filter: `workshop_id=eq.${workshopId}` },
+        (payload) => {
+          const row = coverageRowFromEvaluation(payload.new as EvalLike)
+          if (row) void upsertCoverage(row)
+        },
+      )
+      .subscribe()
+    return () => {
+      void client.removeChannel(channel)
+    }
+  })
 }
 
 /**
@@ -166,9 +172,13 @@ export function startCoverageSync(): () => void {
     await seedCoverageFromLocal()
     if (cancelled || !isSupabaseConfigured || !supabase || !navigator.onLine) return
     const workshops = await db.workshops.toArray()
+    if (cancelled) return
     for (const w of workshops) {
-      if (cancelled) break
       await pullCoverage(w.id)
+      // Re-checked AFTER the await, not only before it. The old order let a
+      // cancelled run subscribe anyway, so the cleanup that set the flag had
+      // nothing to release and the channel outlived the mount that opened it.
+      if (cancelled) return
       cleanups.push(subscribeCoverage(w.id))
     }
   })()

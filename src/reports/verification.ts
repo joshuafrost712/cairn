@@ -46,10 +46,18 @@ export interface AnnotatedObservation extends ObservationRecord {
   verdicts: VerificationVerdict[]
 }
 
-/** Status of one observation given its verdicts. */
+/**
+ * Status of one observation given its verdicts.
+ *
+ * `required` defaults to the device's configured threshold, which is what every
+ * caller in the app wants. It is a parameter at all for tl-18's funnel, which is
+ * pure by contract (tl-17 imports it) and so cannot read localStorage — and for
+ * the tests, which must not depend on which number this device happens to hold.
+ */
 export function observationStatus(
   obs: ObservationRecord,
   verdicts: VerificationVerdict[],
+  required: number = getRequiredConfirmations(),
 ): { status: VerificationStatus; effective_designation: 0 | 1 | 2 | 3; confirmCount: number; rejectCount: number } {
   const rejects = verdicts.filter((v) => v.decision === 'reject')
   const confirms = verdicts.filter((v) => v.decision === 'confirm' || v.decision === 'adjust')
@@ -61,7 +69,7 @@ export function observationStatus(
   if (rejects.length > 0) {
     return { status: 'disputed', effective_designation: obs.evidence_designation, confirmCount: confirms.length, rejectCount: rejects.length }
   }
-  if (confirms.length < getRequiredConfirmations()) {
+  if (confirms.length < required) {
     return { status: 'pending', effective_designation: obs.evidence_designation, confirmCount: confirms.length, rejectCount: 0 }
   }
   const allAgree = intended.every((d) => d === intended[0])

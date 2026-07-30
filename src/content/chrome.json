@@ -560,6 +560,174 @@
     {
       "id": "membership.none.rechecking",
       "label": "Checking…"
+    },
+    {
+      "id": "nav.sync-health",
+      "label": "Sync health"
+    },
+    {
+      "id": "sync.online",
+      "label": "Online"
+    },
+    {
+      "id": "sync.offline",
+      "label": "Offline"
+    },
+    {
+      "id": "sync.pending",
+      "label": "{count} not sent yet"
+    },
+    {
+      "id": "sync.pending-with-age",
+      "label": "{count} not sent yet, oldest {age}"
+    },
+    {
+      "id": "sync.send-now",
+      "label": "Send now"
+    },
+    {
+      "id": "sync.stranded",
+      "label": "This version of the app cannot send your work, so nothing you record here is reaching anyone else. Open the app with a connection so it can update itself, then check that the count above drops to zero."
+    },
+    {
+      "id": "sync-health.title",
+      "label": "Sync health"
+    },
+    {
+      "id": "sync-health.meta",
+      "label": "A designation counts once {threshold} evaluator(s) confirm it."
+    },
+    {
+      "id": "sync-health.intro",
+      "label": "Every submitted evaluation in this workshop, and how far it has got toward counting for a participant. One thing this page cannot see: work still sitting on a device that has never sent it. Nothing has reached the shared database to be counted, so that number is only ever what this device is holding. The status line on each evaluator's own device is what covers that step."
+    },
+    {
+      "id": "sync-health.no-backend",
+      "label": "This build has no shared database, so the numbers below describe this device alone."
+    },
+    {
+      "id": "sync-health.refresh",
+      "label": "Check for new work"
+    },
+    {
+      "id": "sync-health.refresh.busy",
+      "label": "Checking…"
+    },
+    {
+      "id": "sync-health.refresh.result",
+      "label": "Read from the shared database: {captures} submitted evaluation(s), {observations} observation(s), {verdicts} verdict(s)."
+    },
+    {
+      "id": "sync-health.stage.unsynced",
+      "label": "Not sent"
+    },
+    {
+      "id": "sync-health.stage.unsynced.sub",
+      "label": "still on this device only"
+    },
+    {
+      "id": "sync-health.stage.unrouted",
+      "label": "Sent, not processed"
+    },
+    {
+      "id": "sync-health.stage.unrouted.sub",
+      "label": "no observations drawn from it yet"
+    },
+    {
+      "id": "sync-health.stage.unverified",
+      "label": "Processed, not confirmed"
+    },
+    {
+      "id": "sync-health.stage.unverified.sub",
+      "label": "waiting on evaluator confirmation"
+    },
+    {
+      "id": "sync-health.stage.counting",
+      "label": "Counting"
+    },
+    {
+      "id": "sync-health.stage.counting.sub",
+      "label": "confirmed and reaching the reports"
+    },
+    {
+      "id": "sync-health.drafts-excluded",
+      "label": "{count} unfinished draft(s) are left out of these counts. A draft is not late work; it has not been submitted."
+    },
+    {
+      "id": "sync-health.errors.title",
+      "label": "Refused by the shared database"
+    },
+    {
+      "id": "sync-health.errors.empty",
+      "label": "Nothing was refused. Every evaluation this device tried to send was accepted."
+    },
+    {
+      "id": "sync-health.unrouted.title",
+      "label": "Submitted but never processed"
+    },
+    {
+      "id": "sync-health.unrouted.empty",
+      "label": "Every submitted evaluation has been processed into observations."
+    },
+    {
+      "id": "sync-health.unverified.title",
+      "label": "Processed but not yet counting"
+    },
+    {
+      "id": "sync-health.unverified.empty",
+      "label": "Every processed evaluation has the confirmations it needs."
+    },
+    {
+      "id": "sync-health.unverified.counts",
+      "label": "{counting} of {total} confirmed, {disputed} disputed"
+    },
+    {
+      "id": "sync-health.col.evaluator",
+      "label": "Evaluator"
+    },
+    {
+      "id": "sync-health.col.age",
+      "label": "Waiting"
+    },
+    {
+      "id": "sync-health.col.action",
+      "label": "What fixes it"
+    },
+    {
+      "id": "sync-health.col.message",
+      "label": "What the database said"
+    },
+    {
+      "id": "sync-health.col.submitted",
+      "label": "Submitted"
+    },
+    {
+      "id": "sync-health.no-message",
+      "label": "no message recorded"
+    },
+    {
+      "id": "sync-health.unattributed",
+      "label": "not attributed"
+    },
+    {
+      "id": "sync-health.action.route",
+      "label": "Process it on the Routing page"
+    },
+    {
+      "id": "sync-health.action.verify",
+      "label": "Confirm it on Observations"
+    },
+    {
+      "id": "sync-health.by-evaluator.title",
+      "label": "By evaluator"
+    },
+    {
+      "id": "sync-health.by-evaluator.intro",
+      "label": "Whose submitted work is counting and whose is stuck. A row that is all in one column is the signal worth acting on."
+    },
+    {
+      "id": "sync-health.by-evaluator.empty",
+      "label": "No submitted evaluations in this workshop yet."
     }
   ]
 }

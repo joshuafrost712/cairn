@@ -202,6 +202,12 @@ async function teardown() {
     delete from verification_verdict where capture_client_id like 'tl03-cap-%';
     delete from observation where capture_client_id like 'tl03-cap-%';
     delete from evaluation where client_id like 'tl03-cap-%';
+    -- Also by author, not only by the fixture prefix. Walking the capture route
+    -- makes the app auto-create an unattested draft with a random uuid, which no
+    -- prefix can match; four of them had accumulated in the pilot workshop
+    -- before tl-18 noticed (found via a count that moved when it should not
+    -- have). A test account should leave nothing behind, drafts included.
+    delete from evaluation where evaluator_email like 'tl03-surface-%@example.org';
     delete from workshop_member wm using app_user u
       where u.id = wm.app_user_id and u.email like 'tl03-surface-%@example.org';
     delete from app_user where email like 'tl03-surface-%@example.org';
@@ -402,16 +408,13 @@ try {
   const m = /(\d+)\s+captures?\s+pending/i.exec(queueText)
   check(m !== null && Number(m[1]) >= 1, 'the admin queue offers the unrouted capture', m?.[0] ?? 'no count rendered')
 
-  // One known pre-existing error is excluded, and named rather than filtered
-  // quietly. `startCoverageSync` subscribes after two awaits without re-checking
-  // its `cancelled` flag, so React StrictMode's double-invoke can leave a
-  // subscribed coverage channel behind and the second attempt throws. It
-  // reproduces on main at the same rate, it costs a live-coverage subscription in
-  // dev, and it belongs to tl-18 (sync health), not here. Anything else is a
-  // regression this spec introduced.
-  const KNOWN = /postgres_changes.*realtime:coverage/
-  const unexpected = errors.filter((e) => !KNOWN.test(e))
-  check(unexpected.length === 0, 'no page errors beyond the known coverage-channel race', unexpected.slice(0, 2).join(' | ') || `${errors.length} known, 0 new`)
+  // tl-18 removed the one exclusion that used to live here. `startCoverageSync`
+  // subscribed after two awaits without re-checking its `cancelled` flag, so
+  // React StrictMode's double-invoke left a subscribed coverage channel behind
+  // and the second attempt threw — silently, costing the live coverage feed. The
+  // fix is the refcounted registry in src/db/channelRegistry.ts, and THIS LINE
+  // is its regression test: no exclusion, so the error coming back fails the run.
+  check(errors.length === 0, 'no page errors at all', errors.slice(0, 2).join(' | ') || 'clean')
 } finally {
   await browser.close()
 }

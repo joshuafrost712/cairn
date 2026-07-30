@@ -77,6 +77,10 @@ export const NAV_GROUPS: NavGroup[] = [
       { labelId: 'nav.overview', to: '/admin/overview' },
       { labelId: 'nav.progress', to: '/admin/progress' },
       { labelId: 'nav.workshop-health', to: '/admin/workshop' },
+      // tl-18. ADMIN_ROLES rather than the group's CHIEF_ROLES: the page names
+      // other evaluators' stuck work and links to the routing surface, both of
+      // which tl-03 settled as an administrator's business.
+      { labelId: 'nav.sync-health', to: '/admin/sync-health', roles: ADMIN_ROLES },
       { labelId: 'nav.events', to: '/admin/events', end: true },
       { labelId: 'nav.participants', to: '/admin/participants', end: true },
       { labelId: 'nav.evaluators', to: '/admin/evaluators', end: true },
