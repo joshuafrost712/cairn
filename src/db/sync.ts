@@ -1,6 +1,11 @@
 import { db, getOutbox } from './local'
 import { supabase, isSupabaseConfigured } from '../lib/supabase'
-import type { EvaluationRecord, MentoringConversation } from '../lib/types'
+import type {
+  EvaluationRecord,
+  MentoringConversation,
+  ObservationRecord,
+  VerificationVerdict,
+} from '../lib/types'
 
 /** Map a local record to the Postgres `evaluation` row shape. */
 function toRow(e: EvaluationRecord) {
@@ -129,21 +134,442 @@ export async function pushMentoringOutbox(): Promise<{ pushed: number; failed: n
   return { pushed, failed }
 }
 
-/** Wire automatic sync: on reconnect and on a gentle interval. Returns a cleanup fn. */
-export function startSyncLoop(): () => void {
-  const onOnline = () => {
-    void pushOutbox()
-    void pushMentoringOutbox()
+// ---------------------------------------------------------------------------
+// tl-04: observations down, verdicts up.
+//
+// Before this, an observation lived only in the IndexedDB of the device that
+// imported it and a verdict was shared by committing a JSON file to a private
+// GitHub repo. Both facts had the same consequence: a capture made on a phone
+// never reached the reports built on a laptop.
+//
+// Ordering inside a cycle is load-bearing and is stated in one place, the loop
+// at the bottom of this file: push before pull (so this device's work is never
+// clobbered by a stale server read), observations before verdicts (so a verdict
+// arriving on a device lands next to the observation it is about).
+// ---------------------------------------------------------------------------
+
+/**
+ * Which workshop an ingested observation belongs to (tl-04).
+ *
+ * Pure, and separated from the Dexie lookups that feed it, because getting this
+ * wrong is silent: a null means the observation cannot be shared, and an
+ * observation that cannot be shared is exactly the bug this spec exists to fix.
+ * Three sources, most authoritative first — the originating capture, then any
+ * participant the observation is about, then the workshop this device is working
+ * in. The third is not a guess: somebody routing a capture is by definition
+ * inside the workshop whose captures they are routing.
+ */
+export function pickWorkshopId(
+  captureWorkshopId: string | null | undefined,
+  participantWorkshopIds: Array<string | null | undefined>,
+  activeWorkshopId: string | null,
+): string | null {
+  if (captureWorkshopId) return captureWorkshopId
+  for (const id of participantWorkshopIds) {
+    if (id) return id
   }
-  window.addEventListener('online', onOnline)
-  const interval = window.setInterval(() => {
+  return activeWorkshopId ?? null
+}
+
+/**
+ * Server-side observations for one capture that the local store no longer has.
+ *
+ * Re-routing a capture can produce fewer observations than last time, because
+ * Claude split a compound statement differently. The ids are positional
+ * (`${capture}::${index}`), so the surplus is not overwritten by the upsert — it
+ * is left behind, still counting toward the participant's evidence, and nothing
+ * on any screen would say so.
+ */
+export function surplusObservationIds(remoteIds: string[], localIds: string[]): string[] {
+  const local = new Set(localIds)
+  return remoteIds.filter((id) => !local.has(id))
+}
+
+/**
+ * Which of a workshop's remote verdicts this device should adopt.
+ *
+ * Two are held back, and both would otherwise be silent regressions. My own
+ * unsynced verdict, whose local copy is newer than the server's by definition.
+ * And any verdict I have withdrawn but not yet withdrawn upstream, which the pull
+ * would otherwise restore looking exactly like a verdict I meant to leave.
+ *
+ * A colleague's unsynced local verdict is NOT held back: it can only have arrived
+ * through the local-only GitHub fallback, where the server's copy is the fresher
+ * of the two.
+ */
+export function verdictsToAdopt<T extends { id: string }>(
+  remote: T[],
+  myUnsyncedIds: Iterable<string>,
+  withdrawnIds: Iterable<string>,
+): { adopt: T[]; held: number } {
+  const unsynced = new Set(myUnsyncedIds)
+  const withdrawn = new Set(withdrawnIds)
+  const adopt: T[] = []
+  let held = 0
+  for (const r of remote) {
+    if (unsynced.has(r.id) || withdrawn.has(r.id)) held++
+    else adopt.push(r)
+  }
+  return { adopt, held }
+}
+
+export function observationRow(o: ObservationRecord) {
+  return {
+    id: o.id,
+    capture_client_id: o.capture_client_id,
+    workshop_id: o.workshop_id,
+    participant_id: o.participant_id,
+    participant_name: o.participant_name,
+    ksa_code: o.ksa_code,
+    text: o.text,
+    source_excerpt: o.source_excerpt,
+    evidence_designation: o.evidence_designation,
+    sentiment_flag: o.sentiment_flag,
+    confidence: o.confidence,
+    needs_review: o.needs_review,
+    origin: o.origin,
+    imported_at: o.imported_at,
+    evaluator_email: o.evaluator_email ?? null,
+  }
+}
+
+export function verdictRow(v: VerificationVerdict) {
+  return {
+    id: v.id,
+    observation_id: v.observation_id,
+    capture_client_id: v.capture_client_id,
+    workshop_id: v.workshop_id,
+    evaluator_email: v.evaluator_email,
+    decision: v.decision,
+    adjusted_designation: v.adjusted_designation ?? null,
+    note: v.note ?? null,
+    at: v.at,
+  }
+}
+
+/** True when there is a configured, reachable backend to talk to. */
+function canReachBackend(): boolean {
+  return Boolean(isSupabaseConfigured && supabase && navigator.onLine)
+}
+
+/**
+ * The signed-in address, lowercased, or null. Read from the session rather than
+ * passed in, so a caller cannot push verdicts under somebody else's name by
+ * accident. Never throws: no session and "could not tell" both mean the same
+ * thing here, which is to push nothing.
+ */
+async function sessionEmail(): Promise<string | null> {
+  if (!supabase) return null
+  try {
+    const { data } = await supabase.auth.getSession()
+    const email = data.session?.user?.email
+    return email ? email.trim().toLowerCase() : null
+  } catch {
+    return null
+  }
+}
+
+const NO_WORKSHOP =
+  'No workshop on this observation, so it cannot be shared. Re-import it while the workshop is active.'
+
+let observationsRunning = false
+
+/**
+ * Push every unsynced observation. Upserts on `id`, which is
+ * `${capture_client_id}::${index}` and therefore stable across re-imports, so
+ * re-sending is harmless.
+ *
+ * Rows with no `workshop_id` are refused locally rather than sent: the backend's
+ * column is NOT NULL and its read policy is written against it, so a null would
+ * come back as an opaque constraint error on every single cycle. Saying why in
+ * `sync_error` is what lets tl-18 count them and tell a human what to do.
+ *
+ * Re-routing a capture can produce FEWER observations than last time (Claude
+ * split a compound statement differently), which would leave the surplus rows
+ * stranded on the server, still counting toward a participant's evidence. So
+ * after a capture's rows go up, the server rows for that capture that are no
+ * longer local come down. Only an administrator can do this, which is exactly
+ * who re-routes.
+ */
+export async function pushObservations(): Promise<{ pushed: number; failed: number; pruned: number }> {
+  if (!canReachBackend() || observationsRunning) return { pushed: 0, failed: 0, pruned: 0 }
+  const client = supabase!
+  observationsRunning = true
+  let pushed = 0
+  let failed = 0
+  let pruned = 0
+  try {
+    const pending = await db.observations
+      .where('sync_status')
+      .anyOf('local', 'queued', 'error')
+      .toArray()
+    const touchedCaptures = new Set<string>()
+    for (const o of pending) {
+      if (!o.workshop_id) {
+        failed++
+        await db.observations.update(o.id, { sync_status: 'error', sync_error: NO_WORKSHOP })
+        continue
+      }
+      const { error } = await client.from('observation').upsert(observationRow(o), { onConflict: 'id' })
+      if (error) {
+        failed++
+        await db.observations.update(o.id, { sync_status: 'error', sync_error: error.message })
+      } else {
+        pushed++
+        touchedCaptures.add(o.capture_client_id)
+        await db.observations.update(o.id, { sync_status: 'synced', sync_error: null })
+      }
+    }
+    for (const capture of touchedCaptures) {
+      const localIds = await db.observations.where('capture_client_id').equals(capture).primaryKeys()
+      const { data, error } = await client
+        .from('observation')
+        .select('id')
+        .eq('capture_client_id', capture)
+      if (error || !data) continue
+      const surplus = surplusObservationIds(
+        data.map((r) => r.id as string),
+        localIds as string[],
+      )
+      if (surplus.length === 0) continue
+      const { error: delError } = await client.from('observation').delete().in('id', surplus)
+      if (!delError) pruned += surplus.length
+    }
+  } finally {
+    observationsRunning = false
+  }
+  return { pushed, failed, pruned }
+}
+
+/**
+ * Pull one workshop's observations into the local store.
+ *
+ * Server-authoritative for rows it returns, and deliberately NOT destructive: a
+ * local row absent from the pull is left alone rather than deleted, because the
+ * likeliest reason for its absence is that it has not been pushed yet. An
+ * unsynced local observation deleted by its own device's pull is the failure this
+ * whole spec exists to remove.
+ */
+export async function pullObservations(workshopId: string): Promise<{ pulled: number }> {
+  if (!canReachBackend()) return { pulled: 0 }
+  const { data, error } = await supabase!.from('observation').select('*').eq('workshop_id', workshopId)
+  if (error) {
+    console.warn('[cairn] observation pull failed', error)
+    return { pulled: 0 }
+  }
+  const rows = (data ?? []).map(
+    (r: Record<string, unknown>) =>
+      ({ ...r, sync_status: 'synced', sync_error: null }) as unknown as ObservationRecord,
+  )
+  if (rows.length > 0) await db.observations.bulkPut(rows)
+  return { pulled: rows.length }
+}
+
+let verdictsRunning = false
+
+/**
+ * Push this device's unsynced verdicts, then flush withdrawals.
+ *
+ * Both halves are here rather than in two functions because their order matters:
+ * a verdict recorded, withdrawn, and re-recorded within one offline stretch must
+ * end up present, and the tombstone for the middle step is deleted by
+ * `recordVerdict` precisely so this ordering stays safe.
+ *
+ * A push refused because RLS says the email is not yours is recorded on the row
+ * and retried. It should never happen from this app, which only ever records
+ * under the signed-in address; if it does, the message is the thing worth
+ * reading, so it is stored rather than swallowed.
+ */
+export async function pushVerdicts(): Promise<{ pushed: number; failed: number; withdrawn: number }> {
+  if (!canReachBackend() || verdictsRunning) return { pushed: 0, failed: 0, withdrawn: 0 }
+  const client = supabase!
+  verdictsRunning = true
+  let pushed = 0
+  let failed = 0
+  let withdrawn = 0
+  try {
+    // Only my own. Another evaluator's verdict can reach this store through the
+    // local-only GitHub fallback, and the backend would refuse it — correctly,
+    // since a verdict is a signature. Filtering here keeps a refusal that is
+    // nobody's mistake from being recorded as an error on their row.
+    const mine = await sessionEmail()
+    const pending = (
+      await db.verifications.where('sync_status').anyOf('local', 'queued', 'error').toArray()
+    ).filter((v) => mine !== null && v.evaluator_email.trim().toLowerCase() === mine)
+    for (const v of pending) {
+      if (!v.workshop_id) {
+        failed++
+        await db.verifications.update(v.id, {
+          sync_status: 'error',
+          sync_error: NO_WORKSHOP,
+        })
+        continue
+      }
+      const { error } = await client
+        .from('verification_verdict')
+        .upsert(verdictRow(v), { onConflict: 'id' })
+      if (error) {
+        failed++
+        await db.verifications.update(v.id, { sync_status: 'error', sync_error: error.message })
+      } else {
+        pushed++
+        await db.verifications.update(v.id, { sync_status: 'synced', sync_error: null })
+      }
+    }
+
+    const tombstones = await db.verdictTombstones
+      .where('sync_status')
+      .anyOf('local', 'queued', 'error')
+      .toArray()
+    for (const t of tombstones) {
+      const { error } = await client.from('verification_verdict').delete().eq('id', t.id)
+      if (error) {
+        await db.verdictTombstones.update(t.id, { sync_status: 'error', sync_error: error.message })
+      } else {
+        withdrawn++
+        await db.verdictTombstones.delete(t.id)
+      }
+    }
+  } finally {
+    verdictsRunning = false
+  }
+  return { pushed, failed, withdrawn }
+}
+
+/**
+ * Pull one workshop's verdicts.
+ *
+ * Two rows are held back. This device's own unsynced verdicts, because the
+ * server's copy of a verdict you have just changed is older than yours. And any
+ * verdict this device has withdrawn but not yet managed to withdraw upstream,
+ * which is the second half of the tombstone contract: without the filter the pull
+ * would restore it and the withdrawal would look like it never happened.
+ *
+ * A verdict whose observation has not arrived is stored anyway. It is not
+ * displayable, and it is not the pull's job to decide that — dropping it would
+ * make a partial sync permanent instead of self-healing on the next cycle.
+ */
+export async function pullVerdicts(workshopId: string): Promise<{ pulled: number; held: number }> {
+  if (!canReachBackend()) return { pulled: 0, held: 0 }
+  const { data, error } = await supabase!
+    .from('verification_verdict')
+    .select('*')
+    .eq('workshop_id', workshopId)
+  if (error) {
+    console.warn('[cairn] verdict pull failed', error)
+    return { pulled: 0, held: 0 }
+  }
+  // Only MY unsynced rows are held back. A colleague's verdict sitting locally
+  // unsynced can only have arrived through the local-only GitHub fallback, where
+  // the server's copy is the fresher of the two, so holding it back would pin
+  // this device to a stale reading of somebody else's verdict.
+  const mine = await sessionEmail()
+  const unsynced = new Set(
+    (await db.verifications.where('sync_status').anyOf('local', 'queued', 'error').toArray())
+      .filter((v) => mine !== null && v.evaluator_email.trim().toLowerCase() === mine)
+      .map((v) => v.id),
+  )
+  const withdrawn = await db.verdictTombstones.toCollection().primaryKeys()
+  const { adopt, held } = verdictsToAdopt(
+    (data ?? []) as unknown as VerificationVerdict[],
+    unsynced,
+    withdrawn as string[],
+  )
+  const rows = adopt.map((v) => ({ ...v, sync_status: 'synced' as const, sync_error: null }))
+  if (rows.length > 0) await db.verifications.bulkPut(rows)
+  return { pulled: rows.length, held }
+}
+
+/**
+ * One full cycle for the two new tables, across every workshop this device has
+ * cached (normally one). Sequential rather than parallel: the pulls are
+ * server-authoritative writes into the same two Dexie tables the pushes just
+ * read, and interleaving them would make which version wins a matter of timing.
+ */
+async function syncObservationsAndVerdicts(): Promise<void> {
+  if (!canReachBackend()) return
+  await pushObservations()
+  await pushVerdicts()
+  const workshops = await db.workshops.toArray()
+  for (const w of workshops) {
+    await pullObservations(w.id)
+    await pullVerdicts(w.id)
+  }
+}
+
+/**
+ * Live observations: a newly routed observation reaches the evaluator who has to
+ * verify it without waiting for the interval. Additive — the pull is still the
+ * reliable path, and this subscription is dropped without ceremony if it proves
+ * unreliable on mobile. Mirrors subscribeCoverage in db/coverage.ts.
+ */
+export function subscribeObservations(workshopId: string): () => void {
+  if (!isSupabaseConfigured || !supabase) return () => {}
+  const client = supabase
+  const channel = client
+    .channel(`observations:${workshopId}`)
+    .on(
+      'postgres_changes',
+      { event: '*', schema: 'public', table: 'observation', filter: `workshop_id=eq.${workshopId}` },
+      (payload) => {
+        const row = payload.new as Record<string, unknown> | null
+        if (!row || typeof row.id !== 'string') return
+        void (async () => {
+          // Same non-destructive rule as the pull: never overwrite a local row
+          // that has not been pushed yet. On an administrator's own device the
+          // broadcast of a row it just wrote arrives while the push is still in
+          // flight, and this is what keeps that from resetting its own state.
+          const local = await db.observations.get(row.id as string)
+          if (local && local.sync_status !== 'synced') return
+          await db.observations.put({
+            ...(row as unknown as ObservationRecord),
+            sync_status: 'synced',
+            sync_error: null,
+          })
+        })()
+      },
+    )
+    .subscribe()
+  return () => {
+    void client.removeChannel(channel)
+  }
+}
+
+/**
+ * Wire automatic sync: on reconnect, on a gentle interval, and live for
+ * observations. Returns a cleanup fn.
+ *
+ * One loop for every synced table, which is the point. Four tables now reach the
+ * backend from here and there is a single place to reason about their ordering;
+ * a second timer would make "which cycle am I in" unanswerable.
+ */
+export function startSyncLoop(): () => void {
+  const cycle = () => {
     void pushOutbox()
     void pushMentoringOutbox()
-  }, 30_000)
-  void pushOutbox()
-  void pushMentoringOutbox()
+    void syncObservationsAndVerdicts()
+  }
+  window.addEventListener('online', cycle)
+  const interval = window.setInterval(cycle, 30_000)
+  cycle()
+
+  // Subscriptions need the workshop cache, which loads asynchronously. Started
+  // after the first cycle so a cold start subscribes to whatever that cycle
+  // pulled rather than to nothing.
+  let channels: Array<() => void> = []
+  let cancelled = false
+  void (async () => {
+    if (!isSupabaseConfigured || !supabase) return
+    const workshops = await db.workshops.toArray()
+    if (cancelled) return
+    channels = workshops.map((w) => subscribeObservations(w.id))
+  })()
+
   return () => {
-    window.removeEventListener('online', onOnline)
+    cancelled = true
+    window.removeEventListener('online', cycle)
     window.clearInterval(interval)
+    for (const close of channels) close()
+    channels = []
   }
 }

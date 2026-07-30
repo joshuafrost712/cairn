@@ -1,110 +1,109 @@
 import { useState } from 'react'
-import { canPushPull, getRoutingRepo } from '../routing/config'
-import { syncAll, buildMyVerdictBundle, importVerdictsText } from '../routing/verdicts'
+import { useLiveQuery } from 'dexie-react-hooks'
+import { db } from '../db/local'
+import { isSupabaseConfigured } from '../lib/supabase'
+import { pushVerdicts, pushObservations, pullObservations, pullVerdicts } from '../db/sync'
+import { c } from '../lib/content/chrome'
+import { Copy } from '../components/Copy'
+import type { VerificationVerdict } from '../lib/types'
 
-// Cross-device verdict sync. The multi-evaluator gate only reaches its threshold
-// when each evaluator's verdicts (recorded on their own device) are shared. With a
-// GitHub token, "Sync now" pulls the latest observations, pushes this device's
-// verdicts, and pulls everyone else's. Without one, copy/paste does the same by hand.
+// Verdict sync, evaluator-facing. Since tl-04 this shows STATE rather than
+// offering a mechanism: verdicts and observations move through the backend on the
+// app's own 30-second loop, so there is nothing here an evaluator has to operate
+// and nothing about a repo or a token for them to read. The button is a "now,
+// please", not a requirement.
+//
+// The GitHub path this component used to carry is the no-backend fallback and
+// lives on /admin/routing. It is deliberately not reachable from this screen.
 export function VerdictSync({ evaluatorEmail }: { evaluatorEmail: string }) {
-  const repo = getRoutingRepo()
-  const automated = canPushPull()
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState<string | null>(null)
-  const [bundle, setBundle] = useState('')
-  const [paste, setPaste] = useState('')
-  const [open, setOpen] = useState(false)
 
-  const run = async (fn: () => Promise<string>) => {
+  const mine = (v: VerificationVerdict) =>
+    v.evaluator_email.trim().toLowerCase() === evaluatorEmail.trim().toLowerCase()
+
+  const waiting = useLiveQuery(
+    async () => (await db.verifications.toArray()).filter((v) => mine(v) && v.sync_status !== 'synced').length,
+    [evaluatorEmail],
+    0,
+  )
+  const failed = useLiveQuery(
+    async () =>
+      (await db.verifications.toArray()).filter((v) => mine(v) && v.sync_status === 'error'),
+    [evaluatorEmail],
+    [] as VerificationVerdict[],
+  )
+  const withdrawing = useLiveQuery(() => db.verdictTombstones.count(), [], 0)
+
+  // A verdict whose observation has not arrived yet is real work that is not
+  // displayable, and the spec asks for it to be tolerated rather than dropped.
+  // Tolerated silently would be indistinguishable from lost, so it is counted.
+  const orphaned = useLiveQuery(
+    async () => {
+      const ids = new Set(await db.observations.toCollection().primaryKeys())
+      return (await db.verifications.toArray()).filter((v) => !ids.has(v.observation_id)).length
+    },
+    [],
+    0,
+  )
+
+  const run = async () => {
     setBusy(true)
     setMsg(null)
     try {
-      setMsg(await fn())
+      const up = await pushVerdicts()
+      await pushObservations()
+      const workshops = await db.workshops.toArray()
+      let pulled = 0
+      let verdicts = 0
+      for (const w of workshops) {
+        pulled += (await pullObservations(w.id)).pulled
+        verdicts += (await pullVerdicts(w.id)).pulled
+      }
+      setMsg(c('verdictsync.result', 'label', { sent: up.pushed, observations: pulled, verdicts }))
     } catch (err) {
-      setMsg(`Error: ${err instanceof Error ? err.message : String(err)}`)
+      setMsg(`${c('verdictsync.failed')} ${err instanceof Error ? err.message : String(err)}`)
     } finally {
       setBusy(false)
     }
   }
 
+  if (!isSupabaseConfigured) {
+    return (
+      <div className="card">
+        <Copy id="verdictsync.title" as="strong" />
+        <Copy id="verdictsync.local-only" as="p" className="small muted" />
+      </div>
+    )
+  }
+
+  const pending = (waiting ?? 0) + (withdrawing ?? 0)
+
   return (
     <div className="card">
       <div className="row">
-        <strong>Sync verdicts across evaluators</strong>
+        <Copy id="verdictsync.title" as="strong" />
         <span className="spacer" />
-        <button className="ghost small" onClick={() => setOpen((o) => !o)}>{open ? 'hide' : 'manual'}</button>
+        <span className={`pill ${pending === 0 ? 'synced' : 'queued'}`}>
+          {pending === 0 ? c('verdictsync.all-shared') : c('verdictsync.pending', 'label', { n: pending })}
+        </span>
       </div>
-      <p className="small muted">
-        Each evaluator confirms on their own device; sync shares verdicts so the gate can reach its
-        threshold. You are <strong>{evaluatorEmail}</strong>.
-      </p>
+      <Copy id="verdictsync.intro" as="p" className="small muted" />
 
-      {automated ? (
-        <button
-          className="primary"
-          disabled={busy}
-          onClick={() =>
-            run(async () => {
-              const r = await syncAll(evaluatorEmail)
-              return `Synced: pushed ${r.pushed} of my verdict(s), merged ${r.merged} from ${r.evaluators} other evaluator(s)${r.observations ? `, ${r.observations} observation(s) pulled` : ''}.`
-            })
-          }
-        >
-          Sync now
-        </button>
-      ) : (
-        <p className="small muted">
-          No GitHub token set{repo ? '' : ' (and no routing repo configured)'}. Use the manual copy/paste below,
-          or set a token on the Routing screen for one-tap sync.
-        </p>
+      {(orphaned ?? 0) > 0 && (
+        <Copy id="verdictsync.orphaned" tokens={{ n: orphaned ?? 0 }} className="small muted" as="p" />
       )}
 
-      {(open || !automated) && (
-        <div style={{ marginTop: '0.5rem' }}>
-          <button
-            disabled={busy}
-            onClick={() =>
-              run(async () => {
-                const { json, count } = await buildMyVerdictBundle(evaluatorEmail)
-                setBundle(json)
-                if (navigator.clipboard) {
-                  try {
-                    await navigator.clipboard.writeText(json)
-                    return `Copied ${count} of my verdict(s) to the clipboard. Send to the other evaluators.`
-                  } catch {
-                    /* fall through to textarea */
-                  }
-                }
-                return `Prepared ${count} of my verdict(s) below.`
-              })
-            }
-          >
-            Copy my verdicts
-          </button>
-          {bundle && <textarea className="mono" readOnly value={bundle} rows={4} onFocus={(e) => e.currentTarget.select()} />}
-          <label className="small muted" htmlFor="vpaste">Paste another evaluator's verdicts (JSON):</label>
-          <textarea
-            id="vpaste"
-            className="mono"
-            value={paste}
-            rows={4}
-            placeholder='{"schema":"cairn.verdicts/v1","evaluator_email":"...","verdicts":[ ... ]}'
-            onChange={(e) => setPaste(e.target.value)}
-          />
-          <button
-            disabled={busy || !paste.trim()}
-            onClick={() =>
-              run(async () => {
-                const r = await importVerdictsText(paste, evaluatorEmail)
-                setPaste('')
-                return `Merged ${r.merged} verdict(s) from ${r.evaluators} evaluator(s).`
-              })
-            }
-          >
-            Merge their verdicts
-          </button>
+      {(failed ?? []).length > 0 && (
+        <div className="banner warn">
+          <Copy id="verdictsync.error-lead" tokens={{ n: (failed ?? []).length }} />{' '}
+          <span className="mono small">{(failed ?? [])[0]?.sync_error}</span>
         </div>
       )}
+
+      <button className="ghost small" disabled={busy} onClick={() => void run()}>
+        {busy ? c('verdictsync.syncing') : c('verdictsync.now')}
+      </button>
 
       {msg && <div className="banner">{msg}</div>}
     </div>

@@ -2,7 +2,7 @@
 // workspace shapes and the GitHub client. Two paths, same file shapes:
 //
 //   Automated (a GitHub token is set): pushPendingCaptures() writes inbox/<id>.json;
-//     you route on the repo with Claude Max; pullObservations() reads outbox/<id>.json.
+//     you route on the repo with Claude Max; pullObservationsFromRepo() reads outbox/<id>.json.
 //   Manual (no token, fully phone-native): buildExportBundle() gives JSON you paste
 //     into Claude with a pointer to ROUTING.md; importObservationsText() ingests what
 //     Claude returns. No credentials, no API spend.
@@ -18,6 +18,8 @@ import {
 } from '../ai/workspace'
 import { listDir, getFile, putFile } from './github'
 import { getRoutingToken } from './config'
+import { getActiveWorkshopId } from '../lib/activeWorkshop'
+import { pickWorkshopId } from '../db/sync'
 import type { EvaluationRecord, ObservationRecord } from '../lib/types'
 
 export const CAPTURE_BUNDLE_SCHEMA_ID = 'cairn.capture-bundle/v1'
@@ -68,7 +70,13 @@ export async function pushPendingCaptures(): Promise<{ pushed: number; skipped: 
   return { pushed, skipped: 0 }
 }
 
-export async function pullObservations(): Promise<{ files: number; observations: number; rejected: number }> {
+/**
+ * Pull routed observations out of the GitHub repo. Named for its transport since
+ * tl-04, because `db/sync.ts` now has a `pullObservations` that pulls the same
+ * records from Supabase, and two functions of one name across two transports is
+ * how a device ends up reading from the wrong one.
+ */
+export async function pullObservationsFromRepo(): Promise<{ files: number; observations: number; rejected: number }> {
   const entries = await listDir('routing/outbox')
   let files = 0
   let observations = 0
@@ -177,15 +185,44 @@ async function resolveEvaluatorEmail(captureId: string): Promise<string | null> 
   return null
 }
 
+/**
+ * Which workshop's record these observations belong to (tl-04).
+ *
+ * The backend's read policy is "member of this observation's workshop", so an
+ * observation without one cannot be shared, which is the whole problem this
+ * resolution exists to prevent. Three sources, most authoritative first: the
+ * originating capture, the participant the observation is about, and the workshop
+ * this device is currently working in. The third is a genuine fallback rather
+ * than a guess dressed up as one: a router is by definition working inside the
+ * workshop whose captures they are routing.
+ */
+async function resolveWorkshopId(
+  captureId: string,
+  participantIds: Array<string | null>,
+): Promise<string | null> {
+  const local = await db.evaluations.get(captureId)
+  const fromParticipants: Array<string | null> = []
+  for (const pid of participantIds) {
+    if (!pid) continue
+    const participant = await db.participants.get(pid)
+    fromParticipants.push(participant?.workshop_id ?? null)
+  }
+  return pickWorkshopId(local?.workshop_id, fromParticipants, getActiveWorkshopId())
+}
+
 /** Replace any prior observations for this capture with the validated set. */
 async function storeObservationsFile(file: ObservationsFile): Promise<{ stored: number; rejected: number }> {
   const captureId = file.capture_client_id
   const importedAt = new Date().toISOString()
   const evaluatorEmail = await resolveEvaluatorEmail(captureId)
+  const validated = file.observations.map((raw) => validateObservation(raw))
+  const workshopId = await resolveWorkshopId(
+    captureId,
+    validated.map((v) => (v.ok ? v.value.participant_id : null)),
+  )
   const records: ObservationRecord[] = []
   let rejected = 0
-  file.observations.forEach((raw, i) => {
-    const v = validateObservation(raw)
+  validated.forEach((v, i) => {
     if (!v.ok) {
       rejected++
       return
@@ -193,8 +230,12 @@ async function storeObservationsFile(file: ObservationsFile): Promise<{ stored: 
     records.push({
       id: `${captureId}::${i}`,
       capture_client_id: captureId,
+      workshop_id: workshopId,
       imported_at: importedAt,
       evaluator_email: evaluatorEmail,
+      // Fresh imports start unsynced; db/sync.ts pushes them on the next cycle.
+      sync_status: 'local',
+      sync_error: null,
       ...v.value,
     })
   })

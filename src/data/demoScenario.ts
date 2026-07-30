@@ -104,6 +104,7 @@ function makeObs(
   return {
     id,
     capture_client_id: captureClientId,
+    workshop_id: WORKSHOP_ID,
     participant_id: AMOS_ID,
     participant_name: AMOS_NAME,
     ksa_code: ksaCode,
@@ -129,6 +130,7 @@ function makeVerdict(
     id: `${observationId}::${evaluatorEmail}`,
     observation_id: observationId,
     capture_client_id: captureClientId,
+    workshop_id: WORKSHOP_ID,
     evaluator_email: evaluatorEmail,
     decision: 'confirm',
     at,

@@ -325,6 +325,15 @@ export interface CoverageRow {
 export interface ObservationRecord {
   id: string // `${capture_client_id}::${index}`
   capture_client_id: string
+  /**
+   * Which workshop's record this observation belongs to. Resolved at ingest from
+   * the originating evaluation, falling back to the participant, then to the
+   * active workshop (tl-04). Required by the backend, whose read policy is
+   * "member of this observation's workshop"; null only for rows imported before
+   * tl-04 whose capture is no longer on this device, which cannot be pushed and
+   * say so through `sync_error`.
+   */
+  workshop_id: string | null
   participant_id: string | null
   participant_name: string
   ksa_code: string
@@ -343,6 +352,9 @@ export interface ObservationRecord {
    * same participant. Best-effort: null when the originating capture can't be found.
    */
   evaluator_email?: string | null
+  /** Backend sync state, same contract as EvaluationRecord's (tl-04). */
+  sync_status?: SyncStatus
+  sync_error?: string | null
 }
 
 export type MentoringStatus = 'needed' | 'scheduled' | 'completed' | 'dismissed'
@@ -462,10 +474,37 @@ export interface VerificationVerdict {
   id: string // `${observation_id}::${evaluator_email}` — one current verdict per evaluator per observation
   observation_id: string
   capture_client_id: string // for grouping + future sync
+  /**
+   * Copied from the observation at record time (tl-04). Denormalized on purpose:
+   * the pull is "every verdict in this workshop", and a policy that resolved the
+   * workshop through the observation would hide a whole evaluator's verdicts for
+   * as long as their observations were mid-push.
+   */
+  workshop_id: string | null
   evaluator_email: string
   decision: VerificationDecision
   /** the designation this evaluator believes is correct, when decision === 'adjust' */
   adjusted_designation?: 0 | 1 | 2 | 3 | null
   note?: string | null
   at: string
+  /** Backend sync state, same contract as EvaluationRecord's (tl-04). */
+  sync_status?: SyncStatus
+  sync_error?: string | null
+}
+
+/**
+ * A verdict this device withdrew, kept until the withdrawal reaches the backend.
+ *
+ * Without it, un-verifying while offline is silently undone: the local row is
+ * gone, the server's copy is not, and the next pull brings it back looking like a
+ * verdict the evaluator never withdrew. A tombstone is small because a withdrawal
+ * carries no payload — the id and who owns it are the whole fact.
+ */
+export interface VerdictTombstone {
+  id: string
+  workshop_id: string | null
+  evaluator_email: string
+  at: string
+  sync_status: SyncStatus
+  sync_error?: string | null
 }

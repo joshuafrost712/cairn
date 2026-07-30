@@ -7,12 +7,14 @@
 // verdicts wholesale (so their deletions propagate too). Your own file is never
 // overwritten on pull — your local store is authoritative for you.
 //
-// Observations already sync through routing/outbox/ (operations.pullObservations),
-// so every evaluator's device can hold the same observations to verify.
+// Since tl-04 this is the NO-BACKEND FALLBACK, not the evaluator's path. A
+// deployment with Supabase configured shares observations and verdicts through
+// db/sync.ts, and no evaluator device holds a GitHub token. This file stays
+// reachable only from /admin/routing, for a deployment running local-only.
 
 import { db } from '../db/local'
 import { getFile, putFile, listDir } from './github'
-import { pullObservations } from './operations'
+import { pullObservationsFromRepo } from './operations'
 import type { VerificationVerdict } from '../lib/types'
 
 export const VERDICTS_FILE_SCHEMA_ID = 'cairn.verdicts/v1'
@@ -66,7 +68,7 @@ export async function pushMyVerdicts(myEmail: string): Promise<{ pushed: number 
   return { pushed: mine.length }
 }
 
-export async function pullVerdicts(myEmail: string): Promise<{ evaluators: number; merged: number }> {
+export async function pullVerdictsFromRepo(myEmail: string): Promise<{ evaluators: number; merged: number }> {
   const entries = await listDir(DIR)
   let evaluators = 0
   let merged = 0
@@ -89,7 +91,7 @@ export async function pullVerdicts(myEmail: string): Promise<{ evaluators: numbe
 
 export async function syncVerdicts(myEmail: string): Promise<{ pushed: number; evaluators: number; merged: number }> {
   const push = await pushMyVerdicts(myEmail)
-  const pull = await pullVerdicts(myEmail)
+  const pull = await pullVerdictsFromRepo(myEmail)
   return { ...push, ...pull }
 }
 
@@ -97,7 +99,7 @@ export async function syncVerdicts(myEmail: string): Promise<{ pushed: number; e
 export async function syncAll(myEmail: string): Promise<{ observations: number; pushed: number; evaluators: number; merged: number }> {
   let observations = 0
   try {
-    observations = (await pullObservations()).observations
+    observations = (await pullObservationsFromRepo()).observations
   } catch {
     // no outbox yet, or transient; verdict sync still proceeds
   }

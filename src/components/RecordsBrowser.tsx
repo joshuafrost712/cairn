@@ -204,6 +204,9 @@ function AppendForm({ participant, activities, ksas, evaluatorEmail, onAdded }: 
       const record: ObservationRecord = {
         id,
         capture_client_id: captureId,
+        // A hand-entered observation belongs to the participant's workshop, and
+        // needs to say so or it cannot be shared (tl-04).
+        workshop_id: participant.workshop_id ?? null,
         participant_id: participant.id,
         participant_name: participant.name,
         ksa_code: selectedKsa.code,

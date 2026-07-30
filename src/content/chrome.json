@@ -365,6 +365,50 @@
       "label": "routing flagged"
     },
     {
+      "id": "verdictsync.title",
+      "label": "Shared with the other evaluators"
+    },
+    {
+      "id": "verdictsync.intro",
+      "label": "Each evaluator confirms on their own device. Your verdicts and everyone else's are shared automatically, so the gate can reach its threshold without anyone doing anything. Works offline: what you record is kept and sent when you are back on."
+    },
+    {
+      "id": "verdictsync.all-shared",
+      "label": "everything shared"
+    },
+    {
+      "id": "verdictsync.pending",
+      "label": "{n} waiting to send"
+    },
+    {
+      "id": "verdictsync.now",
+      "label": "Sync now"
+    },
+    {
+      "id": "verdictsync.syncing",
+      "label": "Syncing…"
+    },
+    {
+      "id": "verdictsync.result",
+      "label": "Sent {sent} of your verdicts. Received {observations} observation(s) and {verdicts} verdict(s)."
+    },
+    {
+      "id": "verdictsync.failed",
+      "label": "Sync failed:"
+    },
+    {
+      "id": "verdictsync.error-lead",
+      "label": "{n} of your verdicts could not be sent."
+    },
+    {
+      "id": "verdictsync.orphaned",
+      "label": "{n} verdict(s) are held for observations that have not reached this device yet. They are safe, and will appear once the observations arrive."
+    },
+    {
+      "id": "verdictsync.local-only",
+      "label": "This device has no backend configured, so verdicts stay on it. An administrator can share them from the Routing screen."
+    },
+    {
       "id": "myeval.title",
       "label": "My evaluations"
     },

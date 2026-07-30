@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '../db/local'
+import { useAuth } from '../auth/AuthContext'
+import { RepoVerdictSync } from '../components/RepoVerdictSync'
 import {
   getRoutingRepo,
   getRoutingToken,
@@ -11,7 +13,7 @@ import {
 import {
   listPendingCaptures,
   pushPendingCaptures,
-  pullObservations,
+  pullObservationsFromRepo,
   buildExportBundle,
   importObservationsText,
 } from '../routing/operations'
@@ -20,6 +22,8 @@ import {
 // Claude (Max — no metered API), and bring the per-individual observations back.
 // Works token-free via copy/paste, or automated when a GitHub token is set.
 export function Routing() {
+  const { identity } = useAuth()
+  const email = identity?.email ?? null
   const repo = getRoutingRepo()
   const automated = canPushPull()
 
@@ -162,7 +166,7 @@ export function Routing() {
           <button
             disabled={busy || !automated}
             onClick={() => run(async () => {
-              const r = await pullObservations()
+              const r = await pullObservationsFromRepo()
               return `Pulled ${r.files} file${r.files === 1 ? '' : 's'}, ${r.observations} observation${r.observations === 1 ? '' : 's'}${r.rejected ? ` (${r.rejected} rejected)` : ''}.`
             })}
           >
@@ -170,6 +174,8 @@ export function Routing() {
           </button>
         </div>
       </div>
+
+      {email && <RepoVerdictSync evaluatorEmail={email} />}
 
       {msg && <div className="banner">{msg}</div>}
 

@@ -12,6 +12,7 @@ import type {
   ReferenceOutboxEntry,
   ReportAssignment,
   Team,
+  VerdictTombstone,
   VerificationVerdict,
   Workshop,
   WorkshopMember,
@@ -19,6 +20,8 @@ import type {
   WorkshopSettingRow,
 } from '../lib/types'
 import type { DraftDoc } from '../drafts/types'
+import { planBackfill } from './backfill'
+import { getActiveWorkshopId } from '../lib/activeWorkshop'
 
 /**
  * On-device store (IndexedDB via Dexie). Two roles:
@@ -38,6 +41,7 @@ class CairnDB extends Dexie {
   activityKsas!: EntityTable<ActivityKsa & { pk: string }, 'pk'>
   observations!: EntityTable<ObservationRecord, 'id'>
   verifications!: EntityTable<VerificationVerdict, 'id'>
+  verdictTombstones!: EntityTable<VerdictTombstone, 'id'>
   mentoringConversations!: EntityTable<MentoringConversation, 'id'>
   discrepancyResolutions!: EntityTable<DiscrepancyResolution, 'id'>
   coverage!: EntityTable<CoverageRow, 'client_id'>
@@ -108,6 +112,59 @@ class CairnDB extends Dexie {
       workshopSettings: 'pk, workshop_id, key',
       assignments: 'pk, workshop_id, participant_id, evaluator_email, kind',
     })
+    // v11 (tl-04): observations and verdicts get a backend, so both need the
+    // outbox fields every other synced table has, and observations need the
+    // workshop_id the backend's read policy is written against.
+    //
+    // The upgrade is the desktop half of the phone-evaluations recovery. Marking
+    // every existing row 'local' is what makes the first sync cycle push the
+    // entire pilot history up, so "one private database" becomes true
+    // retroactively rather than only for work captured after today.
+    this.version(11)
+      .stores({
+        observations: 'id, capture_client_id, participant_id, ksa_code, workshop_id, sync_status',
+        verifications: 'id, observation_id, capture_client_id, evaluator_email, workshop_id, sync_status',
+        verdictTombstones: 'id, sync_status',
+      })
+      .upgrade(async (tx) => {
+        // The plan is computed by planBackfill (src/db/backfill.ts), which is pure
+        // and unit-tested. This block is only the plumbing that applies it.
+        const evaluations = await tx.table('evaluations').toArray()
+        const participants = await tx.table('participants').toArray()
+        const observations = await tx.table('observations').toArray()
+        const verdicts = await tx.table('verifications').toArray()
+
+        const plan = planBackfill({
+          observations,
+          verdicts,
+          captureWorkshops: new Map(evaluations.map((e) => [e.client_id, e.workshop_id ?? null])),
+          participantWorkshops: new Map(participants.map((p) => [p.id, p.workshop_id ?? null])),
+          activeWorkshopId: getActiveWorkshopId(),
+        })
+        if (plan.unresolved > 0) {
+          console.warn(
+            `[cairn] tl-04 backfill: ${plan.unresolved} observation(s) could not be placed in a workshop and cannot be shared until re-imported`,
+          )
+        }
+
+        await tx
+          .table('observations')
+          .toCollection()
+          .modify((o: Record<string, unknown>) => {
+            o.workshop_id = plan.observationWorkshops.get(o.id as string) ?? null
+            o.sync_status = 'local'
+            o.sync_error = null
+          })
+
+        await tx
+          .table('verifications')
+          .toCollection()
+          .modify((v: Record<string, unknown>) => {
+            v.workshop_id = plan.verdictWorkshops.get(v.id as string) ?? null
+            v.sync_status = 'local'
+            v.sync_error = null
+          })
+      })
   }
 }
 
