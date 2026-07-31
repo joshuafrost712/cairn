@@ -10,7 +10,19 @@
 -- reads oddly, the question is "did somebody edit the descriptors mid-workshop"
 -- and the answer has to be reconstructible.
 --
--- Apply after 20260730001200_verdict_and_observation_sync.sql.
+-- Apply after 20260730001300_drop_observation_legacy.sql.
+--
+-- RENUMBERED, and the reason is worth keeping. This was authored as
+-- 20260730001300 in a concurrent session, and tl-18 shipped a different migration
+-- under that same version and recorded it with `db push`. Two files at one version
+-- is the failure the concurrency guardrails exist to prevent: the CLI would treat
+-- this one as already applied and skip it forever. It is 20260731000100 now.
+--
+-- It was applied to the live project through scripts/apply-migration.mjs under the
+-- old name, so schema_migrations does not carry this version. That is safe rather
+-- than owed: every statement below is guarded (`if not exists`, `drop policy if
+-- exists`, `create or replace`), so the next `db push` re-running it is a no-op.
+-- Repair it if you want a tidy history; nothing breaks if you do not.
 --
 -- Three decisions worth reading before changing anything here:
 --
