@@ -13,7 +13,8 @@
 // (src/routing/) consume this, so the spec the app validates against is exactly
 // the spec Claude was given.
 
-import type { Ksa, Participant } from '../lib/types'
+import type { ResolvedKsa } from '../lib/goals'
+import type { Participant } from '../lib/types'
 
 // The routing instructions. Identical for every capture; rendered verbatim into
 // routing/ROUTING.md so Claude (via Max) follows the same contract every run.
@@ -34,14 +35,14 @@ Rules:
 - Return only observations grounded in the text. An empty list is a valid answer.`
 
 /** The activity-specific reference: KSA rubric + participant roster, as markdown. */
-export function buildReferenceBlock(ksas: Ksa[], participants: Participant[]): string {
+export function buildReferenceBlock(ksas: ResolvedKsa[], participants: Participant[]): string {
   const ksaLines = ksas
     .map((k) => {
       const levels = k.evidence_levels ?? {}
       const levelText = (['0', '1', '2', '3'] as const)
         .map((n) => `    ${n}: ${levels[n] ?? '(unspecified)'}`)
         .join('\n')
-      return `- ${k.code} — ${k.area}\n  Prompt: ${k.evaluator_facing_prompt}\n  Rubric: ${k.ai_facing_rubric ?? ''}\n  Evidence levels (0-3):\n${levelText}`
+      return `- ${k.code} — ${k.goal_title}\n  Prompt: ${k.evaluator_facing_prompt}\n  Rubric: ${k.ai_facing_rubric ?? ''}\n  Evidence levels (0-3):\n${levelText}`
     })
     .join('\n\n')
 

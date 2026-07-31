@@ -12,11 +12,13 @@ import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '../db/local'
+import { useResolvedKsas } from '../hooks/useResolvedKsas'
 import { buildParticipantReport } from '../reports/build'
 import { annotateObservations, type AnnotatedObservation } from '../reports/verification'
 import { reconcileMentoringConversations } from '../db/mentoring'
 import { useAuth } from '../auth/AuthContext'
-import type { Activity, Ksa, MentoringConversation, ObservationRecord, Participant, Team, VerificationVerdict } from '../lib/types'
+import type { ResolvedKsa } from '../lib/goals'
+import type { Activity, MentoringConversation, ObservationRecord, Participant, Team, VerificationVerdict } from '../lib/types'
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -173,7 +175,7 @@ function ObsRow({ obs }: ObsRowProps) {
 interface AppendFormProps {
   participant: Participant
   activities: Activity[]
-  ksas: Ksa[]
+  ksas: ResolvedKsa[]
   evaluatorEmail: string
   onAdded: () => void
 }
@@ -329,7 +331,7 @@ export function RecordsBrowser({ participantId, onSelectParticipant }: RecordsBr
   const { identity } = useAuth()
 
   const participants = useLiveQuery(() => db.participants.toArray(), [], [] as Participant[])
-  const ksas = useLiveQuery(() => db.ksas.toArray(), [], [] as Ksa[])
+  const ksas = useResolvedKsas()
   const activities = useLiveQuery(() => db.activities.toArray(), [], [] as Activity[])
   const teams = useLiveQuery(() => db.teams.toArray(), [], [] as Team[])
   const allObservations = useLiveQuery(() => db.observations.toArray(), [], [] as ObservationRecord[])
@@ -442,7 +444,7 @@ export function RecordsBrowser({ participantId, onSelectParticipant }: RecordsBr
                   <div className="row">
                     <span>
                       <strong>{r.ksa_code}</strong>
-                      <span className="muted small"> {r.area}</span>
+                      <span className="muted small"> {r.goal_title}</span>
                     </span>
                     <span className="pill">{designationLabel(r.representative)}</span>
                     {r.conflict && (

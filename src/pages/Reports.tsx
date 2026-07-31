@@ -1,4 +1,6 @@
 import { useMemo, useState } from 'react'
+
+import { useResolvedKsas } from '../hooks/useResolvedKsas'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '../db/local'
@@ -11,7 +13,7 @@ import { DesignationChip } from '../components/data/DesignationChip'
 import { ADMIN_ROLES, useHasWorkshopRole } from '../layout/roles'
 import { c } from '../lib/content/chrome'
 import { Copy } from '../components/Copy'
-import type { Ksa, ObservationRecord, Participant, Team, VerificationVerdict } from '../lib/types'
+import type { ObservationRecord, Participant, Team, VerificationVerdict } from '../lib/types'
 
 /**
  * Per-participant 0–3 rollup with the multi-evaluator gate. A report can be
@@ -28,7 +30,7 @@ export function Reports() {
   const isAdmin = useHasWorkshopRole(ADMIN_ROLES)
 
   const participants = useLiveQuery(() => db.participants.toArray(), [], [] as Participant[])
-  const ksas = useLiveQuery(() => db.ksas.toArray(), [], [] as Ksa[])
+  const ksas = useResolvedKsas()
   const teams = useLiveQuery(() => db.teams.toArray(), [], [] as Team[])
   const observations = useLiveQuery(() => db.observations.toArray(), [], [] as ObservationRecord[])
   const verdicts = useLiveQuery(() => db.verifications.toArray(), [], [] as VerificationVerdict[])
@@ -172,7 +174,7 @@ export function Reports() {
                       <div className="row">
                         <DesignationChip value={r.representative} conflict={r.conflict} />
                         <strong>{r.ksa_code}</strong>
-                        <span className="muted">{r.area}</span>
+                        <span className="muted">{r.goal_title}</span>
                       </div>
                       {r.contributing.map((o) => (
                         <div key={o.id} className="small" style={{ marginTop: 'var(--s-1)' }}>

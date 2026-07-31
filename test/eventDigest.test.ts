@@ -14,7 +14,7 @@ import type { MentoringConversation } from '../src/lib/types'
 import type { ObservationRecord } from '../src/lib/types'
 
 const act = activity({ id: 'act-1', title: 'Psalm 1 workshop', day: '2026-08-26' })
-const ksas = [ksa('GENRE', { area: 'Genre Theory' }), ksa('CHECK', { area: 'Checking' })]
+const ksas = [ksa('GENRE', { goal_title: 'Genre Theory' }), ksa('CHECK', { goal_title: 'Checking' })]
 const cap = evaluation({ client_id: 'cap-1', activity_id: 'act-1', evaluator_email: 'josh@sil.org' })
 
 function analyze(observations: ObservationRecord[], evaluations = [cap]) {

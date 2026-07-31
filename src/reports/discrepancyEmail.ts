@@ -64,7 +64,7 @@ export function renderDiscrepancyEmails(
   const hiObs = sorted[sorted.length - 1]
   const middleObs = sorted.length > 2 ? sorted.slice(1, -1) : []
 
-  const subject = `Score discrepancy: ${d.participant_name}, ${d.area} (${d.ksa_code}) — ${workshopName}`
+  const subject = `Score discrepancy: ${d.participant_name}, ${d.goal_title} (${d.ksa_code}) — ${workshopName}`
 
   // --- 1. Chief email ---
   const chiefLines: string[] = []
@@ -75,7 +75,7 @@ export function renderDiscrepancyEmails(
   )
   chiefLines.push(``)
   chiefLines.push(`Participant: ${d.participant_name}`)
-  chiefLines.push(`KSA: ${d.ksa_code} — ${d.area}`)
+  chiefLines.push(`KSA: ${d.ksa_code} — ${d.goal_title}`)
   chiefLines.push(`Score range: ${d.lo}/3 to ${d.hi}/3 (spread of ${d.hi - d.lo})`)
   chiefLines.push(``)
   if (d.timeGapNote) {
@@ -106,7 +106,7 @@ export function renderDiscrepancyEmails(
   evalALines.push(`Hi ${evaluatorLabel(loObs.evaluator_email)},`)
   evalALines.push(``)
   evalALines.push(
-    `Your score for ${d.participant_name} on ${d.area} (${d.ksa_code}) differs from a colleague's by ${d.hi - d.lo} points. The chief evaluator has flagged this for a brief joint conversation to reconcile before the report is finalized.`,
+    `Your score for ${d.participant_name} on ${d.goal_title} (${d.ksa_code}) differs from a colleague's by ${d.hi - d.lo} points. The chief evaluator has flagged this for a brief joint conversation to reconcile before the report is finalized.`,
   )
   evalALines.push(``)
   evalALines.push(`Your observation:`)
@@ -133,7 +133,7 @@ export function renderDiscrepancyEmails(
   evalBLines.push(`Hi ${evaluatorLabel(hiObs.evaluator_email)},`)
   evalBLines.push(``)
   evalBLines.push(
-    `Your score for ${d.participant_name} on ${d.area} (${d.ksa_code}) differs from a colleague's by ${d.hi - d.lo} points. The chief evaluator has flagged this for a brief joint conversation to reconcile before the report is finalized.`,
+    `Your score for ${d.participant_name} on ${d.goal_title} (${d.ksa_code}) differs from a colleague's by ${d.hi - d.lo} points. The chief evaluator has flagged this for a brief joint conversation to reconcile before the report is finalized.`,
   )
   evalBLines.push(``)
   evalBLines.push(`Your observation:`)

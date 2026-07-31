@@ -203,7 +203,7 @@
     },
     {
       "id": "capture.coverage-evaluated",
-      "label": "Evaluated {count}\u00d7 by {evaluators}"
+      "label": "Evaluated {count}× by {evaluators}"
     },
     {
       "id": "capture.coverage-unknown",
@@ -223,7 +223,7 @@
     },
     {
       "id": "capture.answer-placeholder",
-      "label": "Dictate or type what you observed\u2026"
+      "label": "Dictate or type what you observed…"
     },
     {
       "id": "capture.before-submit",
@@ -322,7 +322,7 @@
     },
     {
       "id": "obs.intro",
-      "label": "Per-individual evidence drawn from the day's captures. Each observation needs confirmation by the required number of evaluators before it counts toward a finalized report. Numbers are draft 0\u20133 designations."
+      "label": "Per-individual evidence drawn from the day's captures. Each observation needs confirmation by the required number of evaluators before it counts toward a finalized report. Numbers are draft 0–3 designations."
     },
     {
       "id": "obs.sign-in",
@@ -382,7 +382,7 @@
     },
     {
       "id": "verdictsync.syncing",
-      "label": "Syncing\u2026"
+      "label": "Syncing…"
     },
     {
       "id": "verdictsync.result",
@@ -559,7 +559,7 @@
     },
     {
       "id": "membership.none.rechecking",
-      "label": "Checking\u2026"
+      "label": "Checking…"
     },
     {
       "id": "nav.sync-health",
@@ -611,7 +611,7 @@
     },
     {
       "id": "sync-health.refresh.busy",
-      "label": "Checking\u2026"
+      "label": "Checking…"
     },
     {
       "id": "sync-health.refresh.result",
@@ -1223,11 +1223,11 @@
     },
     {
       "id": "setup.questions.global-warning",
-      "label": "Questions are still shared across every workshop on this deployment: a question's code is global, so editing one edits it everywhere it is wired. Per-workshop questions land with the goals layer."
+      "label": "Questions belong to this workshop. Another workshop on this deployment can hold its own question with the same code, and neither edit touches the other."
     },
     {
       "id": "setup.questions.goals-pending",
-      "label": "A goals layer above these questions, so a workshop can state what it is for and not only what it measures, is the next spec in this wave."
+      "label": "A goal groups questions and gives the workshop a heading to report under. It carries no score of its own."
     },
     {
       "id": "setup.questions.code-warning",
@@ -1408,6 +1408,194 @@
     {
       "id": "setup.action.reset",
       "label": "Reset"
+    },
+    {
+      "id": "setup.goals.title",
+      "label": "{label} ({count})"
+    },
+    {
+      "id": "setup.goals.add",
+      "label": "Add {label}"
+    },
+    {
+      "id": "setup.goals.help",
+      "label": "A {label} is the level above a question: what this workshop is training toward. Reports group and print their headings from these."
+    },
+    {
+      "id": "setup.goals.empty",
+      "label": "No {label} yet. Add one, then put questions under it."
+    },
+    {
+      "id": "setup.goals.label-field",
+      "label": "What this workshop calls this level"
+    },
+    {
+      "id": "setup.goals.label-placeholder",
+      "label": "Goal"
+    },
+    {
+      "id": "setup.goals.label-save",
+      "label": "Rename the level"
+    },
+    {
+      "id": "setup.goals.code",
+      "label": "Code"
+    },
+    {
+      "id": "setup.goals.heading",
+      "label": "Heading (what reports print)"
+    },
+    {
+      "id": "setup.goals.description",
+      "label": "Description (optional)"
+    },
+    {
+      "id": "setup.goals.holds",
+      "label": "Holds {count} question(s)."
+    },
+    {
+      "id": "setup.goals.save",
+      "label": "Save"
+    },
+    {
+      "id": "setup.goals.untitled",
+      "label": "(untitled)"
+    },
+    {
+      "id": "setup.questions.scoped-note",
+      "label": "These are {workshop}’s questions. Codes are unique within this workshop only."
+    },
+    {
+      "id": "setup.questions.no-goals",
+      "label": "There is no {label} yet, so every question below is ungrouped. Reports will print them under one “Ungrouped” heading until you add one."
+    },
+    {
+      "id": "setup.questions.ungrouped",
+      "label": "Under no {label}"
+    },
+    {
+      "id": "setup.questions.group-empty",
+      "label": "No questions here yet."
+    },
+    {
+      "id": "setup.questions.no-goal",
+      "label": "— none —"
+    },
+    {
+      "id": "setup.questions.code",
+      "label": "Code (unique in this workshop)"
+    },
+    {
+      "id": "setup.questions.short-label",
+      "label": "Short label (card heading)"
+    },
+    {
+      "id": "setup.questions.description",
+      "label": "Description"
+    },
+    {
+      "id": "setup.questions.prompt",
+      "label": "Evaluator-facing prompt (shown while capturing)"
+    },
+    {
+      "id": "setup.questions.prompt-override-note",
+      "label": "One event can ask this differently. Set that per event under Calendar, not here."
+    },
+    {
+      "id": "setup.questions.levels",
+      "label": "Evidence levels — what earns each 0–3"
+    },
+    {
+      "id": "setup.questions.guiding",
+      "label": "Guiding questions (look/listen for)"
+    },
+    {
+      "id": "setup.questions.guiding-add",
+      "label": "+ add guiding question"
+    },
+    {
+      "id": "setup.questions.guiding-remove",
+      "label": "remove"
+    },
+    {
+      "id": "setup.questions.rubric",
+      "label": "AI-facing rubric (optional)"
+    },
+    {
+      "id": "setup.questions.cbc",
+      "label": "CBC sub-point refs (comma-separated)"
+    },
+    {
+      "id": "setup.questions.regroup-warning",
+      "label": "Moving a question to another {label} reprints every report already written under a different heading. Nothing is rescored, and the warning will say how many reports move."
+    },
+    {
+      "id": "setup.wiring.wording",
+      "label": "wording"
+    },
+    {
+      "id": "setup.wiring.remove",
+      "label": "remove"
+    },
+    {
+      "id": "setup.wiring.overridden",
+      "label": "reworded here"
+    },
+    {
+      "id": "setup.wiring.override-help",
+      "label": "How this event asks the question. Leave both blank and it asks exactly what the question itself says, which is the usual case."
+    },
+    {
+      "id": "setup.wiring.override-prompt",
+      "label": "Prompt for this event only"
+    },
+    {
+      "id": "setup.wiring.override-blank",
+      "label": "Clearing this box falls back to the question’s own prompt, with nothing left behind."
+    },
+    {
+      "id": "setup.wiring.override-guiding",
+      "label": "Guiding questions for this event only"
+    },
+    {
+      "id": "setup.wiring.override-guiding-inherited",
+      "label": "Currently inherited from the question. Editing a line here makes this event’s list its own."
+    },
+    {
+      "id": "setup.wiring.override-save",
+      "label": "Save wording"
+    },
+    {
+      "id": "setup.wiring.override-clear",
+      "label": "Use the question’s own"
+    },
+    {
+      "id": "setup.impact.goal.delete-empty",
+      "label": "Deletes {label}. Nothing is grouped under it, so no report changes."
+    },
+    {
+      "id": "setup.impact.goal.delete",
+      "label": "Deletes {label}. Its {questions} question(s) are kept and become ungrouped — no observation is touched — and {regrouped} report(s) print them under “Ungrouped” until you file them somewhere."
+    },
+    {
+      "id": "setup.impact.goal.rename-clean",
+      "label": "Renames {label}. No report has been written under it yet, so nothing reprints."
+    },
+    {
+      "id": "setup.impact.goal.rename",
+      "label": "Renames {label}, which holds {questions} question(s). {regrouped} report(s) already written will print the new heading. No designation changes."
+    },
+    {
+      "id": "setup.impact.question.regroup-clean",
+      "label": "Moves {label} to a different heading. Nothing has been recorded against it yet."
+    },
+    {
+      "id": "setup.impact.question.regroup",
+      "label": "Moves {label} to a different heading. Its {observations} recorded observation(s) keep their designations, and {regrouped} report(s) will group them somewhere else than the copy you may already have sent."
+    },
+    {
+      "id": "setup.impact.wiring.override",
+      "label": "Changes how this event asks the question, on this event only. Evaluators capturing from now on see the new wording; the {captures} capture(s) already recorded keep the answers they gave to the old one."
     }
   ]
 }

@@ -19,7 +19,7 @@ export interface CbcEvidence {
 }
 export interface CbcKsaEntry {
   ksa_code: string
-  area: string
+  goal_title: string
   designation: number | null
   evidence: CbcEvidence[]
 }
@@ -66,7 +66,7 @@ export function buildCbcExport(
 
     const ksas: CbcKsaEntry[] = r.ksaRollups.map((k) => ({
       ksa_code: k.ksa_code,
-      area: k.area,
+      goal_title: k.goal_title,
       designation: k.representative,
       evidence: k.contributing.map((o) => ({
         ksa_code: k.ksa_code,
@@ -108,7 +108,7 @@ export function buildCbcExport(
 /** Flat one-row-per-(participant, KSA) CSV — easy to pivot or import. */
 export function cbcKsaCsv(x: CbcExport): string {
   const rows = x.participants.flatMap((p) =>
-    p.ksas.map((k) => [p.participant_name, p.team_name ?? '', p.finalized, k.ksa_code, k.area, k.designation, k.evidence.length]),
+    p.ksas.map((k) => [p.participant_name, p.team_name ?? '', p.finalized, k.ksa_code, k.goal_title, k.designation, k.evidence.length]),
   )
   return toCsv(['participant', 'team', 'finalized', 'ksa_code', 'area', 'designation', 'evidence_count'], rows)
 }

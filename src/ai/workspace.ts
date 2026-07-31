@@ -9,7 +9,8 @@
 //   Claude -> writes routing/outbox/<id>.json (observations matching schema.json)
 //   app  -> imports routing/outbox/*.json back into the device store
 
-import type { Activity, Ksa, Participant, Workshop } from '../lib/types'
+import type { ResolvedKsa } from '../lib/goals'
+import type { Activity, Participant, Workshop } from '../lib/types'
 import { ROUTING_RULES, OBSERVATIONS_SCHEMA, type RoutedObservation } from './contract'
 
 export const CAPTURE_SCHEMA_ID = 'cairn.capture/v1'
@@ -28,7 +29,7 @@ export interface CaptureFile {
   /** KSAs in scope for this activity, inlined so the file is routable on its own. */
   ksas_in_scope: {
     code: string
-    area: string
+    goal_title: string
     evaluator_facing_prompt: string
     ai_facing_rubric: string | null
     evidence_levels: Record<string, string | undefined> | null
@@ -49,7 +50,7 @@ export interface ObservationsFile {
 export interface CaptureContext {
   workshop: Pick<Workshop, 'id' | 'name'> | null
   activity: Pick<Activity, 'id' | 'title' | 'day'> | null
-  ksasInScope: Ksa[]
+  ksasInScope: ResolvedKsa[]
   participantScope: { name: string; participant_id?: string }[]
 }
 
@@ -75,7 +76,7 @@ export function buildCaptureFile(
     participant_scope: ctx.participantScope,
     ksas_in_scope: ctx.ksasInScope.map((k) => ({
       code: k.code,
-      area: k.area,
+      goal_title: k.goal_title,
       evaluator_facing_prompt: k.evaluator_facing_prompt,
       ai_facing_rubric: k.ai_facing_rubric,
       evidence_levels: k.evidence_levels ?? null,
@@ -143,14 +144,14 @@ synced between devices) and is not part of routing.
 }
 
 /** routing/reference/rubric.md — the full KSA rubric. */
-export function renderRubricDoc(ksas: Ksa[]): string {
+export function renderRubricDoc(ksas: ResolvedKsa[]): string {
   const body = ksas
     .map((k) => {
       const levels = k.evidence_levels ?? {}
       const levelText = (['0', '1', '2', '3'] as const)
         .map((n) => `- **${n}** — ${levels[n] ?? '(unspecified)'}`)
         .join('\n')
-      return `## ${k.code} — ${k.area}
+      return `## ${k.code} — ${k.goal_title}
 
 **Evaluator prompt:** ${k.evaluator_facing_prompt}
 

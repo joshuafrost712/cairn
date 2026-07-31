@@ -73,9 +73,40 @@ export async function countsForQuestion(ksa: Ksa, workshopId: string): Promise<I
     scored: obs.length,
     participants,
     reports: participants,
+    // Reports whose headings move if this question changes goal (tl-08). Equal to
+    // `reports` here because a question's evidence and its grouping touch the same
+    // set of participants; kept as its own key so the regrouping consequence quotes
+    // a number that means "reprinted", not "rescored".
+    regrouped: participants,
     verdicts: await verdictsOn(obs),
     captures: captures.filter((e) => Boolean(e.answers?.[ksa.id]?.trim())).length,
     wiredEvents: links.length,
+  }
+}
+
+/**
+ * A goal's exposure (tl-08): what it groups, and how many reports reprint because
+ * of it.
+ *
+ * `questions` is the number that become ungrouped if the goal is deleted, which is
+ * the whole cost of a delete now that the questions themselves survive it.
+ * `regrouped` is reports whose headings change — deliberately NOT `reports`, which
+ * this file reserves for reports whose numbers change. Nothing is rescored by a
+ * regrouping, and a dialog that used the same word for both would be claiming an
+ * invalidation it cannot substantiate.
+ */
+export async function countsForGoal(goalId: string, workshopId: string): Promise<ImpactCounts> {
+  const [ksas, obs] = await Promise.all([
+    db.ksas.where('goal_id').equals(goalId).toArray(),
+    workshopObservations(workshopId),
+  ])
+  const codes = new Set(ksas.map((k) => k.code))
+  const affected = obs.filter((o) => codes.has(o.ksa_code))
+  return {
+    questions: ksas.length,
+    observations: affected.length,
+    participants: distinctParticipants(affected),
+    regrouped: distinctParticipants(affected),
   }
 }
 
@@ -118,16 +149,18 @@ export async function countsForTeam(teamId: string): Promise<ImpactCounts> {
 
 /** What a whole workshop holds: authored setup and recorded evidence, counted apart. */
 export async function countsForWorkshop(workshopId: string): Promise<ImpactCounts> {
-  const [obs, captures, events, participants, links] = await Promise.all([
+  const [obs, captures, events, participants, questions] = await Promise.all([
     workshopObservations(workshopId),
     submittedCaptures(workshopId),
     db.activities.where('workshop_id').equals(workshopId).count(),
     db.participants.where('workshop_id').equals(workshopId).count(),
-    db.activityKsas.toArray(),
+    // Questions belong to the workshop now (tl-08), so this is a straight count.
+    // It used to be "the questions wired to this workshop's events", because the
+    // library was global and saying "42 questions" about a shared pool would have
+    // been a fabricated number in a dialog whose whole value is that its numbers
+    // are real. The scoped count is that same number, honestly arrived at.
+    db.ksas.where('workshop_id').equals(workshopId).count(),
   ])
-  const eventIds = new Set(
-    (await db.activities.where('workshop_id').equals(workshopId).toArray()).map((a) => a.id),
-  )
   return {
     observations: obs.length,
     captures: captures.length,
@@ -135,11 +168,7 @@ export async function countsForWorkshop(workshopId: string): Promise<ImpactCount
     reports: distinctParticipants(obs),
     verdicts: await verdictsOn(obs),
     events,
-    // Questions are a global library (tl-08 gives them a workshop_id), so what a
-    // workshop delete costs in questions is the ones WIRED to its events, not the
-    // whole library. Saying "42 questions" about a shared library would be a
-    // fabricated number in a dialog whose entire value is that its numbers are real.
-    questions: new Set(links.filter((l) => eventIds.has(l.activity_id)).map((l) => l.ksa_id)).size,
+    questions,
   }
 }
 

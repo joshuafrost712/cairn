@@ -1,4 +1,5 @@
-import type { Activity, ActivityKsa, Ksa, Participant, Team, Workshop } from '../lib/types'
+import { KSA_AREAS } from '../lib/types'
+import type { Activity, ActivityKsa, Goal, Ksa, Participant, Team, Workshop } from '../lib/types'
 
 // Local mirror of supabase/seed.sql, used when Supabase is not configured so the
 // foundation app is demoable offline. Keep in sync with seed.sql if you change either.
@@ -86,11 +87,46 @@ export const seedActivities: Activity[] = [
   { id: '44444444-0000-0000-0000-0000000000a8', workshop_id: seedWorkshops[0].id, title: 'Morning Teaching — Week 2 Day 4 Session (content TBD)', day: '2026-09-03', start_time: '2026-09-03T09:00:00+08:00', end_time: '2026-09-03T12:00:00+08:00', sort_order: 16, genre_group: 'Week 2 · Teaching' },
 ]
 
+/**
+ * The level above a question (tl-08).
+ *
+ * These are the Psalms workshop's six technical competency areas plus the
+ * interpersonal one, which is exactly what `ksa.area` held as free text before
+ * tl-08 — the difference is that they are now rows an administrator can rename,
+ * reorder and add to, and every report heading reads from here. `KSA_AREAS` in
+ * lib/types.ts is the source for the first six and is seed data only; nothing
+ * validates against it.
+ */
+export const seedGoals: Goal[] = [
+  ...KSA_AREAS.map((title, i) => ({
+    id: `66666666-0000-0000-0000-00000000000${i + 1}`,
+    workshop_id: seedWorkshops[0].id,
+    code: `G${i + 1}`,
+    title,
+    description: null,
+    sort_order: i,
+  })),
+  {
+    // Authored alongside the six technical areas rather than inside KSA_AREAS,
+    // which is why it was always the odd one out in the old constant's comment.
+    id: '66666666-0000-0000-0000-000000000007',
+    workshop_id: seedWorkshops[0].id,
+    code: 'G7',
+    title: 'Interpersonal Interaction and Collaborative Posture',
+    description: null,
+    sort_order: 6,
+  },
+]
+
+const goalIdFor = (title: string): string | null =>
+  seedGoals.find((g) => g.title === title)?.id ?? null
+
 export const seedKsas: Ksa[] = [
   {
     id: '55555555-0000-0000-0000-000000000001',
     code: 'CLAT',
-    area: 'The CLAT Process and Translation of Aesthetic Language',
+    workshop_id: seedWorkshops[0].id,
+    goal_id: goalIdFor('The CLAT Process and Translation of Aesthetic Language'),
     short_label: 'CLAT facilitation & drafting',
     description:
       'Knows the Creating Local Arts Together (CLAT) conversations and how to adapt them as a workflow for translating aesthetic portions of Scripture using the macro translation principles for aesthetic language.',
@@ -115,7 +151,8 @@ export const seedKsas: Ksa[] = [
   {
     id: '55555555-0000-0000-0000-000000000002',
     code: 'AESTH',
-    area: 'Aesthetic Language, Ethnopoetics, and the Biblical Function of the Psalms',
+    workshop_id: seedWorkshops[0].id,
+    goal_id: goalIdFor('Aesthetic Language, Ethnopoetics, and the Biblical Function of the Psalms'),
     short_label: 'Aesthetic language & ethnopoetics',
     description:
       'Knows that aesthetic language is a universal human phenomenon for sacred, identity-forming, and emotionally significant content; knows ethnopoetics as the framework; knows the role and functions of aesthetic language in the Hebrew Bible and wider ancient Near East.',
@@ -139,7 +176,8 @@ export const seedKsas: Ksa[] = [
   {
     id: '55555555-0000-0000-0000-000000000003',
     code: 'GENRE',
-    area: 'Genre Theory, Discovery, and Matching',
+    workshop_id: seedWorkshops[0].id,
+    goal_id: goalIdFor('Genre Theory, Discovery, and Matching'),
     short_label: 'Genre mapping & matching',
     description:
       'Knows that every culture has a repertoire of genres with distinct functions, features, and norms; knows the principal Psalm genres and genre theory as a tool for discovering genres in a community and matching them across languages for faithful translation.',
@@ -164,7 +202,8 @@ export const seedKsas: Ksa[] = [
   {
     id: '55555555-0000-0000-0000-000000000004',
     code: 'EXEG',
-    area: 'Psalms Exegesis and Internalization',
+    workshop_id: seedWorkshops[0].id,
+    goal_id: goalIdFor('Psalms Exegesis and Internalization'),
     short_label: 'Exegesis & internalization',
     description:
       'Knows the exegesis of Psalms 1 and 13 (genre, structure, rhetorical features, theology) and relevant Hebrew poetic conventions; knows the internalization frameworks from earlier workshops (the Four Es and SENSES).',
@@ -189,7 +228,8 @@ export const seedKsas: Ksa[] = [
   {
     id: '55555555-0000-0000-0000-000000000005',
     code: 'CHECK',
-    area: 'Checking Artistic Translations',
+    workshop_id: seedWorkshops[0].id,
+    goal_id: goalIdFor('Checking Artistic Translations'),
     short_label: 'Checking facilitation',
     description:
       'Knows best practices for community and consultant checking of artistic translations, how to ask open-ended and inferential questions suited to aesthetic content, and the framework of the Concise Handbook on the Consultant Checking Conversation.',
@@ -214,7 +254,8 @@ export const seedKsas: Ksa[] = [
   {
     id: '55555555-0000-0000-0000-000000000006',
     code: 'ADVOC',
-    area: 'Advocacy and Community Integration',
+    workshop_id: seedWorkshops[0].id,
+    goal_id: goalIdFor('Advocacy and Community Integration'),
     short_label: 'Advocacy & integration',
     description:
       'Knows how to build a case for local-genre Scripture translation (genre theory, ethnopoetics, the social function of aesthetic language, examples from Scripture and the stakeholders’ own milieu) and how to develop a plan for integrating artistic translations into communities.',
@@ -238,7 +279,8 @@ export const seedKsas: Ksa[] = [
   {
     id: '55555555-0000-0000-0000-000000000007',
     code: 'INTERP',
-    area: 'Interpersonal Interaction and Collaborative Posture',
+    workshop_id: seedWorkshops[0].id,
+    goal_id: goalIdFor('Interpersonal Interaction and Collaborative Posture'),
     short_label: 'Interpersonal posture & collaboration',
     description:
       'Knows that consultant work is fundamentally relational and cross-cultural, and that how one engages fellow CITs, consultants, and instructors — collaboration, humility, and openness to feedback — shapes the work as much as technical skill. Observed in the teaching sessions rather than the practicum.',

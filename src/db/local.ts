@@ -5,6 +5,7 @@ import type {
   CoverageRow,
   DiscrepancyResolution,
   EvaluationRecord,
+  Goal,
   Ksa,
   MentoringConversation,
   ObservationRecord,
@@ -22,6 +23,7 @@ import type {
 } from '../lib/types'
 import type { DraftDoc } from '../drafts/types'
 import { planBackfill } from './backfill'
+import { planGoalBackfill } from './goalBackfill'
 import { getActiveWorkshopId } from '../lib/activeWorkshop'
 
 /**
@@ -38,6 +40,7 @@ class CairnDB extends Dexie {
   teams!: EntityTable<Team, 'id'>
   participants!: EntityTable<Participant, 'id'>
   activities!: EntityTable<Activity, 'id'>
+  goals!: EntityTable<Goal, 'id'>
   ksas!: EntityTable<Ksa, 'id'>
   activityKsas!: EntityTable<ActivityKsa & { pk: string }, 'pk'>
   observations!: EntityTable<ObservationRecord, 'id'>
@@ -180,6 +183,66 @@ class CairnDB extends Dexie {
     this.version(12).stores({
       setupChangeLog: 'id, workshop_id, sync_status, at',
     })
+    // v14 (tl-08): the goals layer, and questions that belong to a workshop.
+    //
+    // VERSION CLAIM: **v13 is tl-05's** and is deliberately skipped here. The
+    // program file assigned both numbers before either was implemented, and
+    // honoring the reservation across a gap is cheaper than the alternative: two
+    // branches defining v13 with different stores means the second to merge is
+    // silently wrong on every device that already upgraded, with no error to
+    // notice. Dexie is content with a gap; it is not content with a collision.
+    //
+    // `ksas` gains two indexes because questions are now scoped: the question
+    // list is `where('workshop_id')` rather than the whole table, and the goal
+    // grouping reads `where('goal_id')`. `activityKsas` needs no store change —
+    // its two override columns are data, not indexes.
+    this.version(14)
+      .stores({
+        goals: 'id, workshop_id, sort_order',
+        ksas: 'id, code, workshop_id, goal_id',
+      })
+      .upgrade(async (tx) => {
+        // The plan is computed by planGoalBackfill (src/db/goalBackfill.ts), which
+        // is pure and unit-tested. This block is only the plumbing that applies
+        // it. See that file for why the device backfills at all when the migration
+        // has already done it server-side.
+        const [ksas, links, activities, workshops] = await Promise.all([
+          tx.table('ksas').toArray(),
+          tx.table('activityKsas').toArray(),
+          tx.table('activities').toArray(),
+          tx.table('workshops').toArray(),
+        ])
+
+        const plan = planGoalBackfill({
+          ksas,
+          links,
+          activities,
+          workshops,
+          activeWorkshopId: getActiveWorkshopId(),
+        })
+
+        if (plan.goals.length > 0) await tx.table('goals').bulkPut(plan.goals)
+        await tx
+          .table('ksas')
+          .toCollection()
+          .modify((k: Record<string, unknown>) => {
+            const assignment = plan.assignments.get(k.id as string)
+            if (!assignment) return
+            k.workshop_id = assignment.workshop_id
+            k.goal_id = assignment.goal_id
+          })
+
+        if (plan.unplaced.length > 0) {
+          console.warn(
+            `[honest-eval] tl-08 backfill: ${plan.unplaced.length} question(s) could not be placed in a workshop and will not appear until this device syncs`,
+          )
+        }
+        if (plan.crossWorkshop.length > 0) {
+          console.warn(
+            `[honest-eval] tl-08 backfill: ${plan.crossWorkshop.length} question(s) were wired across more than one workshop and were assigned to their primary one; the backend clones these, so the copies arrive on the next sync`,
+          )
+        }
+      })
   }
 }
 

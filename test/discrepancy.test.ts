@@ -6,7 +6,7 @@ import { renderDiscrepancyEmails } from '../src/reports/discrepancyEmail'
 import { ksa, obs, participant, team } from './factories'
 import type { EvaluationRecord } from '../src/lib/types'
 
-const ksas = [ksa('GENRE', { area: 'Genre Theory' }), ksa('CHECK', { area: 'Checking' })]
+const ksas = [ksa('GENRE', { goal_title: 'Genre Theory' }), ksa('CHECK', { goal_title: 'Checking' })]
 const p = participant({ id: 'p-1', name: 'CIT One' })
 const teams = [team({ id: 't-1', name: 'Team A' })]
 

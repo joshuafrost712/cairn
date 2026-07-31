@@ -101,7 +101,7 @@ export function AdminOverview() {
                 key={k.ksa_code}
                 style={{ padding: 'var(--s-2) 0', borderBottom: '1px solid var(--line)' }}
               >
-                <strong style={{ minWidth: '4.5rem' }} title={k.area}>
+                <strong style={{ minWidth: '4.5rem' }} title={k.goal_title}>
                   {k.ksa_code}
                 </strong>
                 <Sparkline

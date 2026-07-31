@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+
+import type { ActivityKsaResolved } from '../lib/goals'
 import { useNavigate, useParams, Link } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '../db/local'
@@ -11,7 +13,7 @@ import { c } from '../lib/content/chrome'
 import { Copy } from '../components/Copy'
 import { QuickRating } from '../components/QuickRating'
 import { Glossary } from '../components/Glossary'
-import type { Ksa, Participant, ParticipantScopeEntry, QuickRatings } from '../lib/types'
+import type { Participant, ParticipantScopeEntry, QuickRatings } from '../lib/types'
 
 type Level = 0 | 1 | 2 | 3
 
@@ -32,7 +34,10 @@ export function CaptureActivity() {
     () => (record?.activity_id ? db.activities.get(record.activity_id) : undefined),
     [record?.activity_id],
   )
-  const [ksas, setKsas] = useState<Ksa[]>([])
+  // Resolved by ksasForActivity: the per-event prompt override is already applied,
+  // so this screen shows exactly what the Setup preview and the routing capture file
+  // show. That is the point of there being one resolution site (tl-08).
+  const [ksas, setKsas] = useState<ActivityKsaResolved[]>([])
   const participants = useLiveQuery(
     () =>
       record?.workshop_id

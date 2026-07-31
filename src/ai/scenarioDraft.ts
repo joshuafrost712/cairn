@@ -1,7 +1,8 @@
 import { db, newId } from '../db/local'
 import { supabase, isSupabaseConfigured } from '../lib/supabase'
-import { upsertActivity, upsertKsa, setActivityKsas } from '../db/referenceWrite'
-import type { Activity, Ksa } from '../lib/types'
+import { upsertActivity, upsertGoal, upsertKsa, setActivityKsas } from '../db/referenceWrite'
+import { nextGoalCode } from '../lib/goals'
+import type { Activity, Goal, Ksa } from '../lib/types'
 import {
   SCENARIO_RULES,
   SCENARIO_SCHEMA,
@@ -77,16 +78,66 @@ export async function draftScenarioWithAI(
   }
 }
 
-/** Ensure a KSA code is unique in the current library (suffix on collision). */
-async function uniqueCode(base: string): Promise<string> {
+/**
+ * Ensure a question code is unique IN THIS WORKSHOP (suffix on collision).
+ *
+ * Workshop-scoped as of tl-08. It used to check the whole `ksa` table, which was
+ * right while codes were globally unique and is now needlessly destructive: it
+ * would suffix a perfectly legal `Q1` because a different organization's workshop
+ * already had one.
+ */
+async function uniqueCode(base: string, workshopId: string): Promise<string> {
+  const taken = new Set(
+    (await db.ksas.where('workshop_id').equals(workshopId).toArray()).map((k) => k.code),
+  )
   const code = base.trim() || 'Q'
-  const existing = await db.ksas.where('code').equals(code).first()
-  if (!existing) return code
+  if (!taken.has(code)) return code
   for (let i = 2; i < 1000; i++) {
     const candidate = `${code}-${i}`
-    if (!(await db.ksas.where('code').equals(candidate).first())) return candidate
+    if (!taken.has(candidate)) return candidate
   }
   return `${code}-${newId().slice(0, 6)}`
+}
+
+/**
+ * Turn the draft's free-text `area` strings into real goals in this workshop,
+ * reusing a goal that already carries the same title.
+ *
+ * The draft schema still speaks of an "area" because that is what a model is good
+ * at producing from a course outline: a heading, as a string. tl-08's change is
+ * that the string lands as a `goal` row rather than as a column on each question,
+ * so an administrator can then rename it once instead of on every question.
+ */
+async function goalIdsForDraft(
+  areas: string[],
+  workshopId: string,
+): Promise<Map<string, string>> {
+  const existing = await db.goals.where('workshop_id').equals(workshopId).toArray()
+  const byTitle = new Map(existing.map((g) => [g.title.trim(), g.id]))
+  const out = new Map<string, string>()
+  let created = existing.length
+  for (const raw of areas) {
+    const title = raw.trim()
+    if (!title) continue
+    const found = byTitle.get(title)
+    if (found) {
+      out.set(title, found)
+      continue
+    }
+    const goal: Goal = {
+      id: newId(),
+      workshop_id: workshopId,
+      code: nextGoalCode(existing),
+      title,
+      description: null,
+      sort_order: created++,
+    }
+    await upsertGoal(goal)
+    existing.push(goal)
+    byTitle.set(title, goal.id)
+    out.set(title, goal.id)
+  }
+  return out
 }
 
 /**
@@ -100,14 +151,19 @@ export async function importScenarioDraft(
   workshopId: string,
 ): Promise<{ activities: number; ksas: number; wired: number }> {
   // Create KSAs, mapping the draft code -> the (possibly suffixed) new KSA.
+  const goalIds = await goalIdsForDraft(
+    draft.ksas.map((dk) => dk.area ?? ''),
+    workshopId,
+  )
   const codeToKsaId = new Map<string, string>()
   let ksaCount = 0
   for (const dk of draft.ksas) {
-    const code = await uniqueCode(dk.code)
+    const code = await uniqueCode(dk.code, workshopId)
     const k: Ksa = {
       id: newId(),
+      workshop_id: workshopId,
       code,
-      area: dk.area ?? '',
+      goal_id: goalIds.get((dk.area ?? '').trim()) ?? null,
       short_label: dk.short_label,
       description: dk.description ?? '',
       evaluator_facing_prompt: dk.evaluator_facing_prompt,

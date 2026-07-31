@@ -5,6 +5,7 @@
 // row a human has touched.
 
 import { db, newId } from './local'
+import { loadResolvedKsas } from './reference'
 import { buildAllReports } from '../reports/build'
 import { annotateObservations, participantGate, type Gate } from '../reports/verification'
 import {
@@ -100,7 +101,7 @@ export interface GenerateOptions {
 export async function generateParticipantEmails(opts: GenerateOptions): Promise<DraftDoc[]> {
   const [participants, ksas, teams, observations, verdicts, workshops] = await Promise.all([
     db.participants.toArray(),
-    db.ksas.toArray(),
+    loadResolvedKsas(),
     db.teams.toArray(),
     db.observations.toArray(),
     db.verifications.toArray(),
@@ -162,7 +163,7 @@ export async function generateEventDigests(opts: DigestOptions): Promise<DraftDo
   const [activities, ksas, observations, verdicts, evaluations, conversations, workshops] =
     await Promise.all([
       db.activities.toArray(),
-      db.ksas.toArray(),
+      loadResolvedKsas(),
       db.observations.toArray(),
       db.verifications.toArray(),
       db.evaluations.toArray(),

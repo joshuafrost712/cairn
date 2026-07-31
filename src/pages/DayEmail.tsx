@@ -1,4 +1,6 @@
 import { useMemo, useState } from 'react'
+
+import { useResolvedKsas } from '../hooks/useResolvedKsas'
 import { Link } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '../db/local'
@@ -7,7 +9,7 @@ import { ADMIN_ROLES, useHasWorkshopRole } from '../layout/roles'
 import { buildAllReports } from '../reports/build'
 import { renderDayEmailMarkdown } from '../reports/dayEmail'
 import { annotateObservations, participantGate, type Gate } from '../reports/verification'
-import type { Ksa, ObservationRecord, Participant, Team, VerificationVerdict } from '../lib/types'
+import type { ObservationRecord, Participant, Team, VerificationVerdict } from '../lib/types'
 
 // End-of-day email: one summary across every participant evaluated today, rolled up
 // from the same pipeline the Reports page uses (annotate → buildAllReports →
@@ -18,7 +20,7 @@ export function DayEmail() {
   const { identity } = useAuth()
   const isAdmin = useHasWorkshopRole(ADMIN_ROLES)
   const participants = useLiveQuery(() => db.participants.toArray(), [], [] as Participant[])
-  const ksas = useLiveQuery(() => db.ksas.toArray(), [], [] as Ksa[])
+  const ksas = useResolvedKsas()
   const teams = useLiveQuery(() => db.teams.toArray(), [], [] as Team[])
   const observations = useLiveQuery(() => db.observations.toArray(), [], [] as ObservationRecord[])
   const verdicts = useLiveQuery(() => db.verifications.toArray(), [], [] as VerificationVerdict[])

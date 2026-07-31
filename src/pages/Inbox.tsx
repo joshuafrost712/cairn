@@ -1,4 +1,6 @@
 import { useMemo, useState } from 'react'
+
+import { useResolvedKsas } from '../hooks/useResolvedKsas'
 import { Link } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '../db/local'
@@ -8,7 +10,7 @@ import { buildAllReports } from '../reports/build'
 import { annotateObservations } from '../reports/verification'
 import { findDiscrepancies, buildCaptureTimeMap, discrepancyId } from '../reports/discrepancy'
 import { renderDiscrepancyEmails } from '../reports/discrepancyEmail'
-import type { Ksa, ObservationRecord, Participant, Team, VerificationVerdict, EvaluationRecord, DiscrepancyResolution } from '../lib/types'
+import type { ObservationRecord, Participant, Team, VerificationVerdict, EvaluationRecord, DiscrepancyResolution } from '../lib/types'
 import type { Discrepancy } from '../reports/discrepancy'
 import type { DiscrepancyEmailDraft } from '../reports/discrepancyEmail'
 
@@ -84,7 +86,7 @@ function DiscrepancyCard({
       <div className="row row--top">
         <div style={{ flex: 1 }}>
           <strong>{d.participant_name}</strong>
-          <span className="muted small"> · {d.ksa_code} — {d.area}</span>
+          <span className="muted small"> · {d.ksa_code} — {d.goal_title}</span>
           <div className="small" style={{ marginTop: 'var(--s-1)' }}>
             <span className="pill queued">scores: {d.lo}/3 to {d.hi}/3</span>
           </div>
@@ -139,7 +141,7 @@ export function Inbox() {
   const { identity } = useAuth()
 
   const participants = useLiveQuery(() => db.participants.toArray(), [], [] as Participant[])
-  const ksas = useLiveQuery(() => db.ksas.toArray(), [], [] as Ksa[])
+  const ksas = useResolvedKsas()
   const teams = useLiveQuery(() => db.teams.toArray(), [], [] as Team[])
   const observations = useLiveQuery(() => db.observations.toArray(), [], [] as ObservationRecord[])
   const verdicts = useLiveQuery(() => db.verifications.toArray(), [], [] as VerificationVerdict[])
@@ -243,7 +245,7 @@ export function Inbox() {
                   <div key={id} className="rail small">
                     <span className="pill synced">reconciled</span>{' '}
                     <strong>{d.participant_name}</strong>
-                    <span className="muted"> · {d.ksa_code} — {d.area} ({d.lo}/3 to {d.hi}/3)</span>
+                    <span className="muted"> · {d.ksa_code} — {d.goal_title} ({d.lo}/3 to {d.hi}/3)</span>
                     {res && (
                       <div className="muted">
                         Marked by {res.resolved_by} on {new Date(res.at).toLocaleString()}

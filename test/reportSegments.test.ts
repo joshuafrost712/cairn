@@ -78,7 +78,7 @@ describe('segment ids', () => {
   })
 
   it('are unaffected when an unrelated participant gains an observation', () => {
-    const ksas = [ksa('GENRE', { area: 'Genre Theory' })]
+    const ksas = [ksa('GENRE', { goal_title: 'Genre Theory' })]
     const people = [participant({ id: 'p-1', name: 'One' }), participant({ id: 'p-2', name: 'Two' })]
     const teams = [team()]
     const base = [obs({ id: 'a', participant_id: 'p-1', evidence_designation: 3 })]

@@ -23,9 +23,9 @@ export interface DocFixture {
 }
 
 const ksas = [
-  ksa('GENRE', { id: 'k-genre', area: 'Genre Theory', cbc_subpoint_refs: ['1.2 Exegesis'] }),
-  ksa('CHECK', { id: 'k-check', area: 'Checking', cbc_subpoint_refs: ['1.2 Exegesis', '3.1 Quality'] }),
-  ksa('FACIL', { id: 'k-facil', area: 'Facilitation', cbc_subpoint_refs: ['2.4 Team'] }),
+  ksa('GENRE', { id: 'k-genre', goal_title: 'Genre Theory', cbc_subpoint_refs: ['1.2 Exegesis'] }),
+  ksa('CHECK', { id: 'k-check', goal_title: 'Checking', cbc_subpoint_refs: ['1.2 Exegesis', '3.1 Quality'] }),
+  ksa('FACIL', { id: 'k-facil', goal_title: 'Facilitation', cbc_subpoint_refs: ['2.4 Team'] }),
 ]
 const p1 = participant({ id: 'p-1', name: 'CIT One', team_id: 't-1' })
 const p2 = participant({ id: 'p-2', name: 'CIT Two', team_id: null })

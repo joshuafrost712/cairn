@@ -5,7 +5,7 @@ import { annotateObservations, participantGate, type Gate } from '../src/reports
 import type { ObservationRecord, VerificationVerdict } from '../src/lib/types'
 import { ksa, obs, participant, team } from './factories'
 
-const ksas = [ksa('GENRE', { area: 'Genre Theory' }), ksa('CHECK', { area: 'Checking' })]
+const ksas = [ksa('GENRE', { goal_title: 'Genre Theory' }), ksa('CHECK', { goal_title: 'Checking' })]
 const p = participant({ id: 'p-1', name: 'CIT One' })
 const teams = [team({ id: 't-1', name: 'Team A' })]
 
