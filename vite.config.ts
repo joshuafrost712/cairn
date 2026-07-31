@@ -187,15 +187,61 @@ function requireBackendConfig(): Plugin {
   }
 }
 
+// Dev-only companion to the tl-07 setup audit log. Every committed setup change
+// above `safe` severity is appended to feedback/setup-changes/<date>.md, so the
+// divergence between the live database and src/data/seed.ts has a git-visible
+// record — the same requirement the Web App Build Protocol puts on applied
+// reference edits, for the same reason.
+//
+// Best-effort by contract: the change has already committed and the client ignores
+// failure, so a deployed build (no dev server) still saves the edit and keeps its
+// record in Dexie and Postgres.
+function setupLogEndpoint(): Plugin {
+  return {
+    name: 'cairn-setup-log',
+    configureServer(server) {
+      server.middlewares.use((req, res, next) => {
+        if (req.method !== 'POST' || !req.url?.split('?')[0].endsWith('/__setup-log')) return next()
+        readJsonBody(req, (parsed) => {
+          try {
+            const { date, markdown } = (parsed ?? {}) as { date?: string; markdown?: string }
+            if (!markdown?.trim()) {
+              res.statusCode = 400
+              return res.end(JSON.stringify({ error: 'markdown is required' }))
+            }
+            const day = /^\d{4}-\d{2}-\d{2}$/.test(date ?? '') ? date! : 'undated'
+            const dir = join(process.cwd(), 'feedback', 'setup-changes')
+            mkdirSync(dir, { recursive: true })
+            const file = join(dir, `${day}.md`)
+            if (!existsSync(file)) writeFileSync(file, `# Setup changes — ${day}\n`)
+            appendFileSync(file, markdown.endsWith('\n') ? markdown : `${markdown}\n`)
+            res.setHeader('Content-Type', 'application/json')
+            res.end(JSON.stringify({ path: `feedback/setup-changes/${day}.md` }))
+          } catch (err) {
+            res.statusCode = 400
+            res.end(JSON.stringify({ error: String(err) }))
+          }
+        })
+      })
+    },
+  }
+}
+
 // https://vite.dev/config/
 export default defineConfig({
   base,
+  // 5180 is the repo default and what every harness assumes. A CONCURRENT session
+  // must move off it (`npm run dev -- --port 5181`) and point its own harness at the
+  // new one: a verification script left on the default drives the other session's
+  // build and passes, which is the worst possible green. tl-07 ran on 5181 for that
+  // reason and put the default back on merge.
   server: { port: 5180 },
   plugins: [
     requireBackendConfig(),
     feedbackInbox(),
     contentEditEndpoint(),
     contentLogEndpoint(),
+    setupLogEndpoint(),
     react(),
     VitePWA({
       registerType: 'autoUpdate',

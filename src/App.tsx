@@ -22,7 +22,6 @@ import { Observations } from './pages/Observations'
 import { Reports } from './pages/Reports'
 import { DayEmail } from './pages/DayEmail'
 import { Export } from './pages/Export'
-import { Builder } from './pages/Builder'
 import { AdminOverview } from './pages/admin/AdminOverview'
 import { WorkshopHealth } from './pages/admin/WorkshopHealth'
 import { SyncHealth } from './pages/admin/SyncHealth'
@@ -33,10 +32,9 @@ import { ParticipantList } from './pages/admin/ParticipantList'
 import { ParticipantDetail } from './pages/admin/ParticipantDetail'
 import { EvaluatorList } from './pages/admin/EvaluatorList'
 import { EvaluatorDetail } from './pages/admin/EvaluatorDetail'
-import { Roster } from './pages/admin/Roster'
 import { Assignments } from './pages/admin/Assignments'
 import { Records } from './pages/admin/Records'
-import { Settings } from './pages/admin/Settings'
+import { Setup } from './pages/admin/Setup'
 import { DataPage } from './pages/admin/DataPage'
 import { Conversations } from './pages/Conversations'
 import { Inbox } from './pages/Inbox'
@@ -206,7 +204,6 @@ function Shell() {
           <Route path="/outgoing" element={<Outgoing />} />
           <Route path="/outgoing/:draftId" element={<Workbench />} />
           <Route path="/export" element={<Export />} />
-          <Route path="/builder" element={<Builder />} />
 
           <Route path="/admin/overview" element={<AdminOverview />} />
           <Route path="/admin/workshop" element={<WorkshopHealth />} />
@@ -226,9 +223,18 @@ function Shell() {
         </Route>
 
         <Route element={<RequireRole roles={ADMIN_ROLES} />}>
-          <Route path="/admin/roster" element={<Roster />} />
+          {/* tl-07: the Setup hub. One surface owns the whole workshop definition,
+              and each section is its own route so a link can point at one. The
+              editors that used to live at /builder, /admin/roster and
+              /admin/settings are sections of it now; their old paths redirect
+              below rather than rendering a second copy.
+
+              ADMIN_ROLES, where /builder was CHIEF_ROLES: authoring what a
+              workshop asks and who is in it is an administrator's act. A chief
+              evaluator keeps every review surface and loses the authoring one. */}
+          <Route path="/admin/setup" element={<Setup />} />
+          <Route path="/admin/setup/:section" element={<Setup />} />
           <Route path="/admin/records" element={<Records />} />
-          <Route path="/admin/settings" element={<Settings />} />
           <Route path="/admin/data" element={<DataPage />} />
           {/* tl-03: routing is an administrator's surface. It used to sit in the
               capture group where every signed-in user could open it, which is how
@@ -238,8 +244,13 @@ function Shell() {
           {/* tl-18: the pipeline gauge. Admin, not chief: it lists other
               evaluators' stuck work and links to routing. */}
           <Route path="/admin/sync-health" element={<SyncHealth />} />
-          {/* The old single Admin page. Bookmarks and the docs both point at it. */}
-          <Route path="/admin" element={<Navigate to="/admin/roster" replace />} />
+          {/* The old paths. Every one of these is in somebody's bookmarks, an
+              installed PWA's cache, or a doc, and the catch-all would send them
+              home with no explanation. They land on the section that replaced
+              them instead. */}
+          <Route path="/admin" element={<Navigate to="/admin/setup" replace />} />
+          <Route path="/admin/roster" element={<Navigate to="/admin/setup/participants" replace />} />
+          <Route path="/admin/settings" element={<Navigate to="/admin/setup" replace />} />
         </Route>
       </Route>
 
@@ -248,6 +259,12 @@ function Shell() {
           path instead means an admin lands on the page and an evaluator is
           bounced home by RequireRole — the correct answer for each. */}
       <Route path="/routing" element={<Navigate to="/admin/routing" replace />} />
+
+      {/* /builder is outside the ADMIN_ROLES block on purpose: a chief evaluator
+          following an old link should be redirected to the hub and bounced home by
+          its gate, which reads as "not yours any more", rather than falling through
+          to the catch-all as if the link were nonsense. */}
+      <Route path="/builder" element={<Navigate to="/admin/setup/calendar" replace />} />
 
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

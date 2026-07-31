@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import type { MouseEvent } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '../../db/local'
 import {
@@ -10,13 +10,15 @@ import {
   deleteTeam,
   updateParticipant,
   updateTeam,
-  updateWorkshop,
 } from '../../db/admin'
 import { PageHeader } from '../../layout/PageHeader'
 import { DataTable } from '../../components/data/DataTable'
 import type { Column } from '../../components/data/DataTable'
-import { ConfirmAction } from '../../components/data/ConfirmAction'
 import { EmptyState } from '../../components/data/EmptyState'
+import { useScopedWorkshopId } from '../../layout/roles'
+import { countsForParticipant, countsForTeam } from '../../setup/counts'
+import { diffFields } from '../../setup/impact'
+import { useSetupSave } from '../../setup/useSetupSave'
 import { formatBreakdown, membersOf, teamBreakdown } from '../../lib/teams'
 import type { Participant, Team, Workshop } from '../../lib/types'
 
@@ -41,30 +43,97 @@ import type { Participant, Team, Workshop } from '../../lib/types'
  *     row to change it. That is what lets a row click mean "show me this person"
  *     without a click on a name landing in a text cursor instead.
  *
- * Deleting a participant still arms first, and still says how much evidence the
- * delete would strand.
+ * Since tl-07 this is the Participants SECTION of the Setup hub rather than a page of
+ * its own, so it is rendered with `embedded` and the hub owns the page header. Two
+ * other things changed with the move.
+ *
+ * The workshop-meta card is gone: it lives in Setup's Basics section now, and two
+ * editors for one entity is exactly what that spec forbids.
+ *
+ * And every write goes through useSetupSave(), which classifies it and logs it. The
+ * per-field edits and the team moves stay save-on-blur because the classifier calls
+ * them safe; adding somebody and deleting somebody do not, and their confirmation is
+ * now the impact dialog with real counts rather than prose written into this file.
  */
-export function Roster() {
+export function Roster({ embedded = false }: { embedded?: boolean }) {
   const navigate = useNavigate()
-  const [busy, setBusy] = useState(false)
-  const workshops = useLiveQuery(() => db.workshops.toArray(), [], [] as Workshop[])
+  const { request, busy } = useSetupSave()
+  const workshopId = useScopedWorkshopId()
+  // The validated active workshop, not workshops[0]. Since tl-01 made roles
+  // per-workshop, editing whichever workshop happened to sort first was a real bug
+  // in a multi-workshop deployment: it would silently edit somebody else's roster.
+  const workshop = useLiveQuery(
+    () => (workshopId ? db.workshops.get(workshopId) : Promise.resolve(undefined)),
+    [workshopId],
+    undefined,
+  ) as Workshop | undefined
   const teams = useLiveQuery(() => db.teams.toArray(), [], [] as Team[])
   const participants = useLiveQuery(() => db.participants.toArray(), [], [] as Participant[])
   const observations = useLiveQuery(() => db.observations.toArray(), [], [])
 
-  const workshop = (workshops ?? [])[0] ?? null
   const [newTeam, setNewTeam] = useState('')
   const [newName, setNewName] = useState('')
   const [openTeam, setOpenTeam] = useState<string | null>(null)
   const [editing, setEditing] = useState<string | null>(null)
 
-  const withBusy = async (fn: () => Promise<unknown>) => {
-    setBusy(true)
-    try {
-      await fn()
-    } finally {
-      setBusy(false)
-    }
+  /** A participant edit. Safe fields only; the classifier enforces that. */
+  const editParticipant = (p: Participant, patch: Partial<Participant>) =>
+    request({
+      change: {
+        entity: 'participant',
+        operation: 'update',
+        entityId: p.id,
+        label: p.name,
+        fields: diffFields(p, { ...p, ...patch }),
+      },
+      commit: () => updateParticipant(p.id, patch),
+    })
+
+  const removeParticipant = async (p: Participant) => {
+    const counts = await countsForParticipant(p.id)
+    await request({
+      change: { entity: 'participant', operation: 'delete', entityId: p.id, label: p.name, counts },
+      commit: () => deleteParticipant(p.id),
+    })
+  }
+
+  const createParticipant = (workshopId: string, name: string) =>
+    request({
+      // Mid-workshop this classifies affects_future: a new person changes who
+      // evaluators are asked to watch from here on. In a draft workshop, which is
+      // when a roster is usually typed in, it is safe and saves without a dialog.
+      change: { entity: 'participant', operation: 'create', entityId: null, label: name },
+      commit: async () => {
+        await addParticipant(workshopId, { name })
+      },
+    })
+
+  const createTeam = (workshopId: string, name: string) =>
+    request({
+      change: { entity: 'team', operation: 'create', entityId: null, label: name },
+      commit: async () => {
+        await addTeam(workshopId, name)
+      },
+    })
+
+  const renameTeam = (t: Team, name: string) =>
+    request({
+      change: {
+        entity: 'team',
+        operation: 'update',
+        entityId: t.id,
+        label: t.name,
+        fields: diffFields(t, { ...t, name }),
+      },
+      commit: () => updateTeam(t.id, { name }),
+    })
+
+  const removeTeam = async (t: Team) => {
+    const counts = await countsForTeam(t.id)
+    await request({
+      change: { entity: 'team', operation: 'delete', entityId: t.id, label: t.name, counts },
+      commit: () => deleteTeam(t.id),
+    })
   }
 
   const myTeams = (teams ?? []).filter((t) => t.workshop_id === workshop?.id)
@@ -119,7 +188,7 @@ export function Roster() {
           value={p.team_id ?? ''}
           aria-label={`Team for ${p.name}`}
           onClick={stop}
-          onChange={(e) => updateParticipant(p.id, { team_id: e.target.value || null })}
+          onChange={(e) => void editParticipant(p, { team_id: e.target.value || null })}
         >
           <option value="">Unassigned</option>
           {myTeams.map((t) => (
@@ -149,22 +218,16 @@ export function Roster() {
           >
             {editing === p.id ? 'done' : 'edit'}
           </button>
-          <ConfirmAction
+          {/* No arm-then-fire here any more: the impact dialog IS the confirmation,
+              and it names the real counts rather than the prose this file used to
+              carry. A destructive delete also demands the person's name typed back. */}
+          <button
             className="btn--sm danger-quiet"
-            label="delete"
-            confirmLabel={`Delete ${p.name}`}
             disabled={busy}
-            warning={
-              obsCount(p.id) > 0 ? (
-                <>
-                  {p.name} has <strong>{obsCount(p.id)}</strong> observation(s). Deleting the person
-                  does not delete the evidence; those rows stay in the database attributed to a
-                  participant who no longer exists, and will show as unattributed.
-                </>
-              ) : undefined
-            }
-            onConfirm={() => withBusy(() => deleteParticipant(p.id))}
-          />
+            onClick={() => void removeParticipant(p)}
+          >
+            delete
+          </button>
         </span>
       ),
     },
@@ -182,7 +245,7 @@ export function Roster() {
             id={`n-${p.id}`}
             className="input--cell"
             defaultValue={p.name}
-            onBlur={(e) => updateParticipant(p.id, { name: e.target.value })}
+            onBlur={(e) => void editParticipant(p, { name: e.target.value })}
           />
         </span>
         <span>
@@ -195,7 +258,7 @@ export function Roster() {
             type="email"
             placeholder="none"
             defaultValue={p.registered_email ?? ''}
-            onBlur={(e) => updateParticipant(p.id, { registered_email: e.target.value || null })}
+            onBlur={(e) => void editParticipant(p, { registered_email: e.target.value || null })}
           />
         </span>
       </div>
@@ -209,7 +272,7 @@ export function Roster() {
             className="cell-select"
             value={p.sex ?? ''}
             onChange={(e) =>
-              updateParticipant(p.id, { sex: (e.target.value || null) as 'male' | 'female' | null })
+              void editParticipant(p, { sex: (e.target.value || null) as 'male' | 'female' | null })
             }
           >
             <option value="">Unrecorded</option>
@@ -226,7 +289,7 @@ export function Roster() {
             className="input--cell"
             placeholder="e.g. SIL Indonesia"
             defaultValue={p.organization ?? ''}
-            onBlur={(e) => updateParticipant(p.id, { organization: e.target.value || null })}
+            onBlur={(e) => void editParticipant(p, { organization: e.target.value || null })}
           />
         </span>
         <span>
@@ -242,7 +305,7 @@ export function Roster() {
             style={{ width: '6rem' }}
             defaultValue={p.years_of_service ?? ''}
             onBlur={(e) =>
-              updateParticipant(p.id, {
+              void editParticipant(p, {
                 years_of_service: e.target.value === '' ? null : Number(e.target.value),
               })
             }
@@ -258,59 +321,32 @@ export function Roster() {
 
   return (
     <>
-      <PageHeader
-        title="Roster"
-        crumbs={[{ label: 'Configure' }, { label: 'Roster' }]}
-        meta={
-          workshop
-            ? `${myParticipants.length} participants · ${myTeams.length} teams · ${unassigned.length} unassigned`
-            : undefined
-        }
-      />
+      {!embedded && (
+        <PageHeader
+          title="Roster"
+          crumbs={[{ label: 'Configure' }, { label: 'Roster' }]}
+          meta={
+            workshop
+              ? `${myParticipants.length} participants · ${myTeams.length} teams · ${unassigned.length} unassigned`
+              : undefined
+          }
+        />
+      )}
+      {embedded && workshop && (
+        <p className="small muted">
+          {myParticipants.length} participants · {myTeams.length} teams · {unassigned.length}{' '}
+          unassigned
+        </p>
+      )}
 
       {!workshop ? (
         <div className="banner warn">
-          No workshop loaded. Load one from <a href="/admin/data">Data</a>, then edit it here.
+          No workshop selected. Choose or create one in{' '}
+          <Link to="/admin/setup/basics">Workshop basics</Link>.
         </div>
       ) : (
         <div className="grid grid--split">
           <div>
-            <div className="card">
-              <h2>Workshop</h2>
-              <label htmlFor="wname">Name</label>
-              <input
-                id="wname"
-                defaultValue={workshop.name ?? ''}
-                onBlur={(e) => updateWorkshop(workshop.id, { name: e.target.value })}
-              />
-              <label htmlFor="wloc">Location</label>
-              <input
-                id="wloc"
-                defaultValue={workshop.location ?? ''}
-                onBlur={(e) => updateWorkshop(workshop.id, { location: e.target.value })}
-              />
-              <div className="row">
-                <span>
-                  <label htmlFor="wstart">Start</label>
-                  <input
-                    id="wstart"
-                    type="date"
-                    defaultValue={workshop.start_date ?? ''}
-                    onBlur={(e) => updateWorkshop(workshop.id, { start_date: e.target.value })}
-                  />
-                </span>
-                <span>
-                  <label htmlFor="wend">End</label>
-                  <input
-                    id="wend"
-                    type="date"
-                    defaultValue={workshop.end_date ?? ''}
-                    onBlur={(e) => updateWorkshop(workshop.id, { end_date: e.target.value })}
-                  />
-                </span>
-              </div>
-            </div>
-
             <div className="card">
               <h2>Teams</h2>
               <p className="small muted">
@@ -355,7 +391,7 @@ export function Roster() {
                           id={`t-${t.id}`}
                           className="input--cell"
                           defaultValue={t.name}
-                          onBlur={(e) => updateTeam(t.id, { name: e.target.value })}
+                          onBlur={(e) => void renameTeam(t, e.target.value)}
                         />
 
                         {members.length === 0 ? (
@@ -369,9 +405,7 @@ export function Roster() {
                                   aria-label={`Remove ${m.name} from ${t.name}`}
                                   title={`Remove ${m.name} from ${t.name}`}
                                   disabled={busy}
-                                  onClick={() =>
-                                    withBusy(() => updateParticipant(m.id, { team_id: null }))
-                                  }
+                                  onClick={() => void editParticipant(m, { team_id: null })}
                                 >
                                   ×
                                 </button>
@@ -387,7 +421,8 @@ export function Roster() {
                           disabled={busy || unassigned.length === 0}
                           onChange={(e) => {
                             const id = e.target.value
-                            if (id) void withBusy(() => updateParticipant(id, { team_id: t.id }))
+                            const person = myParticipants.find((p) => p.id === id)
+                            if (person) void editParticipant(person, { team_id: t.id })
                           }}
                         >
                           <option value="">
@@ -402,19 +437,13 @@ export function Roster() {
                           ))}
                         </select>
 
-                        <ConfirmAction
+                        <button
                           className="btn--sm danger-quiet"
-                          label="delete team"
-                          confirmLabel={`Delete ${t.name}`}
                           disabled={busy}
-                          warning={
-                            <>
-                              Its {breakdown.total} member(s) become unassigned. Their evidence is
-                              untouched.
-                            </>
-                          }
-                          onConfirm={() => withBusy(() => deleteTeam(t.id))}
-                        />
+                          onClick={() => void removeTeam(t)}
+                        >
+                          delete team
+                        </button>
                       </div>
                     )}
                   </div>
@@ -432,12 +461,11 @@ export function Roster() {
                 />
                 <button
                   disabled={busy || !newTeam.trim()}
-                  onClick={() =>
-                    withBusy(async () => {
-                      await addTeam(workshop.id, newTeam.trim())
-                      setNewTeam('')
-                    })
-                  }
+                  onClick={() => {
+                    const name = newTeam.trim()
+                    setNewTeam('')
+                    void createTeam(workshop.id, name)
+                  }}
                 >
                   Add team
                 </button>
@@ -472,12 +500,11 @@ export function Roster() {
               />
               <button
                 disabled={busy || !newName.trim()}
-                onClick={() =>
-                  withBusy(async () => {
-                    await addParticipant(workshop.id, { name: newName.trim() })
-                    setNewName('')
-                  })
-                }
+                onClick={() => {
+                  const name = newName.trim()
+                  setNewName('')
+                  void createParticipant(workshop.id, name)
+                }}
               >
                 Add participant
               </button>

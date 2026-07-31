@@ -181,8 +181,15 @@ describe('the evaluator-facing copy names no mechanism', () => {
   // is pointing at. The exemption is earned, not assumed: the nav test below
   // asserts that entry is ADMIN_ROLES, so if the gate is ever loosened this
   // exemption stops being true and that test fails first.
+  //
+  // tl-07 adds `setup.ai.`, and deliberately only that one branch of the Setup tree.
+  // The whole hub is behind RequireRole ADMIN_ROLES, so exempting `setup.` wholesale
+  // would pass this audit too, and would also stop the audit noticing the day a Setup
+  // string is reused on an evaluator's screen. The AI section is the only part that
+  // has to name the mechanism (a provider, a token cost, the routing repo), so it is
+  // the only part exempted, and every other `setup.` string stays under audit.
   const ADMIN_ONLY =
-    /^(routing\.|sync-health\.|nav\.routing|nav\.sync-health|nav\.discrepancy-inbox|nav\.builder)/
+    /^(routing\.|sync-health\.|nav\.routing|nav\.sync-health|nav\.discrepancy-inbox|nav\.builder|setup\.ai\.)/
 
   const nodes = (chrome as { nodes: Array<Record<string, unknown>> }).nodes
 

@@ -30,3 +30,11 @@ is that overarching issues are easier and safer to handle all at once.
   **Committed, unlike the two above.** These edits are applied to the database,
   so the file is the only record that the live text has diverged from
   `src/data/seed.ts`; reconcile the seed from it when convenient.
+- `setup-changes/` — one file per day recording every committed setup change above
+  `safe` severity (tl-07): what was edited, by whom, at what severity, and the
+  counts the warning dialog quoted. **Committed, for the same reason as
+  `content-edits/`**: a setup edit lands in the database, so the file is the record
+  that the live workshop definition has diverged from the seed. Written
+  best-effort by a dev-only endpoint, so it exists for edits made with
+  `npm run dev` running and not for edits made on a deployed build; those keep
+  their record in `setup_change_log` and in the device's own Dexie.

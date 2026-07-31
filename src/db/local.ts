@@ -11,6 +11,7 @@ import type {
   Participant,
   ReferenceOutboxEntry,
   ReportAssignment,
+  SetupChangeLogEntry,
   Team,
   VerdictTombstone,
   VerificationVerdict,
@@ -51,6 +52,7 @@ class CairnDB extends Dexie {
   workshopPeople!: EntityTable<WorkshopPerson, 'pk'>
   workshopSettings!: EntityTable<WorkshopSettingRow, 'pk'>
   assignments!: EntityTable<ReportAssignment, 'pk'>
+  setupChangeLog!: EntityTable<SetupChangeLogEntry, 'id'>
 
   constructor() {
     super('cairn')
@@ -165,6 +167,19 @@ class CairnDB extends Dexie {
             v.sync_error = null
           })
       })
+    // v12 (tl-07): the setup audit log's outbox. A setup edit made offline must
+    // still be logged, so the row is written here first and pushed to
+    // log_setup_change() when the network returns — the same offline-first contract
+    // every other write in this app has.
+    //
+    // VERSION CLAIM: tl-07 owns Dexie v12 for this wave. tl-05 is the other spec
+    // that needs a bump and takes v13; the two were assigned in the program file
+    // rather than at implementation time, because two branches defining v12 with
+    // different contents means the second to merge is silently wrong on every
+    // device that already upgraded. Purely additive, so no upgrade function.
+    this.version(12).stores({
+      setupChangeLog: 'id, workshop_id, sync_status, at',
+    })
   }
 }
 
