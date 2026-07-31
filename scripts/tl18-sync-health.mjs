@@ -485,7 +485,41 @@ try {
   )
 
   // =========================================================================
-  // 4. The coverage-channel race, whose exclusion tl-18 removed from tl-03.
+  // 4. Start fresh on this device.
+  //
+  // Last, because it empties the device the checks above were reading. Its
+  // promise has two halves and both need proving: the evidence goes, and
+  // everything needed to keep capturing stays. A "clear" that took the roster
+  // with it would leave a phone that cannot be used until somebody reinstalls.
+  // =========================================================================
+  await admin.goto(`${BASE}admin/data`, { waitUntil: 'domcontentloaded' })
+  await admin.waitForSelector('.pagehead__title', { timeout: 20000 })
+  await admin.waitForTimeout(1500)
+  const before = await admin.locator('.pagehead__meta').innerText()
+  const heldBefore = Number(/(\d+) captures/.exec(before)?.[1] ?? 0)
+  check(heldBefore > 0, 'the device is holding evidence before the clear', before.trim())
+
+  await admin.getByRole('button', { name: /^start fresh on this device$/i }).first().click()
+  await admin.getByRole('textbox').last().fill('start fresh')
+  await admin.getByRole('button', { name: /remove this device's evidence/i }).first().click()
+  await admin.waitForTimeout(2000)
+
+  const after = await admin.locator('body').innerText()
+  check(
+    new RegExp(`Removed from this device: ${heldBefore} capture`).test(after),
+    'it reports exactly what it removed',
+    /Removed from this device[^\n]*/.exec(after)?.[0]?.slice(0, 90) ?? 'absent',
+  )
+  const meta = await admin.locator('.pagehead__meta').innerText()
+  check(/0 captures/.test(meta), 'the device holds no captures afterwards', meta.trim())
+  check(
+    !/0 participants/.test(meta),
+    'and the roster survived, so the device can still be used to capture',
+    meta.trim(),
+  )
+
+  // =========================================================================
+  // 5. The coverage-channel race, whose exclusion tl-18 removed from tl-03.
   // =========================================================================
   check(
     errors.length === 0,

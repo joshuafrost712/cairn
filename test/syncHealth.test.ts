@@ -7,6 +7,7 @@ import {
   summarizePending,
 } from '../src/reports/syncHealth'
 import { acquireChannel, activeChannelTopics, resetChannelRegistry } from '../src/db/channelRegistry'
+import { describeFreshStart } from '../src/db/freshStart'
 import type {
   EvaluationRecord,
   ObservationRecord,
@@ -390,5 +391,37 @@ describe('acquireChannel', () => {
     acquireChannel('coverage:ws-1', open)
     acquireChannel('observations:ws-1', open)
     expect(activeChannelTopics()).toEqual(['coverage:ws-1', 'observations:ws-1'])
+  })
+})
+
+describe('describeFreshStart', () => {
+  const zero = {
+    evaluations: 0,
+    observations: 0,
+    verdicts: 0,
+    tombstones: 0,
+    conversations: 0,
+    coverage: 0,
+  }
+
+  it('says nothing happened when nothing was there', () => {
+    // A "removed 0 captures" message on an already-clean device reads like a
+    // failed action, and the next thing somebody does is run it again.
+    expect(describeFreshStart(zero)).toMatch(/already clear/i)
+  })
+
+  it('counts what it removed and says what it kept', () => {
+    const msg = describeFreshStart({ ...zero, evaluations: 7, observations: 3, verdicts: 2 })
+    expect(msg).toContain('7 capture(s)')
+    expect(msg).toContain('3 observation(s)')
+    expect(msg).toContain('2 verdict(s)')
+    expect(msg).toMatch(/roster, schedule and questions are untouched/i)
+  })
+
+  it('does not claim a clean device when only coverage rows remained', () => {
+    // Coverage is a derived cache, but a device holding one is not "already
+    // clear" — saying so would leave a stale cue on the participant selector
+    // with nothing on screen to explain it.
+    expect(describeFreshStart({ ...zero, coverage: 4 })).not.toMatch(/already clear/i)
   })
 })

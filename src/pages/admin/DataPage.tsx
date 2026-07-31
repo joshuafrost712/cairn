@@ -3,6 +3,7 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '../../db/local'
 import { primeFromSeed } from '../../db/reference'
 import { exportAll, importAll } from '../../db/backup'
+import { clearDeviceEvidence, describeFreshStart } from '../../db/freshStart'
 import { downloadText } from '../../lib/download'
 import { loadDemoScenario } from '../../data/demoScenario'
 import { PageHeader } from '../../layout/PageHeader'
@@ -113,6 +114,38 @@ export function DataPage() {
               } catch (err) {
                 setMsg(`Error: ${err instanceof Error ? err.message : String(err)}`)
               }
+            })
+          }
+        />
+      </div>
+
+      <div className="card">
+        <h2>Start fresh on this device</h2>
+        <p className="small muted">
+          Removes this device's captures, observations, verdicts and conversations, and keeps the
+          workshop, roster, schedule, questions and your sign-in. Use it when a device is carrying
+          work from a previous workshop, or work that has been discarded on purpose.
+        </p>
+        <p className="small muted">
+          It clears <em>this device only</em>. Anything already in the shared database stays there
+          and comes back on the next check, so the order that works is: clear the shared database
+          first, then each device. Download a backup above unless you are certain.
+        </p>
+        <ConfirmAction
+          label="Start fresh on this device"
+          confirmLabel="Remove this device's evidence"
+          phrase="start fresh"
+          className=""
+          disabled={busy}
+          warning={
+            <>
+              Deletes every capture, observation, verdict and conversation held here. There is no
+              undo, and a backup taken after this point will not contain them.
+            </>
+          }
+          onConfirm={() =>
+            withBusy(async () => {
+              setMsg(describeFreshStart(await clearDeviceEvidence()))
             })
           }
         />

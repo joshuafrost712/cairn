@@ -34,3 +34,8 @@ feedback/incoming/*
 feedback/processed/*
 !feedback/incoming/.gitkeep
 !feedback/processed/.gitkeep
+
+# One-off archive of the pilot workshop's evaluations, taken before the
+# 2026-07-30 fresh start (tl-18). Real participant evidence — kept locally so the
+# delete is recoverable, never committed.
+.pilot-archive/

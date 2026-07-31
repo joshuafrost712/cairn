@@ -250,8 +250,11 @@ select tl04_try('blocked', 'anon reads observations', null,
 select tl04_try('blocked', 'anon reads verdicts', null,
   $q$select 1 from verification_verdict$q$);
 
-select tl04_try('blocked', 'anon reads the retired observation_legacy table', null,
-  $q$select 1 from observation_legacy$q$);
+-- The `observation_legacy` check that used to sit here is deliberately gone
+-- rather than left to pass. tl-18 dropped the table (migration
+-- 20260730001300), and a "blocked" check against a table that no longer exists
+-- passes on the error alone — which is a green line that has stopped measuring
+-- anything. A retired assertion is better deleted than left looking healthy.
 
 -- ---------------------------------------------------------------------------
 -- The permitted half. A permission spec that only proves refusals has proved the
