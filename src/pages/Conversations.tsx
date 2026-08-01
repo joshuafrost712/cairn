@@ -1,37 +1,188 @@
-import { useEffect, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '../db/local'
 import {
-  reconcileMentoringConversations,
+  compareForAssignee,
+  conversationEvidence,
+  guidanceChangedSince,
+  isOpenConversation,
   scheduleConversation,
   completeConversation,
-  dismissConversation,
 } from '../db/mentoring'
+import { annotateObservations } from '../reports/verification'
+import type { AnnotatedObservation } from '../reports/verification'
 import { useAuth } from '../auth/AuthContext'
 import { Copy } from '../components/Copy'
-import type { MentoringConversation } from '../lib/types'
+import { c } from '../lib/content/chrome'
+import { EvidenceList } from '../components/admin/EvidenceList'
+import { markConversationViewed, readConversationViews } from '../lib/conversationViews'
+import type { ConversationViews } from '../lib/conversationViews'
+import type { Activity, Ksa, MentoringConversation } from '../lib/types'
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
+/**
+ * The assigned evaluator's side of a follow-up conversation.
+ *
+ * tl-05 gave a conversation an owner and somewhere for the admin to say how it
+ * should be opened. This page is the other end of that handover, and Joshua's
+ * feedback names what it has to carry: the evidence that called for the
+ * conversation, the admin's notes on approaching it, and somewhere to record how
+ * it actually went.
+ *
+ * Three decisions are load-bearing enough to state here.
+ *
+ * NO RECONCILE. This page used to derive conversations on mount. Derivation is an
+ * administrator's act now (tl-05 made insert admin-only in the database, so an
+ * evaluator's derived rows were refused anyway), and a device quietly creating
+ * queue rows nobody has seen is the wrong ownership even where it works.
+ *
+ * NO DISMISS. Dropping an assigned conversation is a decision by the person who
+ * assigned it. An evaluator who thinks it should be dropped says so through the
+ * follow-up note, which their admin actually reads.
+ *
+ * THE LIST IS "WHAT I OWE", NOT "WHAT EXISTS". Open conversations, unscheduled
+ * first; everything finished is folded away. The predicate and the order are
+ * imported from db/mentoring so the badge in the sidebar cannot say 2 above a
+ * page listing 4.
+ */
 
-function fmtDate(iso: string | null): string {
+function fmtDate(iso: string | null | undefined): string {
   if (!iso) return ''
-  // Dates are stored as ISO date strings (YYYY-MM-DD) or ISO timestamps.
   const d = new Date(iso)
-  return d.toLocaleDateString([], { dateStyle: 'medium' })
+  return Number.isNaN(d.getTime()) ? '' : d.toLocaleDateString([], { dateStyle: 'medium' })
 }
 
 // ---------------------------------------------------------------------------
-// Sub-components
+// Guidance
 // ---------------------------------------------------------------------------
 
-interface ScheduleFormProps {
+function GuidancePanel({
+  conv,
+  changed,
+}: {
   conv: MentoringConversation
-  onDone: () => void
+  changed: boolean
+}) {
+  if (!conv.admin_guidance) {
+    return (
+      <p className="small muted">
+        <Copy id="conversations.mine.guidance-none" />
+      </p>
+    )
+  }
+  return (
+    <div className="banner info" style={{ margin: '0.5rem 0' }}>
+      <div className="row" style={{ marginBottom: '0.25rem' }}>
+        <span className="small" style={{ fontWeight: 600 }}>
+          <Copy id="conversations.mine.guidance-title" />
+        </span>
+        <span className="spacer" />
+        {changed && (
+          <span className="pill queued">{c('conversations.mine.guidance-changed')}</span>
+        )}
+      </div>
+      {/* Verbatim, and pre-wrapped: an admin who wrote three short paragraphs
+          about how to open a hard conversation should not have them collapsed
+          into one by the renderer. */}
+      <p className="small" style={{ margin: 0, whiteSpace: 'pre-wrap' }}>
+        {conv.admin_guidance}
+      </p>
+      <p className="small muted" style={{ margin: '0.4rem 0 0' }}>
+        {conv.assigned_by
+          ? c('conversations.mine.guidance-stamp', 'label', {
+              email: conv.assigned_by,
+              date: fmtDate(conv.admin_guidance_updated_at) || '—',
+            })
+          : c('conversations.mine.guidance-stamp-anon', 'label', {
+              date: fmtDate(conv.admin_guidance_updated_at) || '—',
+            })}
+      </p>
+    </div>
+  )
 }
 
-function ScheduleForm({ conv, onDone }: ScheduleFormProps) {
+// ---------------------------------------------------------------------------
+// Evidence
+// ---------------------------------------------------------------------------
+
+function EvidencePanel({
+  conv,
+  annotated,
+  ksaByCode,
+  activityById,
+}: {
+  conv: MentoringConversation
+  annotated: AnnotatedObservation[]
+  ksaByCode: Map<string, Ksa>
+  activityById: Map<string, Activity>
+}) {
+  const { trigger, pattern } = useMemo(
+    () => conversationEvidence(conv, annotated),
+    [conv, annotated],
+  )
+  const ksa = conv.trigger_ksa_code ? ksaByCode.get(conv.trigger_ksa_code) : undefined
+  const activity = conv.trigger_activity_id ? activityById.get(conv.trigger_activity_id) : undefined
+
+  return (
+    <div style={{ marginTop: '0.75rem' }}>
+      <h3 className="small" style={{ margin: '0 0 0.25rem' }}>
+        <Copy id="conversations.mine.evidence-title" />
+      </h3>
+
+      {ksa ? (
+        <div className="small" style={{ marginBottom: '0.5rem' }}>
+          <strong>
+            {conv.trigger_ksa_code} — {ksa.short_label}
+          </strong>
+          <p className="muted" style={{ margin: '0.15rem 0 0' }}>
+            {ksa.evaluator_facing_prompt}
+          </p>
+        </div>
+      ) : (
+        conv.trigger_ksa_code && (
+          <p className="small" style={{ margin: '0 0 0.5rem' }}>
+            <strong>{conv.trigger_ksa_code}</strong>
+          </p>
+        )
+      )}
+
+      <p className="small muted" style={{ margin: '0 0 0.5rem' }}>
+        {activity
+          ? c('conversations.mine.evidence-activity', 'label', { activity: activity.title })
+          : c('conversations.mine.evidence-activity-unknown')}
+      </p>
+
+      {/* The partial-sync state is real rather than defensive. tl-04 pushes and
+          pulls observations and conversations in the same loop but not in the
+          same transaction, so an assignment can land on a phone one cycle before
+          the evidence behind it does. Saying that is better than a blank panel
+          and much better than a crash. */}
+      {trigger === null ? (
+        <div className="banner warn">
+          <Copy id="conversations.mine.evidence-pending" />
+        </div>
+      ) : (
+        <EvidenceList observations={[trigger]} />
+      )}
+
+      <h3 className="small" style={{ margin: '0.75rem 0 0.25rem' }}>
+        {c('conversations.mine.pattern-title', 'label', { name: conv.participant_name })}
+      </h3>
+      {pattern.length === 0 ? (
+        <p className="small muted" style={{ margin: 0 }}>
+          <Copy id="conversations.mine.pattern-empty" />
+        </p>
+      ) : (
+        <EvidenceList observations={pattern} />
+      )}
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Forms
+// ---------------------------------------------------------------------------
+
+function ScheduleForm({ conv, onDone }: { conv: MentoringConversation; onDone: () => void }) {
   const [date, setDate] = useState(conv.scheduled_for ?? '')
   const [saving, setSaving] = useState(false)
 
@@ -46,7 +197,9 @@ function ScheduleForm({ conv, onDone }: ScheduleFormProps) {
 
   return (
     <form onSubmit={handleSubmit} style={{ marginTop: '0.5rem' }}>
-      <label htmlFor={`date-${conv.id}`}>Schedule date</label>
+      <label htmlFor={`date-${conv.id}`}>
+        <Copy id="conversations.mine.schedule.label" />
+      </label>
       <input
         id={`date-${conv.id}`}
         type="date"
@@ -57,26 +210,29 @@ function ScheduleForm({ conv, onDone }: ScheduleFormProps) {
       />
       <div className="row">
         <button type="submit" className="primary" disabled={saving || !date}>
-          {saving ? 'Saving…' : 'Set date'}
+          {saving ? c('conversations.mine.outcome.saving') : c('conversations.mine.schedule.save')}
         </button>
         <button type="button" onClick={onDone}>
-          Cancel
+          {c('conversations.mine.outcome.cancel')}
         </button>
       </div>
     </form>
   )
 }
 
-interface CompleteFormProps {
+function OutcomeForm({
+  conv,
+  recordedBy,
+  onDone,
+}: {
   conv: MentoringConversation
-  defaultRecordedBy: string
+  recordedBy: string
   onDone: () => void
-}
-
-function CompleteForm({ conv, defaultRecordedBy, onDone }: CompleteFormProps) {
+}) {
   const [summary, setSummary] = useState(conv.summary ?? '')
   const [response, setResponse] = useState(conv.participant_response ?? '')
-  const [recordedBy, setRecordedBy] = useState(defaultRecordedBy)
+  const [followUp, setFollowUp] = useState(conv.follow_up_needed === true)
+  const [followUpNote, setFollowUpNote] = useState(conv.follow_up_note ?? '')
   const [saving, setSaving] = useState(false)
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -85,7 +241,12 @@ function CompleteForm({ conv, defaultRecordedBy, onDone }: CompleteFormProps) {
     await completeConversation(conv.id, {
       summary,
       participant_response: response,
-      recorded_by: recordedBy,
+      // No longer a free text field. tl-05 knows who was given this conversation,
+      // so asking them to type their own name was asking for a typo in the one
+      // column that attributes the record.
+      recorded_by: recordedBy || null,
+      follow_up_needed: followUp,
+      follow_up_note: followUp ? followUpNote : null,
     })
     setSaving(false)
     onDone()
@@ -93,37 +254,70 @@ function CompleteForm({ conv, defaultRecordedBy, onDone }: CompleteFormProps) {
 
   return (
     <form onSubmit={handleSubmit} style={{ marginTop: '0.5rem' }}>
-      <label htmlFor={`summary-${conv.id}`}>Summary</label>
+      <h3 className="small" style={{ margin: '0 0 0.25rem' }}>
+        <Copy id="conversations.mine.outcome.title" />
+      </h3>
+
+      <label htmlFor={`summary-${conv.id}`}>
+        <Copy id="conversations.mine.outcome.summary-label" />
+      </label>
       <textarea
         id={`summary-${conv.id}`}
         value={summary}
         onChange={(e) => setSummary(e.target.value)}
-        placeholder="What was discussed?"
+        placeholder={c('conversations.mine.outcome.summary-placeholder')}
         required
         style={{ marginBottom: '0.5rem' }}
       />
-      <label htmlFor={`response-${conv.id}`}>Participant response</label>
+
+      <label htmlFor={`response-${conv.id}`}>
+        <Copy id="conversations.mine.outcome.response-label" />
+      </label>
+      <p className="small muted" style={{ margin: '0 0 0.25rem' }}>
+        <Copy id="conversations.mine.outcome.response-help" />
+      </p>
       <textarea
         id={`response-${conv.id}`}
         value={response}
         onChange={(e) => setResponse(e.target.value)}
-        placeholder="How did they respond?"
+        placeholder={c('conversations.mine.outcome.response-placeholder')}
         style={{ marginBottom: '0.5rem' }}
       />
-      <label htmlFor={`recorded-${conv.id}`}>Recorded by</label>
-      <input
-        id={`recorded-${conv.id}`}
-        type="text"
-        value={recordedBy}
-        onChange={(e) => setRecordedBy(e.target.value)}
-        style={{ marginBottom: '0.5rem' }}
-      />
+
+      <label htmlFor={`followup-${conv.id}`} className="row" style={{ gap: '0.4rem' }}>
+        <input
+          id={`followup-${conv.id}`}
+          type="checkbox"
+          checked={followUp}
+          onChange={(e) => setFollowUp(e.target.checked)}
+          style={{ width: 'auto', margin: 0 }}
+        />
+        <span>{c('conversations.mine.outcome.followup-label')}</span>
+      </label>
+      <p className="small muted" style={{ margin: '0.15rem 0 0.25rem' }}>
+        <Copy id="conversations.mine.outcome.followup-help" />
+      </p>
+      {followUp && (
+        <textarea
+          id={`followup-note-${conv.id}`}
+          value={followUpNote}
+          onChange={(e) => setFollowUpNote(e.target.value)}
+          placeholder={c('conversations.mine.outcome.followup-note-placeholder')}
+          aria-label={c('conversations.mine.outcome.followup-note-label')}
+          style={{ marginBottom: '0.5rem' }}
+        />
+      )}
+
+      <p className="small muted" style={{ margin: '0.25rem 0 0.5rem' }}>
+        {c('conversations.mine.outcome.recorded-by', 'label', { email: recordedBy || '—' })}
+      </p>
+
       <div className="row">
         <button type="submit" className="primary" disabled={saving || !summary}>
-          {saving ? 'Saving…' : 'Mark complete'}
+          {saving ? c('conversations.mine.outcome.saving') : c('conversations.mine.outcome.save')}
         </button>
         <button type="button" onClick={onDone}>
-          Cancel
+          {c('conversations.mine.outcome.cancel')}
         </button>
       </div>
     </form>
@@ -131,27 +325,43 @@ function CompleteForm({ conv, defaultRecordedBy, onDone }: CompleteFormProps) {
 }
 
 // ---------------------------------------------------------------------------
-// Conversation card
+// Card
 // ---------------------------------------------------------------------------
 
-interface ConvCardProps {
-  conv: MentoringConversation
-  defaultRecordedBy: string
+function StatusPill({ conv }: { conv: MentoringConversation }) {
+  if (conv.status === 'scheduled') {
+    return (
+      <span className="pill" style={{ color: 'var(--accent)', borderColor: '#bfdbfe', background: '#eff6ff' }}>
+        {c('conversations.mine.status.scheduled', 'label', { date: fmtDate(conv.scheduled_for) })}
+      </span>
+    )
+  }
+  if (conv.status === 'completed') return <span className="pill synced">{c('conversations.mine.status.completed')}</span>
+  if (conv.status === 'dismissed') return <span className="pill local">{c('conversations.mine.status.dismissed')}</span>
+  return <span className="pill queued">{c('conversations.mine.status.needed')}</span>
 }
 
-function ConvCard({ conv, defaultRecordedBy }: ConvCardProps) {
+function ConvCard({
+  conv,
+  annotated,
+  ksaByCode,
+  activityById,
+  recordedBy,
+  expanded,
+  onToggle,
+  guidanceChanged,
+}: {
+  conv: MentoringConversation
+  annotated: AnnotatedObservation[]
+  ksaByCode: Map<string, Ksa>
+  activityById: Map<string, Activity>
+  recordedBy: string
+  expanded: boolean
+  onToggle: () => void
+  guidanceChanged: boolean
+}) {
   const [action, setAction] = useState<'schedule' | 'complete' | null>(null)
-  const [dismissing, setDismissing] = useState(false)
-  // tl-05 shows the guidance here in its plainest form so an assigned evaluator
-  // is not asked to hold a hard conversation with less than the admin knew. The
-  // full treatment — the triggering evidence beside it, and a stamp when the
-  // guidance changed after they last looked — is tl-06's.
-
-  const handleDismiss = async () => {
-    setDismissing(true)
-    await dismissConversation(conv.id)
-    setDismissing(false)
-  }
+  const open = isOpenConversation(conv)
 
   return (
     <div className="activity-item" style={{ display: 'block', cursor: 'default' }}>
@@ -164,65 +374,84 @@ function ConvCard({ conv, defaultRecordedBy }: ConvCardProps) {
           )}
         </span>
         <span className="spacer" />
-        {conv.status === 'needed' && (
-          <span className="pill queued">needed</span>
+        {guidanceChanged && !expanded && (
+          <span className="pill queued">{c('conversations.mine.guidance-changed')}</span>
         )}
-        {conv.status === 'scheduled' && (
-          <span className="pill" style={{ color: 'var(--accent)', borderColor: '#bfdbfe', background: '#eff6ff' }}>
-            scheduled {fmtDate(conv.scheduled_for)}
-          </span>
+        {conv.follow_up_needed === true && (
+          <span className="pill error">{c('conversations.mine.followup.flag')}</span>
         )}
-        {conv.status === 'completed' && (
-          <span className="pill synced">done</span>
-        )}
-        {conv.status === 'dismissed' && (
-          <span className="pill local">dismissed</span>
-        )}
+        <StatusPill conv={conv} />
+        <button className="ghost small" onClick={onToggle} aria-expanded={expanded}>
+          {expanded ? c('conversations.mine.close') : c('conversations.mine.open')}
+        </button>
       </div>
 
-      {conv.admin_guidance && (
-        <div className="banner info" style={{ margin: '0.5rem 0' }}>
-          <div className="small" style={{ fontWeight: 600 }}>
-            <Copy id="conversations.mine.guidance-title" />
-          </div>
-          <p className="small" style={{ margin: '0.25rem 0 0' }}>
-            {conv.admin_guidance}
-          </p>
-        </div>
-      )}
+      {expanded && (
+        <>
+          <GuidancePanel conv={conv} changed={guidanceChanged} />
+          <EvidencePanel
+            conv={conv}
+            annotated={annotated}
+            ksaByCode={ksaByCode}
+            activityById={activityById}
+          />
 
-      {conv.status === 'completed' && conv.summary && (
-        <p className="small muted" style={{ margin: '0.25rem 0' }}>{conv.summary}</p>
-      )}
-      {conv.status === 'completed' && conv.participant_response && (
-        <p className="small muted" style={{ margin: '0.25rem 0' }}>
-          <em>Response:</em> {conv.participant_response}
-        </p>
-      )}
+          {conv.status === 'completed' && (
+            <div style={{ marginTop: '0.75rem' }}>
+              <h3 className="small" style={{ margin: '0 0 0.25rem' }}>
+                <Copy id="conversations.mine.logged-title" />
+              </h3>
+              {conv.summary && <p className="small" style={{ margin: 0 }}>{conv.summary}</p>}
+              {conv.participant_response && (
+                <p className="small muted" style={{ margin: '0.25rem 0 0' }}>
+                  {c('conversations.mine.logged-response', 'label', {
+                    response: conv.participant_response,
+                  })}
+                </p>
+              )}
+              {conv.follow_up_needed === true && (
+                <p className="small" style={{ margin: '0.25rem 0 0' }}>
+                  <strong>{c('conversations.mine.followup.flag')}.</strong>{' '}
+                  {conv.follow_up_note ?? ''}
+                </p>
+              )}
+            </div>
+          )}
 
-      {(conv.status === 'needed' || conv.status === 'scheduled') && action === null && (
-        <div className="row" style={{ marginTop: '0.5rem' }}>
-          <button className="primary" style={{ fontSize: '0.85rem', padding: '0.4rem 0.75rem' }} onClick={() => setAction('complete')}>
-            Log conversation
-          </button>
-          <button style={{ fontSize: '0.85rem', padding: '0.4rem 0.75rem' }} onClick={() => setAction('schedule')}>
-            {conv.status === 'scheduled' ? 'Reschedule' : 'Schedule'}
-          </button>
-          <button
-            style={{ fontSize: '0.85rem', padding: '0.4rem 0.75rem', color: 'var(--muted)' }}
-            onClick={handleDismiss}
-            disabled={dismissing}
-          >
-            Dismiss
-          </button>
-        </div>
-      )}
+          {open && action === null && (
+            <div className="row" style={{ marginTop: '0.75rem' }}>
+              <button
+                className="primary"
+                style={{ fontSize: '0.85rem', padding: '0.4rem 0.75rem' }}
+                onClick={() => setAction('complete')}
+              >
+                {c('conversations.mine.log')}
+              </button>
+              <button
+                style={{ fontSize: '0.85rem', padding: '0.4rem 0.75rem' }}
+                onClick={() => setAction('schedule')}
+              >
+                {conv.status === 'scheduled'
+                  ? c('conversations.mine.reschedule')
+                  : c('conversations.mine.schedule')}
+              </button>
+            </div>
+          )}
 
-      {action === 'schedule' && (
-        <ScheduleForm conv={conv} onDone={() => setAction(null)} />
-      )}
-      {action === 'complete' && (
-        <CompleteForm conv={conv} defaultRecordedBy={defaultRecordedBy} onDone={() => setAction(null)} />
+          {action === 'schedule' && <ScheduleForm conv={conv} onDone={() => setAction(null)} />}
+          {action === 'complete' && (
+            // Remounted per conversation and per open, per the Web App Build
+            // Protocol's second reliability invariant: a form that clears itself in
+            // an effect leaks the previous conversation's summary into the next
+            // one, and a summary is exactly the field where that would be believed.
+            <OutcomeForm
+              key={conv.id}
+              conv={conv}
+              recordedBy={recordedBy}
+              onDone={() => setAction(null)}
+            />
+          )}
+        </>
       )}
     </div>
   )
@@ -235,59 +464,69 @@ function ConvCard({ conv, defaultRecordedBy }: ConvCardProps) {
 export function Conversations() {
   const { identity } = useAuth()
   const myEmail = identity?.email?.trim().toLowerCase() ?? null
-  const [reconciling, setReconciling] = useState(false)
-  const [reconcileMsg, setReconcileMsg] = useState<string | null>(null)
-  const [showDismissed, setShowDismissed] = useState(false)
+  const [expandedId, setExpandedId] = useState<string | null>(null)
+  const [showClosed, setShowClosed] = useState(false)
+  const [views, setViews] = useState<ConversationViews>(() => readConversationViews())
 
-  // Derive 'needed' rows from confirmed-low observations once on mount.
-  useEffect(() => {
-    void reconcileMentoringConversations()
-  }, [])
-
-  // tl-05: yours, not everybody's.
-  //
-  // This page used to list every conversation on the device, which is what
-  // Joshua's feedback objected to first — an evaluator opening it found the whole
-  // workshop's follow-ups, including participants they had never met. RLS narrows
-  // what the backend returns, but it cannot narrow this page on its own: every
-  // device DERIVES conversations locally from the observations it holds, and an
-  // evaluator holds the workshop's observations because they have to verify them.
-  // So the filter is here as well as in the database, and the two agree.
-  //
-  // An admin sees their own assigned conversations here too, and the full queue at
-  // /admin/conversations. One page per question rather than one page that changes
-  // shape depending on who is looking at it.
+  // Yours, not everybody's (tl-05). RLS narrows what the BACKEND returns, and it
+  // cannot narrow this page on its own: every device derives conversations locally
+  // from the observations it holds, and an evaluator holds the workshop's
+  // observations because verifying them is their job.
   const conversations = useLiveQuery(
     () =>
       myEmail
-        ? db.mentoringConversations
-            .where('assigned_to')
-            .equals(myEmail)
-            .toArray()
-            .then((rows) =>
-              rows.sort((a, b) =>
-                a.updated_at < b.updated_at ? 1 : a.updated_at > b.updated_at ? -1 : 0,
-              ),
-            )
+        ? db.mentoringConversations.where('assigned_to').equals(myEmail).toArray()
         : Promise.resolve([] as MentoringConversation[]),
     [myEmail],
     [] as MentoringConversation[],
   )
 
-  const needed = (conversations ?? []).filter((c) => c.status === 'needed')
-  const scheduled = (conversations ?? []).filter((c) => c.status === 'scheduled')
-  const completed = (conversations ?? []).filter((c) => c.status === 'completed')
-  const dismissed = (conversations ?? []).filter((c) => c.status === 'dismissed')
+  const observations = useLiveQuery(() => db.observations.toArray(), [], [])
+  const verdicts = useLiveQuery(() => db.verifications.toArray(), [], [])
+  const ksas = useLiveQuery(() => db.ksas.toArray(), [], [])
+  const activities = useLiveQuery(() => db.activities.toArray(), [], [])
 
-  const handleReconcile = async () => {
-    setReconciling(true)
-    setReconcileMsg(null)
-    const { added } = await reconcileMentoringConversations()
-    setReconcileMsg(added > 0 ? `Found ${added} new conversation${added === 1 ? '' : 's'}.` : 'No new conversations found.')
-    setReconciling(false)
+  const annotated = useMemo(
+    () => annotateObservations(observations ?? [], verdicts ?? []),
+    [observations, verdicts],
+  )
+  const ksaByCode = useMemo(() => new Map((ksas ?? []).map((k) => [k.code, k])), [ksas])
+  const activityById = useMemo(() => new Map((activities ?? []).map((a) => [a.id, a])), [activities])
+
+  // Not `conversations ?? []`: useLiveQuery already carries a default, and the
+  // fallback literal would be a new array on every render, so both memos below
+  // would recompute forever.
+  const mine = conversations
+  const open = useMemo(() => mine.filter(isOpenConversation).sort(compareForAssignee), [mine])
+  const closed = useMemo(
+    () => mine.filter((x) => !isOpenConversation(x)).sort(compareForAssignee),
+    [mine],
+  )
+
+  const handleToggle = (id: string) => {
+    if (expandedId === id) {
+      setExpandedId(null)
+      return
+    }
+    setExpandedId(id)
+    // Stamped on open rather than on render, so a card that was never opened keeps
+    // its "guidance changed" marker instead of quietly clearing it as the list
+    // paints. Written in the handler, not an effect: the mark belongs to the act.
+    setViews((v) => markConversationViewed(v, id, new Date().toISOString()))
   }
 
-  const defaultRecordedBy = identity?.email ?? ''
+  const recordedBy = myEmail ?? ''
+
+  const cardProps = (conv: MentoringConversation) => ({
+    conv,
+    annotated,
+    ksaByCode,
+    activityById,
+    recordedBy,
+    expanded: expandedId === conv.id,
+    onToggle: () => handleToggle(conv.id),
+    guidanceChanged: guidanceChangedSince(conv, views[conv.id]),
+  })
 
   return (
     <>
@@ -298,69 +537,42 @@ export function Conversations() {
         <p className="small muted">
           <Copy id="conversations.mine.intro" />
         </p>
-        <div className="row">
-          <button onClick={handleReconcile} disabled={reconciling}>
-            {reconciling ? 'Checking…' : 'Reconcile'}
-          </button>
-          {reconcileMsg && <span className="small muted">{reconcileMsg}</span>}
-        </div>
       </div>
 
-      {(conversations ?? []).length === 0 && (
-        <div className="banner info">
-          <Copy id="conversations.mine.empty" />
-        </div>
-      )}
-
-      {needed.length > 0 && (
-        <div className="card">
-          <h2>Needed</h2>
-          <p className="small muted" style={{ marginBottom: '0.5rem' }}>
-            Confirmed low observations that need a follow-up conversation.
+      <div className="card">
+        <h2>
+          <Copy id="conversations.mine.open-title" />
+        </h2>
+        <p className="small muted" style={{ marginBottom: '0.5rem' }}>
+          <Copy id="conversations.mine.open-intro" />
+        </p>
+        {open.length === 0 ? (
+          // A finished list, not a broken page: nothing assigned is the ordinary
+          // state for most evaluators most days.
+          <p className="small muted" style={{ margin: 0 }}>
+            <Copy id="conversations.mine.empty" />
           </p>
-          {needed.map((c) => (
-            <ConvCard key={c.id} conv={c} defaultRecordedBy={defaultRecordedBy} />
-          ))}
-        </div>
-      )}
+        ) : (
+          open.map((conv) => <ConvCard key={conv.id} {...cardProps(conv)} />)
+        )}
+      </div>
 
-      {scheduled.length > 0 && (
-        <div className="card">
-          <h2>Scheduled</h2>
-          <p className="small muted" style={{ marginBottom: '0.5rem' }}>
-            Conversations with a date set; not yet logged as completed.
-          </p>
-          {scheduled.map((c) => (
-            <ConvCard key={c.id} conv={c} defaultRecordedBy={defaultRecordedBy} />
-          ))}
-        </div>
-      )}
-
-      {completed.length > 0 && (
-        <div className="card">
-          <h2>Completed</h2>
-          {completed.map((c) => (
-            <ConvCard key={c.id} conv={c} defaultRecordedBy={defaultRecordedBy} />
-          ))}
-        </div>
-      )}
-
-      {dismissed.length > 0 && (
+      {closed.length > 0 && (
         <div className="card">
           <div className="row">
-            <h2 style={{ margin: 0 }}>Dismissed</h2>
+            <h2 style={{ margin: 0 }}>
+              <Copy id="conversations.mine.closed-title" />
+            </h2>
             <span className="spacer" />
-            <button className="ghost small" onClick={() => setShowDismissed((v) => !v)}>
-              {showDismissed ? 'hide' : `show dismissed (${dismissed.length})`}
+            <button className="ghost small" onClick={() => setShowClosed((v) => !v)}>
+              {showClosed
+                ? c('conversations.mine.closed-hide')
+                : c('conversations.mine.closed-show', 'label', { count: closed.length })}
             </button>
           </div>
-          {showDismissed &&
-            dismissed.map((c) => (
-              <ConvCard key={c.id} conv={c} defaultRecordedBy={defaultRecordedBy} />
-            ))}
+          {showClosed && closed.map((conv) => <ConvCard key={conv.id} {...cardProps(conv)} />)}
         </div>
       )}
-
     </>
   )
 }

@@ -34,6 +34,7 @@ export function deriveNeededConversations(
   annotated: AnnotatedObservation[],
   participantsById: Map<string, Participant>,
   nowIso: string,
+  activityByCapture: Map<string, string | null> = new Map(),
 ): MentoringConversation[] {
   const results: MentoringConversation[] = []
 
@@ -59,7 +60,15 @@ export function deriveNeededConversations(
       trigger_observation_id: obs.id,
       trigger_ksa_code: obs.ksa_code,
       trigger_designation: d,
-      trigger_activity_id: null, // not available on ObservationRecord
+      // tl-06: resolved through the capture the observation came from, because an
+      // ObservationRecord still carries no activity of its own. This is filled on
+      // the DERIVING device, which is an administrator's since tl-06 removed the
+      // evaluator's reconcile, and an administrator is the one device that holds
+      // other people's captures (tl-03 pulls them to the routing page). The
+      // assignee then receives the activity through the sync rather than needing
+      // a capture that was never theirs. Null when the capture is not on this
+      // device either, and the panel says so rather than inventing a title.
+      trigger_activity_id: activityByCapture.get(obs.capture_client_id) ?? null,
       status: 'needed',
       scheduled_for: null,
       summary: null,
@@ -70,6 +79,8 @@ export function deriveNeededConversations(
       assigned_at: null,
       admin_guidance: null,
       admin_guidance_updated_at: null,
+      follow_up_needed: false,
+      follow_up_note: null,
       created_at: nowIso,
       updated_at: nowIso,
       sync_status: 'local',
@@ -89,19 +100,33 @@ export function deriveNeededConversations(
  * the entire queue on the next page load and look like nothing had happened.
  *
  * Returns null when the row should be left exactly as it is, which is the answer
- * for every field the admin or the assignee owns. The one repair it will make is
- * filling a workshop_id that was never set — rows derived before tl-05 all hold
- * null there and cannot sync until it is filled.
+ * for every field the admin or the assignee owns. It makes exactly two repairs,
+ * and both are of the same narrow kind: filling a field that was never set.
+ *
+ *   - `workshop_id`, because rows derived before tl-05 all hold null there and
+ *     every policy on the table refuses them until it is filled.
+ *   - `trigger_activity_id` (tl-06), because rows derived before tl-06 hold null
+ *     there by construction and the evidence panel has no other way to name the
+ *     activity on a device that does not hold the capture.
+ *
+ * Neither one overwrites a value that exists. A repair that could overwrite would
+ * be indistinguishable from the bug this function is written to prevent.
  */
 export function reconcilePatch(
   existing: MentoringConversation,
   derived: MentoringConversation,
 ): Partial<MentoringConversation> | null {
-  if (existing.workshop_id || !derived.workshop_id) return null
+  const patch: Partial<MentoringConversation> = {}
+  if (!existing.workshop_id && derived.workshop_id) patch.workshop_id = derived.workshop_id
+  if (!existing.trigger_activity_id && derived.trigger_activity_id) {
+    patch.trigger_activity_id = derived.trigger_activity_id
+  }
+  if (Object.keys(patch).length === 0) return null
   return {
-    workshop_id: derived.workshop_id,
-    // Back into the outbox: the row could not have been accepted before, so it
-    // has never reached the backend regardless of what its sync_status claims.
+    ...patch,
+    // Back into the outbox. For the workshop repair the row could not have been
+    // accepted before, so it has never reached the backend whatever its
+    // sync_status claims; for the activity it has simply changed and owes a push.
     sync_status: 'queued',
     sync_error: null,
   }
@@ -123,17 +148,28 @@ export async function reconcileMentoringConversations(): Promise<{
   added: number
   repaired: number
 }> {
-  const [observations, verdicts, participants] = await Promise.all([
+  const [observations, verdicts, participants, evaluations, coverage] = await Promise.all([
     db.observations.toArray(),
     db.verifications.toArray(),
     db.participants.toArray(),
+    db.evaluations.toArray(),
+    db.coverage.toArray(),
   ])
 
   const annotated = annotateObservations(observations, verdicts)
 
   const participantsById = new Map(participants.map((p) => [p.id, p]))
+  // Which activity each capture belongs to. Coverage first because it is the
+  // workshop-wide cache (fed by realtime, so it holds other evaluators' captures
+  // too) and the local evaluation second because it is the authority for this
+  // device's own work. Either way it is best-effort: a capture on neither leaves
+  // the activity null, which the panel renders as unknown rather than as absent.
+  const activityByCapture = new Map<string, string | null>()
+  for (const row of coverage) activityByCapture.set(row.client_id, row.activity_id)
+  for (const e of evaluations) activityByCapture.set(e.client_id, e.activity_id)
+
   const nowIso = new Date().toISOString()
-  const derived = deriveNeededConversations(annotated, participantsById, nowIso)
+  const derived = deriveNeededConversations(annotated, participantsById, nowIso, activityByCapture)
 
   let added = 0
   let repaired = 0
@@ -188,17 +224,47 @@ export async function scheduleConversation(id: string, dateIso: string): Promise
   await updateConversation(id, { status: 'scheduled', scheduled_for: dateIso })
 }
 
-/** Record that a conversation occurred and advance status to 'completed'. */
-export async function completeConversation(
-  id: string,
-  opts: { summary: string; participant_response: string; recorded_by: string | null },
-): Promise<void> {
-  await updateConversation(id, {
+/**
+ * Record that a conversation occurred and advance status to 'completed'.
+ *
+ * tl-06 added the follow-up pair, and they are written here rather than through a
+ * second call on purpose: an evaluator logs the outcome once, and a flag saved by
+ * a separate save is a flag that gets lost when somebody closes the panel after
+ * the first one.
+ */
+export interface OutcomeInput {
+  summary: string
+  participant_response: string
+  recorded_by: string | null
+  follow_up_needed?: boolean
+  follow_up_note?: string | null
+}
+
+/**
+ * What an outcome becomes on the row. Pure, so the two rules in it can be tested
+ * without Dexie:
+ *
+ *   - an empty or whitespace note is null, not '', because the admin's filter and
+ *     the drawer both ask "is there a note" and a blank string answers yes;
+ *   - a note is dropped when the flag is not raised, so an evaluator who types a
+ *     note and then unticks the box does not leave a flag-less note behind for an
+ *     admin to find with no view that shows it.
+ */
+export function outcomeFields(opts: OutcomeInput): Partial<MentoringConversation> {
+  const needed = opts.follow_up_needed === true
+  const note = (opts.follow_up_note ?? '').trim()
+  return {
     status: 'completed',
     summary: opts.summary,
     participant_response: opts.participant_response,
     recorded_by: opts.recorded_by,
-  })
+    follow_up_needed: needed,
+    follow_up_note: needed && note !== '' ? note : null,
+  }
+}
+
+export async function completeConversation(id: string, opts: OutcomeInput): Promise<void> {
+  await updateConversation(id, outcomeFields(opts))
 }
 
 /** Mark a conversation as dismissed (no further follow-up planned). */
@@ -261,6 +327,99 @@ export async function setAdminGuidance(
     admin_guidance: trimmed === '' ? null : trimmed,
     admin_guidance_updated_at: nowIso ?? new Date().toISOString(),
   })
+}
+
+// ---------------------------------------------------------------------------
+// tl-06: what the assignee is looking at
+//
+// All pure, and all shared with the surfaces that must agree with them. The badge
+// in the sidebar and the list on the page are the same question asked twice, and
+// a badge reading 2 above a page listing 4 is worse than either number alone —
+// which is exactly the failure tl-05 found and fixed with a filter. One predicate,
+// imported by both, is what keeps that fixed.
+// ---------------------------------------------------------------------------
+
+/** Assigned and not yet finished. The badge counts these; the page lists them. */
+export const OPEN_CONVERSATION_STATUSES = ['needed', 'scheduled'] as const
+
+export function isOpenConversation(c: MentoringConversation): boolean {
+  return (OPEN_CONVERSATION_STATUSES as readonly string[]).includes(c.status)
+}
+
+/**
+ * The order an evaluator wants: unscheduled first, then by the date they set.
+ *
+ * The question this page answers is "what do I owe", not "what exists", and the
+ * conversation with no date on it is the one owing a decision. Within the
+ * unscheduled group the oldest comes first, because a follow-up that has been
+ * waiting three days is more overdue than one raised this morning.
+ */
+export function compareForAssignee(a: MentoringConversation, b: MentoringConversation): number {
+  const aSet = a.scheduled_for ? 1 : 0
+  const bSet = b.scheduled_for ? 1 : 0
+  if (aSet !== bSet) return aSet - bSet
+  if (aSet === 1) {
+    if (a.scheduled_for! !== b.scheduled_for!) return a.scheduled_for! < b.scheduled_for! ? -1 : 1
+  }
+  if (a.created_at !== b.created_at) return a.created_at < b.created_at ? -1 : 1
+  return a.id < b.id ? -1 : a.id > b.id ? 1 : 0
+}
+
+/**
+ * Whether the guidance has been rewritten since this evaluator last opened the
+ * row.
+ *
+ * Both arguments are ISO timestamps and both can legitimately be absent, so the
+ * default matters: never seen before is NOT "changed". A conversation an
+ * evaluator has never opened is already new to them, and marking its guidance as
+ * changed on first sight would make the signal mean nothing on the day it is
+ * needed most.
+ */
+export function guidanceChangedSince(
+  c: MentoringConversation,
+  lastViewedIso: string | null | undefined,
+): boolean {
+  if (!c.admin_guidance_updated_at) return false
+  if (!lastViewedIso) return false
+  return c.admin_guidance_updated_at > lastViewedIso
+}
+
+export interface ConversationEvidence {
+  /** The observation that triggered it, or null when it has not reached this device. */
+  trigger: AnnotatedObservation | null
+  /** The same participant's other observations on the same question, newest first. */
+  pattern: AnnotatedObservation[]
+}
+
+/**
+ * The evidence behind one conversation: the observation that called for it, and
+ * that participant's other observations on the same question.
+ *
+ * The pattern half is what turns a number into a conversation an evaluator can
+ * actually open. A single confirmed 1 says almost nothing on its own; three of
+ * them across the week, or one against four 2s, are different conversations, and
+ * an evaluator who was not the one who captured it has no other way to tell.
+ *
+ * `trigger` being null is a real state rather than an error: tl-04 syncs
+ * observations and conversations in one loop but not in one transaction, so an
+ * assignment can land on a phone a cycle before the evidence does.
+ */
+export function conversationEvidence(
+  c: MentoringConversation,
+  annotated: AnnotatedObservation[],
+): ConversationEvidence {
+  const trigger = annotated.find((o) => o.id === c.trigger_observation_id) ?? null
+  const ksa = trigger?.ksa_code ?? c.trigger_ksa_code
+  const pattern = annotated
+    .filter(
+      (o) =>
+        o.id !== c.trigger_observation_id &&
+        o.participant_id === c.participant_id &&
+        ksa !== null &&
+        o.ksa_code === ksa,
+    )
+    .sort((a, b) => (a.imported_at < b.imported_at ? 1 : a.imported_at > b.imported_at ? -1 : 0))
+  return { trigger, pattern }
 }
 
 export interface EvaluatorLoad {

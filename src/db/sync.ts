@@ -93,6 +93,8 @@ function toMentoringRow(m: MentoringConversation) {
     assigned_at: m.assigned_at,
     admin_guidance: m.admin_guidance,
     admin_guidance_updated_at: m.admin_guidance_updated_at,
+    follow_up_needed: m.follow_up_needed === true,
+    follow_up_note: m.follow_up_note ?? null,
     created_at: m.created_at,
     updated_at: m.updated_at,
   }
@@ -109,6 +111,18 @@ function toMentoringRow(m: MentoringConversation) {
  * an edit, and their perfectly legitimate outcome would be refused for a field
  * they never touched. Sending only what they own means a stale copy of an
  * admin-owned column cannot cost an evaluator their write.
+ *
+ * tl-06 added `follow_up_needed` and `follow_up_note`, which is the first time
+ * this list has grown, so the rule for growing it again is worth stating: a column
+ * belongs here only if the assignee owns it, and tl-05's guard trigger must not
+ * freeze it. `test/evaluatorConversations.test.ts` asserts both directions against
+ * the migration SQL, because the symptom of getting it wrong is every evaluator's
+ * outcome write failing in the field with the cause three files away.
+ *
+ * The columns are sent with `=== true` / `?? null` rather than as-is because rows
+ * written before tl-06 have no such property in IndexedDB at all, and an absent
+ * key is dropped by JSON.stringify — which PostgREST reads as "leave it alone"
+ * rather than as false.
  */
 export function mentoringOutcomePatch(m: MentoringConversation) {
   return {
@@ -117,6 +131,8 @@ export function mentoringOutcomePatch(m: MentoringConversation) {
     summary: m.summary,
     participant_response: m.participant_response,
     recorded_by: m.recorded_by,
+    follow_up_needed: m.follow_up_needed === true,
+    follow_up_note: m.follow_up_note ?? null,
     updated_at: m.updated_at,
   }
 }

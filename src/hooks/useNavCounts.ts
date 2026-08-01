@@ -6,6 +6,7 @@ import { ADMIN_ROLES, useHasWorkshopRole, useIsChief, useScopedWorkshopId } from
 import { buildAllReports } from '../reports/build'
 import { annotateObservations, getRequiredConfirmations } from '../reports/verification'
 import { buildCaptureTimeMap, discrepancyId, findDiscrepancies } from '../reports/discrepancy'
+import { OPEN_CONVERSATION_STATUSES } from '../db/mentoring'
 import type {
   DiscrepancyResolution,
   EvaluationRecord,
@@ -59,8 +60,13 @@ const EMPTY: NavCounts = {
   underAssigned: 0,
 }
 
-/** Assigned-and-unfinished. Shared by the badge and the evaluator's own page. */
-const OPEN_STATUSES = ['needed', 'scheduled'] as const
+/**
+ * Assigned-and-unfinished. Shared by the badge and the evaluator's own page, and
+ * since tl-06 that sharing is literal rather than a comment: this re-export is the
+ * one definition, imported from db/mentoring by both, so the badge cannot drift
+ * from the list it sits above.
+ */
+const OPEN_STATUSES = OPEN_CONVERSATION_STATUSES
 
 /**
  * Badge counts for the sidebar.

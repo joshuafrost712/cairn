@@ -189,6 +189,45 @@ function AssignPanel({
           </span>
         )}
       </div>
+      {/* tl-06: what came back. The flag is only worth raising if the person who
+          raised it can see that somebody read it, so the note is shown here rather
+          than only counted in the filter above. Read-only on purpose: it is the
+          evaluator's account of the room, and an admin editing it would be
+          rewriting testimony. */}
+      {conv.status === 'completed' && (
+        <div style={{ marginTop: '1rem' }}>
+          <h3 className="small" style={{ margin: '0 0 0.25rem' }}>
+            <Copy id="admin-conversations.outcome.title" />
+          </h3>
+          {conv.summary ? (
+            <p className="small" style={{ margin: 0 }}>
+              {conv.summary}
+            </p>
+          ) : (
+            <p className="small muted" style={{ margin: 0 }}>
+              <Copy id="admin-conversations.outcome.none" />
+            </p>
+          )}
+          {conv.participant_response && (
+            <p className="small muted" style={{ margin: '0.25rem 0 0' }}>
+              {c('admin-conversations.outcome.response', 'label', {
+                response: conv.participant_response,
+              })}
+            </p>
+          )}
+          {conv.follow_up_needed === true && (
+            <div className="banner warn" style={{ marginTop: '0.5rem' }}>
+              <div className="small" style={{ fontWeight: 600 }}>
+                <Copy id="admin-conversations.followup.drawer-title" />
+              </div>
+              <p className="small" style={{ margin: '0.25rem 0 0', whiteSpace: 'pre-wrap' }}>
+                {conv.follow_up_note ?? c('admin-conversations.followup.no-note')}
+              </p>
+            </div>
+          )}
+        </div>
+      )}
+
       <div className="row" style={{ marginTop: '1rem' }}>
         <button type="button" onClick={onClose}>
           {c('nav.close')}
@@ -247,6 +286,10 @@ export function AdminConversations() {
     () => evaluatorLoads(all, (evaluators ?? []).map((e) => e.email)),
     [all, evaluators],
   )
+  // tl-06: the evaluators' answer to "is this finished?". A flag nobody sees is
+  // worse than no flag, so it gets its own view rather than a column somewhere in
+  // the whole-queue table — this is the one list an admin should read daily.
+  const flagged = useMemo(() => all.filter((x) => x.follow_up_needed === true), [all])
 
   const openConv = openId ? (all.find((x) => x.id === openId) ?? null) : null
 
@@ -306,6 +349,17 @@ export function AdminConversations() {
           <span className="small">{r.assigned_to}</span>
         ) : (
           <span className="pill queued">{c('admin-conversations.unassigned.pill')}</span>
+        ),
+    },
+    {
+      key: 'followup',
+      header: c('admin-conversations.col.followup'),
+      sortValue: (r) => (r.follow_up_needed === true ? 1 : 0),
+      render: (r) =>
+        r.follow_up_needed === true ? (
+          <span className="pill error">{c('admin-conversations.followup.pill')}</span>
+        ) : (
+          <span className="small muted">{c('admin-conversations.followup.none')}</span>
         ),
     },
     {
@@ -394,6 +448,26 @@ export function AdminConversations() {
               empty={<EmptyState title={c('admin-conversations.unassigned.empty')} />}
             />
           </div>
+
+          {flagged.length > 0 && (
+            <div className="card">
+              <h2>
+                <Copy id="admin-conversations.followup.title" />
+              </h2>
+              <p className="small muted">
+                <Copy id="admin-conversations.followup.intro" />
+              </p>
+              <DataTable
+                rows={flagged}
+                columns={queueColumns}
+                rowKey={(r) => r.id}
+                defaultSort="participant"
+                defaultDir="asc"
+                onRowClick={(r) => setOpenId(r.id)}
+                selectedKey={openId}
+              />
+            </div>
+          )}
 
           <div className="card">
             <h2>

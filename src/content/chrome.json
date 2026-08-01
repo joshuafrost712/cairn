@@ -914,6 +914,46 @@
       "label": "Last edited {date}."
     },
     {
+      "id": "admin-conversations.followup.title",
+      "label": "Flagged as unfinished"
+    },
+    {
+      "id": "admin-conversations.followup.intro",
+      "label": "The evaluator held the conversation and does not think it is over. Read the note before you close one."
+    },
+    {
+      "id": "admin-conversations.followup.pill",
+      "label": "Flagged"
+    },
+    {
+      "id": "admin-conversations.followup.none",
+      "label": "—"
+    },
+    {
+      "id": "admin-conversations.followup.drawer-title",
+      "label": "The evaluator flagged this as unfinished"
+    },
+    {
+      "id": "admin-conversations.followup.no-note",
+      "label": "No note was left with the flag."
+    },
+    {
+      "id": "admin-conversations.col.followup",
+      "label": "Follow-up"
+    },
+    {
+      "id": "admin-conversations.outcome.title",
+      "label": "How it went"
+    },
+    {
+      "id": "admin-conversations.outcome.none",
+      "label": "Logged with no summary."
+    },
+    {
+      "id": "admin-conversations.outcome.response",
+      "label": "Their response: {response}"
+    },
+    {
       "id": "conversations.mine.title",
       "label": "Your conversations"
     },
@@ -928,6 +968,186 @@
     {
       "id": "conversations.mine.guidance-title",
       "label": "How your administrator suggests approaching this"
+    },
+    {
+      "id": "conversations.mine.open-title",
+      "label": "What you owe"
+    },
+    {
+      "id": "conversations.mine.open-intro",
+      "label": "Unscheduled first, because that is the one still waiting on a decision from you."
+    },
+    {
+      "id": "conversations.mine.closed-title",
+      "label": "Already logged or closed"
+    },
+    {
+      "id": "conversations.mine.closed-show",
+      "label": "show ({count})"
+    },
+    {
+      "id": "conversations.mine.closed-hide",
+      "label": "hide"
+    },
+    {
+      "id": "conversations.mine.open",
+      "label": "Open"
+    },
+    {
+      "id": "conversations.mine.close",
+      "label": "Close"
+    },
+    {
+      "id": "conversations.mine.status.needed",
+      "label": "No date set"
+    },
+    {
+      "id": "conversations.mine.status.scheduled",
+      "label": "Scheduled for {date}"
+    },
+    {
+      "id": "conversations.mine.status.completed",
+      "label": "Logged"
+    },
+    {
+      "id": "conversations.mine.status.dismissed",
+      "label": "Closed by your administrator"
+    },
+    {
+      "id": "conversations.mine.guidance-none",
+      "label": "Your administrator has not written guidance for this one."
+    },
+    {
+      "id": "conversations.mine.guidance-stamp",
+      "label": "Written by {email}, last edited {date}."
+    },
+    {
+      "id": "conversations.mine.guidance-stamp-anon",
+      "label": "Last edited {date}."
+    },
+    {
+      "id": "conversations.mine.guidance-changed",
+      "label": "Guidance changed since you read it"
+    },
+    {
+      "id": "conversations.mine.evidence-title",
+      "label": "What called for this conversation"
+    },
+    {
+      "id": "conversations.mine.evidence-pending",
+      "label": "The observation behind this has not reached this device yet. Everything else here is accurate; the evidence arrives with the next sync."
+    },
+    {
+      "id": "conversations.mine.evidence-activity",
+      "label": "Captured during {activity}."
+    },
+    {
+      "id": "conversations.mine.evidence-activity-unknown",
+      "label": "The session this was captured in is not on this device."
+    },
+    {
+      "id": "conversations.mine.pattern-title",
+      "label": "Everything else recorded for {name} on this question"
+    },
+    {
+      "id": "conversations.mine.pattern-empty",
+      "label": "Nothing else has been recorded for this participant on this question, so treat this as a single observation rather than a pattern."
+    },
+    {
+      "id": "conversations.mine.log",
+      "label": "Log the conversation"
+    },
+    {
+      "id": "conversations.mine.schedule",
+      "label": "Set a date"
+    },
+    {
+      "id": "conversations.mine.reschedule",
+      "label": "Change the date"
+    },
+    {
+      "id": "conversations.mine.schedule.label",
+      "label": "Date"
+    },
+    {
+      "id": "conversations.mine.schedule.save",
+      "label": "Set date"
+    },
+    {
+      "id": "conversations.mine.outcome.title",
+      "label": "How it went"
+    },
+    {
+      "id": "conversations.mine.outcome.summary-label",
+      "label": "What was discussed"
+    },
+    {
+      "id": "conversations.mine.outcome.summary-placeholder",
+      "label": "What you raised, and what you agreed on."
+    },
+    {
+      "id": "conversations.mine.outcome.response-label",
+      "label": "How they responded"
+    },
+    {
+      "id": "conversations.mine.outcome.response-help",
+      "label": "How a participant handles correction is part of what is being assessed, so this is worth writing even when the conversation went well."
+    },
+    {
+      "id": "conversations.mine.outcome.response-placeholder",
+      "label": "Defensive at first, then asked two good questions about the drafting step."
+    },
+    {
+      "id": "conversations.mine.outcome.followup-label",
+      "label": "This is not finished"
+    },
+    {
+      "id": "conversations.mine.outcome.followup-help",
+      "label": "Raise this if it needs another conversation, if somebody else should take it, or if you think it should be dropped. Your administrator sees the flag and the note; closing a conversation is theirs, not yours."
+    },
+    {
+      "id": "conversations.mine.outcome.followup-note-label",
+      "label": "What your administrator should know"
+    },
+    {
+      "id": "conversations.mine.outcome.followup-note-placeholder",
+      "label": "Wants to talk again after the next session. I would not close this yet."
+    },
+    {
+      "id": "conversations.mine.outcome.recorded-by",
+      "label": "Logged as {email}."
+    },
+    {
+      "id": "conversations.mine.outcome.save",
+      "label": "Save"
+    },
+    {
+      "id": "conversations.mine.outcome.saving",
+      "label": "Saving…"
+    },
+    {
+      "id": "conversations.mine.outcome.cancel",
+      "label": "Cancel"
+    },
+    {
+      "id": "conversations.mine.followup.flag",
+      "label": "Flagged as unfinished"
+    },
+    {
+      "id": "conversations.mine.logged-title",
+      "label": "What you recorded"
+    },
+    {
+      "id": "conversations.mine.logged-response",
+      "label": "Their response: {response}"
+    },
+    {
+      "id": "evidence.unknown-evaluator",
+      "label": "recorded by another evaluator"
+    },
+    {
+      "id": "evidence.adjusted-from",
+      "label": "adjusted from {value}"
     }
   ]
 }
