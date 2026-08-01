@@ -1,7 +1,8 @@
-import { useEffect } from 'react'
+import { lazy, Suspense, useEffect } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider, useAuth } from './auth/AuthContext'
 import { ErrorBoundary } from './components/ErrorBoundary'
+import { Splash } from './components/Splash'
 import { loadReferenceData } from './db/reference'
 import { startSyncLoop } from './db/sync'
 import { startCoverageSync } from './db/coverage'
@@ -43,6 +44,45 @@ import { Inbox } from './pages/Inbox'
 import { Outgoing } from './pages/Outgoing'
 import { Workbench } from './pages/Workbench'
 import { DevFeedbackRoot } from './devfeedback/DevFeedbackRoot'
+
+/**
+ * tl-19: the public landing and tour, lazily loaded.
+ *
+ * The only lazy route in the app, and the reason is the budget rather than the
+ * page weight in the abstract: it is the one route that needs an animation library
+ * and a stylesheet nothing else uses, and it is the one route an evaluator on a
+ * workshop phone never opens. Splitting it keeps both out of the shell that every
+ * device precaches. `test/welcomeChunk.test.ts` guards the boundary.
+ */
+const Welcome = lazy(() => import('./pages/Welcome').then((m) => ({ default: m.Welcome })))
+
+/**
+ * The two routes that exist whether or not anybody is signed in.
+ *
+ * `/welcome` is registered in every branch, not just the signed-out one, because
+ * it is a link Joshua sends to people and a page he presents from a laptop that is
+ * already logged in; a tour only reachable by signing out is not a pitch page.
+ * `/signin` sends an already-signed-in visitor home instead of offering a second
+ * sign-in form.
+ */
+function publicRoutes(signedIn: boolean) {
+  return [
+    <Route
+      key="welcome"
+      path="/welcome"
+      element={
+        <Suspense fallback={<Splash />}>
+          <Welcome />
+        </Suspense>
+      }
+    />,
+    <Route
+      key="signin"
+      path="/signin"
+      element={signedIn ? <Navigate to="/" replace /> : <SignIn />}
+    />,
+  ]
+}
 
 function Shell() {
   const { identity, status, memberships, membershipStatus, isLocalMode } = useAuth()
@@ -142,42 +182,32 @@ function Shell() {
 
   // Distinct from signed-out: we haven't resolved the stored session yet.
   // Showing the sign-in form here would flash it at an already-signed-in user,
-  // and on a slow connection would look like a failed login.
-  if (status === 'checking') {
-    return (
-      <main className="shell__content" style={{ maxWidth: 720 }}>
-        <div className="card">
-          <h1>Honest Eval</h1>
-          <p className="muted small">Checking your session…</p>
-        </div>
-      </main>
-    )
-  }
+  // and on a slow connection would look like a failed login. Since tl-19 the same
+  // reasoning covers the landing page, which must not flash either — hence one
+  // branded splash shared with the Welcome chunk's Suspense fallback.
+  if (status === 'checking') return <Splash />
 
+  // Signed out, every path lands on the landing page rather than on a bare form.
+  // A first-time visitor arriving at a deep link has no idea what this is, and the
+  // originally requested path is deliberately not preserved through sign-in
+  // (out of scope, and /welcome is the better destination for a stranger anyway).
   if (!identity) {
     return (
       <Routes>
-        <Route path="*" element={<SignIn />} />
+        {publicRoutes(false)}
+        <Route path="*" element={<Navigate to="/welcome" replace />} />
       </Routes>
     )
   }
 
   // Same reasoning one level down: an unsettled membership load must not render
   // as "you belong to nowhere". Only a settled, genuinely empty list does.
-  if (membershipStatus === 'loading') {
-    return (
-      <main className="shell__content" style={{ maxWidth: 720 }}>
-        <div className="card">
-          <h1>Honest Eval</h1>
-          <p className="muted small">Checking your session…</p>
-        </div>
-      </main>
-    )
-  }
+  if (membershipStatus === 'loading') return <Splash />
 
   if (memberships.length === 0) {
     return (
       <Routes>
+        {publicRoutes(true)}
         <Route path="*" element={<NoWorkshop />} />
       </Routes>
     )
@@ -185,6 +215,8 @@ function Shell() {
 
   return (
     <Routes>
+      {publicRoutes(true)}
+
       {/* Narrow: the capture flow. One task at a time, phone-first, no sidebar. */}
       <Route element={<AppShell mode="narrow" />}>
         <Route path="/" element={<EvaluatorHome />} />

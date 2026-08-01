@@ -44,7 +44,9 @@ page.on('pageerror', (e) => errors.push(String(e)))
 page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()) })
 
 // --- online: sign in against the real project ------------------------------
-await page.goto(BASE)
+// '/signin', not the root: since tl-19 a signed-out visitor at '/' lands on the
+// public landing page, so the form is one navigation further in.
+await page.goto(BASE + 'signin')
 await page.waitForSelector('#email', { timeout: 20000 })
 await page.fill('#email', EMAIL)
 await page.fill('#password', PASSWORD)

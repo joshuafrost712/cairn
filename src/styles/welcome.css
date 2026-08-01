@@ -1,0 +1,455 @@
+/**
+ * The public landing and tour.
+ *
+ * Imported from src/pages/Welcome.tsx rather than from index.css, ON PURPOSE: that
+ * is what makes Vite emit it as part of the lazy chunk, so the signed-in app never
+ * downloads a byte of it. Moving this @import into index.css would silently undo
+ * the split and cost every evaluator's phone the whole landing page.
+ *
+ * Everything reads from tokens.css. Two exceptions are declared here because they
+ * are properties of this page and nothing else: the hero's type scale (larger than
+ * --t-4, which tokens.css caps at one hero figure per view) and the backdrop blob
+ * geometry.
+ */
+
+.wel {
+  background: var(--card);
+}
+
+/* ---- shared section rhythm ---------------------------------------------- */
+
+.wel-scene {
+  padding: var(--s-7) var(--s-4);
+  border-top: 1px solid var(--line);
+}
+
+.wel-scene__inner {
+  max-width: 1080px;
+  margin: 0 auto;
+  display: grid;
+  gap: var(--s-5);
+}
+
+.wel-scene__inner--stacked {
+  gap: var(--s-6);
+}
+
+/* 900px is the shell's own sidebar breakpoint (layout.css). Kept in sync by hand,
+   as tokens.css warns: --bp-md cannot be used inside a media condition. */
+@media (min-width: 900px) {
+  .wel-scene__inner {
+    grid-template-columns: 1fr 1.05fr;
+    align-items: center;
+    gap: var(--s-7);
+  }
+
+  .wel-scene__inner--stacked {
+    grid-template-columns: 1fr;
+  }
+
+  /* Alternating sides keeps a seven-section page from reading as a list. The
+     figure is the second child in the DOM either way, so the reading order for a
+     screen reader and for a phone stays copy-then-diagram. */
+  .wel-scene--flip .wel-scene__figure {
+    order: -1;
+  }
+}
+
+.wel-eyebrow {
+  margin: 0 0 var(--s-2);
+  font-size: var(--t--1);
+  font-weight: var(--fw-med);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.wel-scene__title {
+  margin: 0 0 var(--s-3);
+  font-size: var(--t-3);
+  line-height: var(--lh-tight);
+  letter-spacing: -0.015em;
+}
+
+.wel-scene__body {
+  margin: 0;
+  font-size: var(--t-1);
+  line-height: var(--lh-body);
+  color: var(--ink);
+  max-width: 46ch;
+}
+
+.wel-scene__aside {
+  margin: var(--s-4) 0 0;
+  padding-left: var(--s-4);
+  border-left: 2px solid var(--accent-wash);
+  color: var(--muted);
+  font-size: var(--t-0);
+  line-height: var(--lh-body);
+  max-width: 46ch;
+}
+
+.wel-scene__copy--centered {
+  text-align: center;
+  justify-self: center;
+}
+
+.wel-scene__copy--centered .wel-scene__body,
+.wel-scene__copy--centered .wel-scene__aside {
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.wel-scene__copy--centered .wel-scene__aside {
+  border-left: 0;
+  padding-left: 0;
+}
+
+/* ---- figures ------------------------------------------------------------ */
+
+.wel-figure {
+  margin: 0;
+}
+
+.wel-figure__svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-width: 520px;
+  margin: 0 auto;
+  overflow: visible;
+}
+
+.wel-figcaption {
+  margin: var(--s-3) 0 0;
+  text-align: center;
+  font-size: var(--t--1);
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---- hero --------------------------------------------------------------- */
+
+.wel-hero {
+  position: relative;
+  overflow: hidden;
+  padding: var(--s-8) var(--s-4) var(--s-7);
+  background: var(--card);
+}
+
+.wel-hero__inner {
+  position: relative;
+  max-width: 720px;
+  margin: 0 auto;
+  text-align: center;
+}
+
+.wel-hero__brand {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--s-3);
+}
+
+.wel-hero__title {
+  margin: 0;
+  /* Past the token scale on purpose: tokens.css caps --t-4 at one hero figure per
+     view, and this is that one figure. */
+  font-size: clamp(2.25rem, 8vw, 3.5rem);
+  line-height: 1.05;
+  letter-spacing: -0.03em;
+  font-weight: var(--fw-bold);
+}
+
+.wel-hero__claim {
+  margin: var(--s-5) auto 0;
+  max-width: 30ch;
+  font-size: clamp(1.15rem, 3.6vw, 1.6rem);
+  line-height: 1.25;
+  font-weight: var(--fw-med);
+  color: var(--d3);
+}
+
+.wel-hero__body {
+  margin: var(--s-4) auto 0;
+  max-width: 52ch;
+  font-size: var(--t-0);
+  line-height: var(--lh-body);
+  color: var(--muted);
+}
+
+.wel-hero__actions {
+  margin-top: var(--s-6);
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-3);
+  justify-content: center;
+}
+
+.wel-hero__actions--centered {
+  margin-top: var(--s-5);
+}
+
+.wel-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 0 var(--s-5);
+  border-radius: var(--r-2);
+  font-size: var(--t-0);
+  font-weight: var(--fw-med);
+  text-decoration: none;
+  transition: background-color var(--dur-1) var(--ease), border-color var(--dur-1) var(--ease);
+}
+
+.wel-btn--primary {
+  background: var(--accent);
+  color: var(--accent-ink);
+  border: 1px solid var(--accent);
+}
+
+.wel-btn--primary:hover {
+  background: var(--d3);
+  border-color: var(--d3);
+}
+
+.wel-btn--ghost {
+  background: transparent;
+  color: var(--accent);
+  border: 1px solid var(--line-strong);
+}
+
+.wel-btn--ghost:hover {
+  border-color: var(--accent);
+  background: var(--accent-wash);
+}
+
+.wel-btn:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+/* The backdrop: three slow-drifting translucent ramp-blue shapes. CSS only, so it
+   adds nothing to the JS budget, and it is the first thing prefers-reduced-motion
+   switches off below. */
+.wel-hero__backdrop {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.wel-blob {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(46px);
+  opacity: 0.5;
+}
+
+.wel-blob--1 {
+  width: 46vw;
+  height: 46vw;
+  min-width: 260px;
+  min-height: 260px;
+  top: -14%;
+  left: -10%;
+  background: var(--d0);
+  animation: wel-drift-1 26s ease-in-out infinite alternate;
+}
+
+.wel-blob--2 {
+  width: 34vw;
+  height: 34vw;
+  min-width: 200px;
+  min-height: 200px;
+  top: 30%;
+  right: -12%;
+  background: var(--d1);
+  opacity: 0.32;
+  animation: wel-drift-2 32s ease-in-out infinite alternate;
+}
+
+.wel-blob--3 {
+  width: 26vw;
+  height: 26vw;
+  min-width: 160px;
+  min-height: 160px;
+  bottom: -18%;
+  left: 34%;
+  background: var(--accent-wash);
+  opacity: 0.8;
+  animation: wel-drift-3 38s ease-in-out infinite alternate;
+}
+
+@keyframes wel-drift-1 {
+  to {
+    transform: translate3d(6%, 8%, 0) scale(1.08);
+  }
+}
+
+@keyframes wel-drift-2 {
+  to {
+    transform: translate3d(-7%, -6%, 0) scale(1.12);
+  }
+}
+
+@keyframes wel-drift-3 {
+  to {
+    transform: translate3d(4%, -9%, 0) scale(1.06);
+  }
+}
+
+/* ---- scene E: the two lanes -------------------------------------------- */
+
+.wel-scene--wide .wel-scene__inner {
+  max-width: 1120px;
+}
+
+.wel-lanes {
+  display: grid;
+  gap: var(--s-5);
+}
+
+@media (min-width: 900px) {
+  .wel-lanes {
+    grid-template-columns: 1fr 1fr;
+    gap: var(--s-6);
+  }
+}
+
+.wel-lane {
+  border: 1px solid var(--line);
+  border-radius: var(--r-3);
+  padding: var(--s-4);
+  background: var(--card);
+}
+
+.wel-lane--with {
+  border-color: var(--d0);
+  background: var(--accent-wash);
+}
+
+.wel-lane__svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+
+.wel-lane__label {
+  margin: 0 0 var(--s-3);
+  font-size: var(--t--1);
+  font-weight: var(--fw-med);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.wel-lane--with .wel-lane__label {
+  color: var(--d3);
+}
+
+.wel-lane__caption {
+  margin: var(--s-3) 0 0;
+  font-size: var(--t-1);
+  font-weight: var(--fw-med);
+  color: var(--muted);
+}
+
+.wel-lane__caption--with {
+  color: var(--d3);
+}
+
+/* ---- trust ------------------------------------------------------------- */
+
+.wel-trust {
+  background: var(--bg);
+}
+
+.wel-trust__grid {
+  display: grid;
+  gap: var(--s-4);
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+@media (min-width: 640px) {
+  .wel-trust__grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.wel-trust__point {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--r-3);
+  padding: var(--s-4);
+}
+
+.wel-trust__title {
+  margin: 0 0 var(--s-2);
+  font-size: var(--t-1);
+  line-height: var(--lh-tight);
+}
+
+.wel-trust__body {
+  margin: 0;
+  font-size: var(--t-0);
+  line-height: var(--lh-body);
+  color: var(--muted);
+}
+
+/* ---- closing ----------------------------------------------------------- */
+
+.wel-close {
+  padding: var(--s-7) var(--s-4) var(--s-8);
+  border-top: 1px solid var(--line);
+}
+
+.wel-close__card {
+  max-width: 640px;
+  margin: 0 auto;
+  text-align: center;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--r-3);
+  box-shadow: var(--e-1);
+  padding: var(--s-6) var(--s-5);
+}
+
+.wel-close__title {
+  margin: 0 0 var(--s-3);
+  font-size: var(--t-3);
+  line-height: var(--lh-tight);
+  letter-spacing: -0.015em;
+}
+
+.wel-close__body {
+  margin: 0 auto;
+  max-width: 44ch;
+  color: var(--muted);
+  line-height: var(--lh-body);
+}
+
+/* ---- accessibility ----------------------------------------------------- */
+
+.wel-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Reduced motion switches off the one thing JS cannot: the CSS backdrop. Every
+   other animation on this page is gated in the components, which render their
+   final composed state instead of a zero-duration version of the transition. */
+@media (prefers-reduced-motion: reduce) {
+  .wel-blob {
+    animation: none;
+  }
+}

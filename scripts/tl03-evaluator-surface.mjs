@@ -242,7 +242,9 @@ async function device(email, { seedToken = false } = {}) {
   const ctx = await browser.newContext({ viewport: { width: 1400, height: 1000 } })
   const p = await ctx.newPage()
   p.on('pageerror', (e) => errors.push(`${email}: ${String(e)}`))
-  await p.goto(BASE, { waitUntil: 'domcontentloaded' })
+  // '/signin', not the root: since tl-19 a signed-out visitor at '/' is sent to
+  // the public landing page, so the form is one navigation further in.
+  await p.goto(BASE + 'signin', { waitUntil: 'domcontentloaded' })
   if (seedToken) {
     // A credential left behind by the months when /routing was reachable by every
     // signed-in user. Planted BEFORE sign-in, which is when the rule fires.

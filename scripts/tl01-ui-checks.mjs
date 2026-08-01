@@ -43,7 +43,10 @@ async function fresh() {
 }
 
 async function signIn(page, name, email, role) {
-  await page.goto(BASE)
+  // '/signin', not the root: since tl-19 a signed-out visitor at '/' is redirected
+  // to the landing page, and this harness would sit waiting for a form that is one
+  // click away rather than on screen.
+  await page.goto(BASE + 'signin')
   await page.waitForSelector('#name', { timeout: 15000 })
   await page.fill('#name', name)
   await page.fill('#email', email)

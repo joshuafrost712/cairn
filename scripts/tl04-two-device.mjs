@@ -197,7 +197,9 @@ async function device(email) {
   const ctx = await browser.newContext({ viewport: { width: 1400, height: 1000 } })
   const p = await ctx.newPage()
   p.on('pageerror', (e) => errors.push(String(e)))
-  await p.goto(BASE, { waitUntil: 'networkidle' })
+  // '/signin', not the root: since tl-19 a signed-out visitor at '/' is sent to
+  // the public landing page, so the form is one navigation further in.
+  await p.goto(BASE + 'signin', { waitUntil: 'networkidle' })
   await p.getByLabel(/email/i).first().fill(email)
   await p.getByLabel(/password/i).first().fill(PASSWORD)
   await p.getByRole('button', { name: /sign in/i }).first().click()

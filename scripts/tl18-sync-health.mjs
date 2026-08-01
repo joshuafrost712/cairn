@@ -273,7 +273,9 @@ if (process.argv.includes('--local-only')) {
   const browser = await chromium.launch()
   const ctx = await browser.newContext({ viewport: { width: 1400, height: 1000 } })
   const page = await ctx.newPage()
-  await page.goto(LOCAL_ONLY_BASE, { waitUntil: 'domcontentloaded' })
+  // '/signin', not the root: since tl-19 a signed-out visitor at '/' is sent to
+  // the public landing page, so the form is one navigation further in.
+  await page.goto(LOCAL_ONLY_BASE + 'signin', { waitUntil: 'domcontentloaded' })
 
   // Sign in locally — with no backend the app has no other mode — then plant one
   // evaluation the device can never send. That pairing is the whole failure:
@@ -345,7 +347,9 @@ async function device(email) {
   const ctx = await browser.newContext({ viewport: { width: 1400, height: 1000 } })
   const p = await ctx.newPage()
   p.on('pageerror', (e) => errors.push(`${email}: ${String(e)}`))
-  await p.goto(BASE, { waitUntil: 'domcontentloaded' })
+  // '/signin', not the root: since tl-19 a signed-out visitor at '/' is sent to
+  // the public landing page, so the form is one navigation further in.
+  await p.goto(BASE + 'signin', { waitUntil: 'domcontentloaded' })
   await p.getByLabel(/email/i).first().fill(email)
   await p.getByLabel(/password/i).first().fill(PASSWORD)
   await p.getByRole('button', { name: /sign in/i }).first().click()

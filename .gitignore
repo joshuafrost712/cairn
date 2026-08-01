@@ -35,6 +35,11 @@ feedback/processed/*
 !feedback/incoming/.gitkeep
 !feedback/processed/.gitkeep
 
+# Screenshots from scripts/ui-responsive-audit.mjs. Regenerated on every run and
+# only meaningful next to the run that produced them, so they are a working
+# artifact rather than history — the same reasoning as the feedback batches above.
+screenshots/
+
 # One-off archive of the pilot workshop's evaluations, taken before the
 # 2026-07-30 fresh start (tl-18). Real participant evidence — kept locally so the
 # delete is recoverable, never committed.

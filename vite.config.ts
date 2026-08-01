@@ -187,12 +187,43 @@ function requireBackendConfig(): Plugin {
   }
 }
 
+/**
+ * Copy dist/index.html to dist/404.html after the build (tl-19).
+ *
+ * GitHub Pages serves its own 404 for any path it has no file for, so a first-time
+ * visitor opening `/cairn/welcome` — the pitch link, before any service worker
+ * exists on that device — gets GitHub's 404 rather than the app. The standard SPA
+ * shim is a 404.html that is the app: Pages serves it, the router reads the URL,
+ * and the visitor lands where they meant to.
+ *
+ * The deploy workflow already did this with a `cp` step. Doing it in the build
+ * means `npm run preview` and a local dist behave like production, which is where
+ * this class of bug is actually found.
+ *
+ * Declared BEFORE VitePWA in the plugin list so this closeBundle runs first, which
+ * is why `globIgnores: ['**\/404.html']` below is load-bearing rather than
+ * defensive: without it Workbox precaches the same HTML twice.
+ */
+function spaFallback404(): Plugin {
+  return {
+    name: 'cairn-spa-404',
+    apply: 'build',
+    closeBundle() {
+      const out = join(process.cwd(), 'dist')
+      const index = join(out, 'index.html')
+      if (!existsSync(index)) return
+      writeFileSync(join(out, '404.html'), readFileSync(index))
+    },
+  }
+}
+
 // https://vite.dev/config/
 export default defineConfig({
   base,
   server: { port: 5180 },
   plugins: [
     requireBackendConfig(),
+    spaFallback404(),
     feedbackInbox(),
     contentEditEndpoint(),
     contentLogEndpoint(),
@@ -203,8 +234,12 @@ export default defineConfig({
       manifest: {
         name: 'Honest Eval — OBT Evaluation',
         short_name: 'Honest Eval',
-        description: 'Field capture for OBT participant evaluation',
-        theme_color: '#1f2937',
+        description:
+          'People judge. Honest Eval makes their judgment traceable: every rating traces back to an observation a real evaluator wrote down, and a person ratifies it.',
+        // White, matching the app's own header and the index.html meta. A dark
+        // theme_color drew a stripe of unrelated grey above a white page in the
+        // installed title bar. Keep the two in sync by hand.
+        theme_color: '#ffffff',
         background_color: '#ffffff',
         display: 'standalone',
         id: base,
@@ -225,6 +260,12 @@ export default defineConfig({
       workbox: {
         navigateFallback: `${base}index.html`,
         globPatterns: ['**/*.{js,css,html,ico,png,svg}'],
+        // 404.html is a byte-identical copy of index.html written by
+        // spaFallback404() above, which runs before this plugin. Precaching it too
+        // would double the shell's weight in every device's cache for nothing:
+        // once the service worker exists, navigateFallback handles deep links and
+        // the 404 shim is only ever needed on a cold first visit.
+        globIgnores: ['**/404.html'],
       },
       devOptions: { enabled: false },
     }),

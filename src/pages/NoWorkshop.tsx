@@ -1,5 +1,7 @@
 import { useState } from 'react'
+import { Link } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
+import { Copy } from '../components/Copy'
 import { c } from '../lib/content/chrome'
 
 /**
@@ -47,6 +49,13 @@ export function NoWorkshop() {
         <button className="ghost" onClick={signOut}>
           {c('nav.sign-out')}
         </button>
+        {/* Somebody waiting to be added has nothing to do but read. tl-19 gave
+            them somewhere to go that explains what they are waiting for. */}
+        <p className="signin__tour">
+          <Link to="/welcome" className="signin__tour-link">
+            <Copy id="welcome.link" />
+          </Link>
+        </p>
       </div>
     </main>
   )

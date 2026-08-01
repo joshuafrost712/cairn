@@ -5,10 +5,35 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <meta name="theme-color" content="#1f2937" />
+    <!-- White, not the old slate #1f2937. The app's header is white, so a dark
+         theme_color drew a stripe of unrelated grey above it in an installed PWA.
+         The blue lives in the icon and the accent, not in the OS chrome. Keep this
+         in sync with the manifest theme_color in vite.config.ts. -->
+    <meta name="theme-color" content="#ffffff" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-title" content="Honest Eval" />
     <title>Honest Eval — OBT Evaluation</title>
+    <meta
+      name="description"
+      content="People judge. Honest Eval makes their judgment traceable: every rating traces back to an observation a real evaluator wrote down, and a person ratifies it."
+    />
+
+    <!-- Social preview. /welcome doubles as the pitch link Joshua sends people, so
+         a pasted URL has to unfurl into something. Absolute URLs on purpose:
+         scrapers do not resolve relative paths, and Vite rewrites href and src
+         against the build's base but not a meta `content` attribute. Both point at
+         the GitHub Pages origin; change them together if the app moves to its own
+         domain. -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Honest Eval" />
+    <meta property="og:title" content="Honest Eval — evaluation you can trace" />
+    <meta
+      property="og:description"
+      content="Observer-led evaluation for oral Bible translation workshops. Every rating traces back to a timestamped observation, and a person ratifies it."
+    />
+    <meta property="og:url" content="https://joshuafrost712.github.io/cairn/welcome" />
+    <meta property="og:image" content="https://joshuafrost712.github.io/cairn/icon-512.png" />
+    <meta name="twitter:card" content="summary" />
   </head>
   <body>
     <div id="root"></div>

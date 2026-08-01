@@ -1,8 +1,37 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
 import { isSupabaseConfigured } from '../lib/supabase'
+import { Copy } from '../components/Copy'
+import { Mark } from '../components/Mark'
 import type { WorkshopRole } from '../lib/types'
+
+/**
+ * The mark, the one-line claim, and the way back to the tour.
+ *
+ * tl-19 gave the app a landing page, which makes this screen the second thing a
+ * visitor sees rather than the first. It still needs to say what it is, though:
+ * somebody following a "sign in" link from an email arrives here cold, and a bare
+ * form on a white page could be anything. The forms themselves are untouched.
+ */
+function SignInBrand() {
+  return (
+    <div className="signin__brand">
+      <Mark size={34} />
+      <Copy id="welcome.hero.claim" as="p" className="signin__claim" />
+    </div>
+  )
+}
+
+function TourLink() {
+  return (
+    <p className="signin__tour">
+      <Link to="/welcome" className="signin__tour-link">
+        <Copy id="welcome.link" />
+      </Link>
+    </p>
+  )
+}
 
 // Workshop roles offered at self-signup. Elevated roles (chief_evaluator, admin,
 // chief_admin) are never self-serve — they are assigned from the server-side
@@ -87,6 +116,7 @@ function SupabaseSignIn() {
 
   return (
     <main className="signin">
+      <SignInBrand />
       <div className="card">
         <h1>{mode === 'signin' ? 'Sign in' : 'Create account'}</h1>
 
@@ -187,6 +217,7 @@ function SupabaseSignIn() {
           {mode === 'signin' ? 'No account? Create one' : 'Already have an account? Sign in'}
         </button>
       </div>
+      <TourLink />
     </main>
   )
 }
@@ -217,6 +248,7 @@ function LocalSignIn() {
 
   return (
     <main className="signin">
+      <SignInBrand />
       <div className="card">
         <h1>Create your profile</h1>
         <p className="muted small">
@@ -249,6 +281,7 @@ function LocalSignIn() {
           </button>
         </form>
       </div>
+      <TourLink />
     </main>
   )
 }

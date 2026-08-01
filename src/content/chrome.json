@@ -728,6 +728,270 @@
     {
       "id": "sync-health.by-evaluator.empty",
       "label": "No submitted evaluations in this workshop yet."
+    },
+    {
+      "id": "welcome.hero.title",
+      "label": "Honest Eval"
+    },
+    {
+      "id": "welcome.hero.claim",
+      "label": "People judge. This makes their judgment traceable."
+    },
+    {
+      "id": "welcome.hero.body",
+      "label": "Every rating traces back to something a real evaluator saw and wrote down at the time they saw it, checked against a rubric people wrote in advance, and ratified by a person before it reaches anyone."
+    },
+    {
+      "id": "welcome.hero.cta-signin",
+      "label": "Sign in"
+    },
+    {
+      "id": "welcome.hero.cta-app",
+      "label": "Go to the app"
+    },
+    {
+      "id": "welcome.hero.cta-tour",
+      "label": "See how it works"
+    },
+    {
+      "id": "welcome.people.participant",
+      "label": "Participant"
+    },
+    {
+      "id": "welcome.people.ev-1",
+      "label": "RK"
+    },
+    {
+      "id": "welcome.people.ev-2",
+      "label": "MO"
+    },
+    {
+      "id": "welcome.people.ev-3",
+      "label": "TA"
+    },
+    {
+      "id": "welcome.figure.evaluators",
+      "label": "Evaluators"
+    },
+    {
+      "id": "welcome.scene-a.eyebrow",
+      "label": "The problem"
+    },
+    {
+      "id": "welcome.scene-a.title",
+      "label": "Evaluations evaporate"
+    },
+    {
+      "id": "welcome.scene-a.body",
+      "label": "A busy workshop makes it easy for real observations to be forgotten. Feedback arrives too late to act on, and the final judgment rests on whoever happened to remember the most at the end.",
+      "guidance": "Three evaluators watched this participant all week. By Friday almost none of what they saw is left to point at."
+    },
+    {
+      "id": "welcome.scene-a.end-label",
+      "label": "End of the week"
+    },
+    {
+      "id": "welcome.scene-a.empty",
+      "label": "Nothing to point at"
+    },
+    {
+      "id": "welcome.scene-a.figure-alt",
+      "label": "Observations drifting away from three evaluators around one participant, ending in an empty report."
+    },
+    {
+      "id": "welcome.scene-b.eyebrow",
+      "label": "Capture"
+    },
+    {
+      "id": "welcome.scene-b.title",
+      "label": "Nothing is lost"
+    },
+    {
+      "id": "welcome.scene-b.body",
+      "label": "Each evaluator writes down what they saw, in their own words, during the activity itself. Every note is timestamped, kept, and attached to the participant it is actually about.",
+      "guidance": "It works on a phone, in the room, with no signal. The notes wait on the device and arrive when there is a connection."
+    },
+    {
+      "id": "welcome.scene-b.activity-1",
+      "label": "Retelling"
+    },
+    {
+      "id": "welcome.scene-b.activity-2",
+      "label": "Community check"
+    },
+    {
+      "id": "welcome.scene-b.activity-3",
+      "label": "Exegesis"
+    },
+    {
+      "id": "welcome.scene-b.count",
+      "label": "{count} kept"
+    },
+    {
+      "id": "welcome.scene-b.figure-alt",
+      "label": "Observations travelling from three evaluators into one participant's record, each arriving with a timestamp."
+    },
+    {
+      "id": "welcome.scene-c.eyebrow",
+      "label": "Verification"
+    },
+    {
+      "id": "welcome.scene-c.title",
+      "label": "People decide"
+    },
+    {
+      "id": "welcome.scene-c.body",
+      "label": "A facilitator watches. The notes are organized against the rubric the workshop leaders wrote and approved. Where more than one evaluator saw the same person, their observations sit side by side. Then a person ratifies it.",
+      "guidance": "The AI never has the last word, and it never has the only word."
+    },
+    {
+      "id": "welcome.scene-c.rubric-1",
+      "label": "Naturalness"
+    },
+    {
+      "id": "welcome.scene-c.rubric-2",
+      "label": "Accuracy"
+    },
+    {
+      "id": "welcome.scene-c.rubric-3",
+      "label": "Exegesis"
+    },
+    {
+      "id": "welcome.scene-c.gate",
+      "label": "Confirmed"
+    },
+    {
+      "id": "welcome.scene-c.flag",
+      "label": "A person resolves this"
+    },
+    {
+      "id": "welcome.scene-c.figure-alt",
+      "label": "Observations held at a gate until enough evaluators agree, with one disagreement flagged for a person."
+    },
+    {
+      "id": "welcome.scene-d.eyebrow",
+      "label": "Compilation"
+    },
+    {
+      "id": "welcome.scene-d.title",
+      "label": "From evidence to report"
+    },
+    {
+      "id": "welcome.scene-d.body",
+      "label": "Confirmed observations roll up into one report per participant: a designation for each skill area, with the evidence still sitting underneath it.",
+      "guidance": "Because each step is recorded, anyone can ask where a rating came from and get a real answer."
+    },
+    {
+      "id": "welcome.scene-d.count",
+      "label": "{count} observations behind this report"
+    },
+    {
+      "id": "welcome.scene-d.figure-alt",
+      "label": "Confirmed observations gathering into one participant report with a designation for each skill area."
+    },
+    {
+      "id": "welcome.scene-e.eyebrow",
+      "label": "The difference"
+    },
+    {
+      "id": "welcome.scene-e.title",
+      "label": "The same week, twice"
+    },
+    {
+      "id": "welcome.scene-e.body",
+      "label": "One workshop where the evaluating happens on the fly, and one where it is written down as it happens. Same evaluators, same participants, same week."
+    },
+    {
+      "id": "welcome.scene-e.without-label",
+      "label": "Without Honest Eval"
+    },
+    {
+      "id": "welcome.scene-e.without-caption",
+      "label": "On the fly, ad hoc, lost"
+    },
+    {
+      "id": "welcome.scene-e.with-label",
+      "label": "With Honest Eval"
+    },
+    {
+      "id": "welcome.scene-e.with-caption",
+      "label": "Recorded. Compiled. Ratified."
+    },
+    {
+      "id": "welcome.scene-e.figure-alt",
+      "label": "Two workshops side by side: one where observations scatter and are lost, one where they are recorded, verified, and compiled into reports."
+    },
+    {
+      "id": "welcome.trust.eyebrow",
+      "label": "What the technology does"
+    },
+    {
+      "id": "welcome.trust.title",
+      "label": "The AI is a clerk, not a judge"
+    },
+    {
+      "id": "welcome.trust.body",
+      "label": "It has one narrow job: take the free-form notes a facilitator writes while watching an activity and turn them into tidy observations, each tied to a specific skill and a specific piece of evidence. It does not decide a score on its own. It does not invent evidence. Nothing reaches a participant or their organization until a person has read it."
+    },
+    {
+      "id": "welcome.trust.point-1.title",
+      "label": "Evidence-based"
+    },
+    {
+      "id": "welcome.trust.point-1",
+      "label": "Every rating traces to a specific, timestamped observation."
+    },
+    {
+      "id": "welcome.trust.point-2.title",
+      "label": "Traceable"
+    },
+    {
+      "id": "welcome.trust.point-2",
+      "label": "You can always walk back from a score to the reason for it."
+    },
+    {
+      "id": "welcome.trust.point-3.title",
+      "label": "Human-ratified"
+    },
+    {
+      "id": "welcome.trust.point-3",
+      "label": "No draft is final until a person checks it against the evidence and approves it."
+    },
+    {
+      "id": "welcome.trust.point-4.title",
+      "label": "Honest about disagreement"
+    },
+    {
+      "id": "welcome.trust.point-4",
+      "label": "When two evaluators see someone differently, that is surfaced and worked out by people, not averaged away."
+    },
+    {
+      "id": "welcome.close.title",
+      "label": "Ready when your workshop is"
+    },
+    {
+      "id": "welcome.close.body",
+      "label": "Sign in to capture a workshop's observations, verify them, and compile the reports."
+    },
+    {
+      "id": "welcome.close.cta",
+      "label": "Sign in"
+    },
+    {
+      "id": "welcome.close.back",
+      "label": "Back to the top"
+    },
+    {
+      "id": "welcome.link",
+      "label": "What is Honest Eval?"
+    },
+    {
+      "id": "welcome.splash",
+      "label": "Checking your session…"
+    },
+    {
+      "id": "welcome.nav.skip",
+      "label": "Skip to the tour"
     }
   ]
 }

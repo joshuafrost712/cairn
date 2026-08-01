@@ -10,8 +10,16 @@ await sharp(svg, { density: 512 }).resize(512, 512).png().toFile('public/icon-51
 await sharp(svg, { density: 384 }).resize(180, 180).png().toFile('public/apple-touch-icon.png')
 
 // Maskable: icon at ~80% on a solid themed background so platform masks don't clip it.
+//
+// The background is --accent-wash, NOT the ramp's darkest step. tl-19 specified
+// #104281 and that value is wrong for this mark: the mark's own bottom bar is
+// #104281, so a third of it would disappear into the plate and nobody would see it
+// until the icon was already on a phone's home screen. The alternative was a
+// re-stepped dark-surface variant of the mark, which means a third copy of the same
+// geometry to keep in sync with favicon.svg and Mark.tsx. A pale blue plate keeps
+// every bar legible, keeps the plate on-brand, and adds no asset.
 const inner = await sharp(svg, { density: 512 }).resize(410, 410).png().toBuffer()
-await sharp({ create: { width: 512, height: 512, channels: 4, background: '#1f2937' } })
+await sharp({ create: { width: 512, height: 512, channels: 4, background: '#eff6ff' } })
   .composite([{ input: inner, gravity: 'center' }])
   .png()
   .toFile('public/icon-maskable-512.png')
