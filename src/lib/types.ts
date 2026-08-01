@@ -524,6 +524,7 @@ export type ReferenceTable =
   | 'activity_ksa'
   | 'workshop_setting'
   | 'report_assignment'
+  | 'roster_import_batch'
 
 export interface ReferenceOutboxEntry {
   /** `${table}:${rowKey}` — repeated edits to the same row collapse to one entry. */
@@ -645,4 +646,33 @@ export interface SetupChangeLogEntry {
   at: string
   sync_status: SyncStatus
   sync_error?: string | null
+}
+
+/**
+ * One roster import, kept so it can be undone (tl-10).
+ *
+ * The `before` values are the load-bearing part. An import that updated eleven
+ * people can only be reverted by something that knows what those eleven held
+ * before it touched them, and the one moment that is knowable is the moment of
+ * the write. Anything reconstructed afterwards is a guess.
+ */
+export interface RosterImportBatch {
+  id: string
+  workshop_id: string
+  actor_email: string | null
+  filename: string
+  /** Rows committed from the file. Not created + updated: a no-change match counts. */
+  row_count: number
+  created_participants: string[]
+  created_teams: string[]
+  updated_participants: RosterImportRevert[]
+  at: string
+  undone_at?: string | null
+  undone_by?: string | null
+}
+
+/** What one updated participant held before the import overwrote it. */
+export interface RosterImportRevert {
+  id: string
+  before: Partial<Pick<Participant, 'name' | 'registered_email' | 'team_id' | 'preferred_language'>>
 }

@@ -1,6 +1,12 @@
 import { db } from '../db/local'
 import { observationsCrossingThreshold, type ImpactCounts } from './impact'
-import type { EvaluationRecord, Ksa, ObservationRecord } from '../lib/types'
+import { planCounts, type ImportPlan } from '../roster/planImport'
+import type {
+  EvaluationRecord,
+  Ksa,
+  ObservationRecord,
+  RosterImportBatch,
+} from '../lib/types'
 
 /**
  * The numbers the change dialog quotes, read from the on-device store.
@@ -169,6 +175,59 @@ export async function countsForWorkshop(workshopId: string): Promise<ImpactCount
     verdicts: await verdictsOn(obs),
     events,
     questions,
+  }
+}
+
+/**
+ * What a roster import would cost (tl-10).
+ *
+ * The row-level arithmetic is the PLAN's, not this file's: `planCounts` already
+ * knows how many rows create, update, and change contact details, and recomputing
+ * it here from the store would be a second implementation of the same question that
+ * could disagree with the preview the admin is looking at. What this adds is the
+ * one thing the plan cannot know, which is how much recorded evidence hangs off the
+ * people it would change.
+ */
+export async function countsForRosterImport(
+  plan: ImportPlan,
+  workshopId: string,
+): Promise<ImpactCounts> {
+  const counts = planCounts(plan)
+  const targets = new Set(
+    plan.rows
+      .filter((r) => r.selected && r.verdict === 'update' && r.participantId)
+      .filter((r) => r.changes.some((c) => c.field === 'registered_email' || c.field === 'team_id'))
+      .map((r) => r.participantId as string),
+  )
+  const obs = (await workshopObservations(workshopId)).filter(
+    (o) => o.participant_id && targets.has(o.participant_id),
+  )
+  return {
+    created: counts.created,
+    updated: counts.updated,
+    unchanged: counts.unchanged,
+    contactChanges: counts.emailChanges + counts.teamChanges,
+    teams: counts.newTeams,
+    participants: counts.updated,
+    observations: obs.length,
+    // Reports that already went out against the values this import would change.
+    // Counted as PEOPLE WITH EVIDENCE rather than as changed rows, because a
+    // corrected address matters exactly when there is already something recorded
+    // under the old one.
+    reports: distinctParticipants(obs),
+  }
+}
+
+/** What undoing one import would do. `refused` is the people it cannot remove. */
+export async function countsForRosterUndo(batch: RosterImportBatch): Promise<ImpactCounts> {
+  const observations = await db.observations.toArray()
+  const observed = new Set(observations.map((o) => o.participant_id).filter(Boolean) as string[])
+  const refused = batch.created_participants.filter((id) => observed.has(id)).length
+  return {
+    created: batch.created_participants.length - refused,
+    updated: batch.updated_participants.length,
+    teams: batch.created_teams.length,
+    refused,
   }
 }
 

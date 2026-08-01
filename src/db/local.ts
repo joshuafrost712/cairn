@@ -12,6 +12,7 @@ import type {
   Participant,
   ReferenceOutboxEntry,
   ReportAssignment,
+  RosterImportBatch,
   SetupChangeLogEntry,
   Team,
   VerdictTombstone,
@@ -56,6 +57,7 @@ class CairnDB extends Dexie {
   workshopSettings!: EntityTable<WorkshopSettingRow, 'pk'>
   assignments!: EntityTable<ReportAssignment, 'pk'>
   setupChangeLog!: EntityTable<SetupChangeLogEntry, 'id'>
+  rosterImportBatches!: EntityTable<RosterImportBatch, 'id'>
 
   constructor() {
     super('cairn')
@@ -243,6 +245,21 @@ class CairnDB extends Dexie {
           )
         }
       })
+    // v16 (tl-10): roster import batches, so an import can be undone offline.
+    //
+    // VERSION CLAIM: **v13 is tl-05's and v15 is tl-09's**, both deliberately
+    // skipped here for the reason v13 was skipped above — the program file assigns
+    // the numbers before implementation, and honoring a reservation across a gap
+    // costs nothing while a collision is silently wrong on every device that
+    // already upgraded. v16 was claimed in 00-program-throughline.md on 2026-08-01,
+    // before this branch was cut, because tl-11 was running in a concurrent session.
+    //
+    // A version IS owed here, unlike tl-06's two non-indexed columns: this is a new
+    // store, and `stores()` is exactly the declaration a new store needs. Purely
+    // additive, so no upgrade function.
+    this.version(16).stores({
+      rosterImportBatches: 'id, workshop_id, at',
+    })
   }
 }
 

@@ -7,6 +7,7 @@ import type {
   Participant,
   ReferenceOutboxEntry,
   ReferenceTable,
+  RosterImportBatch,
   Team,
   Workshop,
 } from '../lib/types'
@@ -59,6 +60,12 @@ const TABLE_SPEC: Record<ReferenceTable, { order: number; keyFields: string[] }>
     order: 8,
     keyFields: ['workshop_id', 'participant_id', 'evaluator_email', 'kind'],
   },
+  // A roster import batch (tl-10) references only its workshop, so it could sit
+  // anywhere below `workshop`. It goes last because it is a RECORD of writes to
+  // the tables above rather than one of them, and a batch that arrives before the
+  // participants it names would be a true row describing rows that do not exist
+  // yet — harmless to Postgres and confusing to read.
+  roster_import_batch: { order: 9, keyFields: ['id'] },
 }
 
 /** The columns forming a table's primary key, in the order `rowKey` joins them. */
@@ -681,19 +688,30 @@ export async function setWiringOverride(
 // edits made in Admin also survive the reference pull instead of being clobbered.
 // ---------------------------------------------------------------------------
 
-export async function upsertTeam(t: Team): Promise<void> {
+/**
+ * Cache-and-queue without kicking the drain. The four `queue*` functions below are
+ * the halves the single-row writers are built from, split out for tl-10's roster
+ * import.
+ *
+ * A batch writer needs them for two reasons. Sixty rows firing sixty overlapping
+ * drains is exactly the race tl-17 serialized `pushReferenceOutbox` to survive, and
+ * surviving it is not the same as being worth doing. More importantly, a batch is
+ * written inside ONE Dexie transaction so a mid-import failure cannot leave half a
+ * roster, and `pushReferenceOutbox` awaits the network — an await Dexie's
+ * transaction zone cannot span. The import therefore queues everything inside the
+ * transaction and pushes once, after it commits.
+ */
+export async function queueTeam(t: Team): Promise<void> {
   await db.teams.put(t)
   await enqueue({ id: `team:${t.id}`, table: 'team', op: 'upsert', rowKey: t.id, payload: t })
-  void pushReferenceOutbox()
 }
 
-export async function deleteTeamRow(id: string): Promise<void> {
+export async function queueTeamDelete(id: string): Promise<void> {
   await db.teams.delete(id)
   await enqueue({ id: `team:${id}`, table: 'team', op: 'delete', rowKey: id, payload: null })
-  void pushReferenceOutbox()
 }
 
-export async function upsertParticipant(p: Participant): Promise<void> {
+export async function queueParticipant(p: Participant): Promise<void> {
   await db.participants.put(p)
   await enqueue({
     id: `participant:${p.id}`,
@@ -702,10 +720,9 @@ export async function upsertParticipant(p: Participant): Promise<void> {
     rowKey: p.id,
     payload: p,
   })
-  void pushReferenceOutbox()
 }
 
-export async function deleteParticipantRow(id: string): Promise<void> {
+export async function queueParticipantDelete(id: string): Promise<void> {
   await db.participants.delete(id)
   await enqueue({
     id: `participant:${id}`,
@@ -714,7 +731,46 @@ export async function deleteParticipantRow(id: string): Promise<void> {
     rowKey: id,
     payload: null,
   })
+}
+
+export async function upsertTeam(t: Team): Promise<void> {
+  await queueTeam(t)
   void pushReferenceOutbox()
+}
+
+export async function deleteTeamRow(id: string): Promise<void> {
+  await queueTeamDelete(id)
+  void pushReferenceOutbox()
+}
+
+export async function upsertParticipant(p: Participant): Promise<void> {
+  await queueParticipant(p)
+  void pushReferenceOutbox()
+}
+
+export async function deleteParticipantRow(id: string): Promise<void> {
+  await queueParticipantDelete(id)
+  void pushReferenceOutbox()
+}
+
+// ---------------------------------------------------------------------------
+// Roster import batches (tl-10) — the record that makes an import undoable
+// ---------------------------------------------------------------------------
+
+/**
+ * Queue a batch record. Same offline-first contract as everything else here: the
+ * device holds it immediately, so undo works with no network, and the backend gets
+ * it when there is one.
+ */
+export async function queueRosterImportBatch(batch: RosterImportBatch): Promise<void> {
+  await db.rosterImportBatches.put(batch)
+  await enqueue({
+    id: `roster_import_batch:${batch.id}`,
+    table: 'roster_import_batch',
+    op: 'upsert',
+    rowKey: batch.id,
+    payload: batch,
+  })
 }
 
 export { newId }
