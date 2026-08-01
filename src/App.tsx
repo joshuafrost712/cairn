@@ -36,6 +36,7 @@ import { EvaluatorDetail } from './pages/admin/EvaluatorDetail'
 import { Roster } from './pages/admin/Roster'
 import { Assignments } from './pages/admin/Assignments'
 import { Records } from './pages/admin/Records'
+import { AdminConversations } from './pages/admin/AdminConversations'
 import { Settings } from './pages/admin/Settings'
 import { DataPage } from './pages/admin/DataPage'
 import { Conversations } from './pages/Conversations'
@@ -228,6 +229,10 @@ function Shell() {
         <Route element={<RequireRole roles={ADMIN_ROLES} />}>
           <Route path="/admin/roster" element={<Roster />} />
           <Route path="/admin/records" element={<Records />} />
+          {/* tl-05: the conversation queue is an administrator's surface. The
+              evaluator-facing /conversations shows the same rows narrowed to the
+              ones assigned to the person looking. */}
+          <Route path="/admin/conversations" element={<AdminConversations />} />
           <Route path="/admin/settings" element={<Settings />} />
           <Route path="/admin/data" element={<DataPage />} />
           {/* tl-03: routing is an administrator's surface. It used to sit in the

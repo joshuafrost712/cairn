@@ -1,7 +1,8 @@
 import { useMemo } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '../db/local'
-import { useIsChief, useScopedWorkshopId } from '../layout/roles'
+import { useAuth } from '../auth/AuthContext'
+import { ADMIN_ROLES, useHasWorkshopRole, useIsChief, useScopedWorkshopId } from '../layout/roles'
 import { buildAllReports } from '../reports/build'
 import { annotateObservations, getRequiredConfirmations } from '../reports/verification'
 import { buildCaptureTimeMap, discrepancyId, findDiscrepancies } from '../reports/discrepancy'
@@ -17,8 +18,19 @@ import type {
 } from '../lib/types'
 
 export interface NavCounts {
-  /** Mentoring conversations with status 'needed'. */
-  conversationsNeeded: number
+  /**
+   * Conversations needing this person's attention: assigned to them and not yet
+   * logged or dismissed.
+   *
+   * Scoped to the assignee since tl-05, and that changed what the number means.
+   * It used to count every 'needed' row on the device, so an evaluator's badge
+   * reported the whole workshop's follow-up backlog — 30-odd on a bad day, none
+   * of it theirs, and no way to tell from the badge which. A badge that counts
+   * other people's work is not a prompt, it is noise with a number on it.
+   */
+  conversationsMine: number
+  /** Unassigned open conversations. Admin-only; 0 otherwise. */
+  conversationsUnassigned: number
   /** Conflicting rollups with no recorded resolution. Chief-only; 0 otherwise. */
   openDiscrepancies: number
   /**
@@ -40,11 +52,15 @@ export interface NavCounts {
 }
 
 const EMPTY: NavCounts = {
-  conversationsNeeded: 0,
+  conversationsMine: 0,
+  conversationsUnassigned: 0,
   openDiscrepancies: 0,
   draftsNeedingAttention: 0,
   underAssigned: 0,
 }
+
+/** Assigned-and-unfinished. Shared by the badge and the evaluator's own page. */
+const OPEN_STATUSES = ['needed', 'scheduled'] as const
 
 /**
  * Badge counts for the sidebar.
@@ -63,11 +79,37 @@ const EMPTY: NavCounts = {
  */
 export function useNavCounts(): NavCounts {
   const isChief = useIsChief()
+  const isAdmin = useHasWorkshopRole(ADMIN_ROLES)
   const workshopId = useScopedWorkshopId()
+  const { identity } = useAuth()
+  const myEmail = identity?.email?.trim().toLowerCase() ?? null
 
-  const conversationsNeeded = useLiveQuery(
-    () => db.mentoringConversations.where('status').equals('needed').count(),
-    [],
+  const conversationsMine = useLiveQuery(
+    () =>
+      myEmail
+        ? db.mentoringConversations
+            .where('assigned_to')
+            .equals(myEmail)
+            .filter((cv) => (OPEN_STATUSES as readonly string[]).includes(cv.status))
+            .count()
+        : Promise.resolve(0),
+    [myEmail],
+    0,
+  )
+
+  const conversationsUnassigned = useLiveQuery(
+    () =>
+      isAdmin && workshopId
+        ? db.mentoringConversations
+            .where('workshop_id')
+            .equals(workshopId)
+            .filter(
+              (cv) =>
+                !cv.assigned_to && (OPEN_STATUSES as readonly string[]).includes(cv.status),
+            )
+            .count()
+        : Promise.resolve(0),
+    [isAdmin, workshopId],
     0,
   )
 
@@ -158,14 +200,22 @@ export function useNavCounts(): NavCounts {
 
   return useMemo(
     () =>
-      isChief || conversationsNeeded
+      isChief || conversationsMine
         ? {
-            conversationsNeeded: conversationsNeeded ?? 0,
+            conversationsMine: conversationsMine ?? 0,
+            conversationsUnassigned: conversationsUnassigned ?? 0,
             openDiscrepancies,
             draftsNeedingAttention: draftsNeedingAttention ?? 0,
             underAssigned,
           }
         : EMPTY,
-    [isChief, conversationsNeeded, openDiscrepancies, draftsNeedingAttention, underAssigned],
+    [
+      isChief,
+      conversationsMine,
+      conversationsUnassigned,
+      openDiscrepancies,
+      draftsNeedingAttention,
+      underAssigned,
+    ],
   )
 }

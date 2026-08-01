@@ -8,6 +8,7 @@ import {
   dismissConversation,
 } from '../db/mentoring'
 import { useAuth } from '../auth/AuthContext'
+import { Copy } from '../components/Copy'
 import type { MentoringConversation } from '../lib/types'
 
 // ---------------------------------------------------------------------------
@@ -141,6 +142,10 @@ interface ConvCardProps {
 function ConvCard({ conv, defaultRecordedBy }: ConvCardProps) {
   const [action, setAction] = useState<'schedule' | 'complete' | null>(null)
   const [dismissing, setDismissing] = useState(false)
+  // tl-05 shows the guidance here in its plainest form so an assigned evaluator
+  // is not asked to hold a hard conversation with less than the admin knew. The
+  // full treatment — the triggering evidence beside it, and a stamp when the
+  // guidance changed after they last looked — is tl-06's.
 
   const handleDismiss = async () => {
     setDismissing(true)
@@ -174,6 +179,17 @@ function ConvCard({ conv, defaultRecordedBy }: ConvCardProps) {
           <span className="pill local">dismissed</span>
         )}
       </div>
+
+      {conv.admin_guidance && (
+        <div className="banner info" style={{ margin: '0.5rem 0' }}>
+          <div className="small" style={{ fontWeight: 600 }}>
+            <Copy id="conversations.mine.guidance-title" />
+          </div>
+          <p className="small" style={{ margin: '0.25rem 0 0' }}>
+            {conv.admin_guidance}
+          </p>
+        </div>
+      )}
 
       {conv.status === 'completed' && conv.summary && (
         <p className="small muted" style={{ margin: '0.25rem 0' }}>{conv.summary}</p>
@@ -218,6 +234,7 @@ function ConvCard({ conv, defaultRecordedBy }: ConvCardProps) {
 
 export function Conversations() {
   const { identity } = useAuth()
+  const myEmail = identity?.email?.trim().toLowerCase() ?? null
   const [reconciling, setReconciling] = useState(false)
   const [reconcileMsg, setReconcileMsg] = useState<string | null>(null)
   const [showDismissed, setShowDismissed] = useState(false)
@@ -227,11 +244,33 @@ export function Conversations() {
     void reconcileMentoringConversations()
   }, [])
 
+  // tl-05: yours, not everybody's.
+  //
+  // This page used to list every conversation on the device, which is what
+  // Joshua's feedback objected to first — an evaluator opening it found the whole
+  // workshop's follow-ups, including participants they had never met. RLS narrows
+  // what the backend returns, but it cannot narrow this page on its own: every
+  // device DERIVES conversations locally from the observations it holds, and an
+  // evaluator holds the workshop's observations because they have to verify them.
+  // So the filter is here as well as in the database, and the two agree.
+  //
+  // An admin sees their own assigned conversations here too, and the full queue at
+  // /admin/conversations. One page per question rather than one page that changes
+  // shape depending on who is looking at it.
   const conversations = useLiveQuery(
-    () => db.mentoringConversations.toArray().then((all) =>
-      all.sort((a, b) => (a.updated_at < b.updated_at ? 1 : a.updated_at > b.updated_at ? -1 : 0)),
-    ),
-    [],
+    () =>
+      myEmail
+        ? db.mentoringConversations
+            .where('assigned_to')
+            .equals(myEmail)
+            .toArray()
+            .then((rows) =>
+              rows.sort((a, b) =>
+                a.updated_at < b.updated_at ? 1 : a.updated_at > b.updated_at ? -1 : 0,
+              ),
+            )
+        : Promise.resolve([] as MentoringConversation[]),
+    [myEmail],
     [] as MentoringConversation[],
   )
 
@@ -253,10 +292,11 @@ export function Conversations() {
   return (
     <>
       <div className="card">
-        <h1>Mentoring conversations</h1>
+        <h1>
+          <Copy id="conversations.mine.title" />
+        </h1>
         <p className="small muted">
-          These are follow-up conversations triggered by confirmed low observations (designation 0 or 1).
-          Reconcile to pull in any new triggers from the current verification state.
+          <Copy id="conversations.mine.intro" />
         </p>
         <div className="row">
           <button onClick={handleReconcile} disabled={reconciling}>
@@ -268,7 +308,7 @@ export function Conversations() {
 
       {(conversations ?? []).length === 0 && (
         <div className="banner info">
-          No mentoring conversations yet. Hit Reconcile after observations are verified.
+          <Copy id="conversations.mine.empty" />
         </div>
       )}
 

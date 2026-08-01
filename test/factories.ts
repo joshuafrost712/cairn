@@ -16,6 +16,10 @@ export function obs(partial: Partial<ObservationRecord> = {}): ObservationRecord
   return {
     id: partial.id ?? uid('obs'),
     capture_client_id: partial.capture_client_id ?? 'cap-1',
+    // Defaults to null, which is what an observation imported before tl-04 holds
+    // and therefore the state tl-05's derivation has to cope with. Tests that
+    // care about the workshop pass one.
+    workshop_id: 'workshop_id' in partial ? (partial.workshop_id ?? null) : null,
     participant_id: 'participant_id' in partial ? (partial.participant_id ?? null) : 'p-1',
     participant_name: partial.participant_name ?? 'CIT One',
     ksa_code: partial.ksa_code ?? 'GENRE',

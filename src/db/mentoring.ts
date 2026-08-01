@@ -48,7 +48,14 @@ export function deriveNeededConversations(
       id: `mc::${obs.id}`,
       participant_id: obs.participant_id,
       participant_name: p?.name ?? obs.participant_name,
-      workshop_id: null, // not available on ObservationRecord; can be joined later
+      // tl-05: taken from the observation, which has carried a workshop_id since
+      // tl-04. It used to be hardcoded null with a "can be joined later" note,
+      // and later arrived: every policy on this table is written against
+      // workshop_id, and `is_workshop_member(null)` is false, so a null here is
+      // not an unfilled field — it is a row the backend will refuse forever.
+      // Falls back to the participant's workshop, which is the same answer by a
+      // different route and covers an observation imported before tl-04.
+      workshop_id: obs.workshop_id ?? p?.workshop_id ?? null,
       trigger_observation_id: obs.id,
       trigger_ksa_code: obs.ksa_code,
       trigger_designation: d,
@@ -58,6 +65,11 @@ export function deriveNeededConversations(
       summary: null,
       participant_response: null,
       recorded_by: null,
+      assigned_to: null,
+      assigned_by: null,
+      assigned_at: null,
+      admin_guidance: null,
+      admin_guidance_updated_at: null,
       created_at: nowIso,
       updated_at: nowIso,
       sync_status: 'local',
@@ -67,6 +79,34 @@ export function deriveNeededConversations(
   return results
 }
 
+/**
+ * What reconcile should do to one already-existing row, given the stub the
+ * derivation just produced for the same trigger.
+ *
+ * Pure and separate from the IO so the rule can be tested directly, because the
+ * rule is the whole risk in this spec: reconcile runs on every visit to the
+ * conversations page, so a version of it that overwrites would quietly unassign
+ * the entire queue on the next page load and look like nothing had happened.
+ *
+ * Returns null when the row should be left exactly as it is, which is the answer
+ * for every field the admin or the assignee owns. The one repair it will make is
+ * filling a workshop_id that was never set — rows derived before tl-05 all hold
+ * null there and cannot sync until it is filled.
+ */
+export function reconcilePatch(
+  existing: MentoringConversation,
+  derived: MentoringConversation,
+): Partial<MentoringConversation> | null {
+  if (existing.workshop_id || !derived.workshop_id) return null
+  return {
+    workshop_id: derived.workshop_id,
+    // Back into the outbox: the row could not have been accepted before, so it
+    // has never reached the backend regardless of what its sync_status claims.
+    sync_status: 'queued',
+    sync_error: null,
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Reconcile (async, idempotent)
 // ---------------------------------------------------------------------------
@@ -74,11 +114,15 @@ export function deriveNeededConversations(
 /**
  * Read all annotated observations + participants from Dexie, derive the needed
  * conversations, then insert any that do not already exist. Existing records
- * (in any status) are never overwritten — history is preserved.
+ * (in any status) are never overwritten — history is preserved, and since tl-05
+ * that explicitly includes the assignment and the guidance.
  *
  * Safe to call after every verification pass.
  */
-export async function reconcileMentoringConversations(): Promise<{ added: number }> {
+export async function reconcileMentoringConversations(): Promise<{
+  added: number
+  repaired: number
+}> {
   const [observations, verdicts, participants] = await Promise.all([
     db.observations.toArray(),
     db.verifications.toArray(),
@@ -92,15 +136,24 @@ export async function reconcileMentoringConversations(): Promise<{ added: number
   const derived = deriveNeededConversations(annotated, participantsById, nowIso)
 
   let added = 0
+  let repaired = 0
   for (const conv of derived) {
     const existing = await db.mentoringConversations.get(conv.id)
     if (!existing) {
       await db.mentoringConversations.put(conv)
       added++
+      continue
     }
-    // Existing records are left as-is regardless of their current status.
+    // Existing records keep their status, their outcome, their assignment and
+    // their guidance. The only write reconcile will make to one is the
+    // workshop_id repair, and reconcilePatch decides that, not this loop.
+    const patch = reconcilePatch(existing, conv)
+    if (patch) {
+      await db.mentoringConversations.update(conv.id, patch)
+      repaired++
+    }
   }
-  return { added }
+  return { added, repaired }
 }
 
 // ---------------------------------------------------------------------------
@@ -151,4 +204,111 @@ export async function completeConversation(
 /** Mark a conversation as dismissed (no further follow-up planned). */
 export async function dismissConversation(id: string): Promise<void> {
   await updateConversation(id, { status: 'dismissed' })
+}
+
+// ---------------------------------------------------------------------------
+// tl-05: assignment and guidance
+//
+// All three go through updateConversation, so the updated_at stamp and the
+// re-queue live in one place and an assignment cannot be written by a path that
+// forgets to sync it.
+// ---------------------------------------------------------------------------
+
+/** Emails are compared lowercased everywhere; normalize at the one write site. */
+export function normalizeEmail(email: string): string {
+  return email.trim().toLowerCase()
+}
+
+/**
+ * Hand a conversation to an evaluator. Reassignment is the same call: it
+ * overwrites who, by whom, and when, and deliberately leaves `admin_guidance`
+ * alone, because the guidance is about how to open this conversation with this
+ * participant and does not stop being true when a different person takes it.
+ */
+export async function assignConversation(
+  id: string,
+  opts: { assignedTo: string; assignedBy: string | null; nowIso?: string },
+): Promise<void> {
+  await updateConversation(id, {
+    assigned_to: normalizeEmail(opts.assignedTo),
+    assigned_by: opts.assignedBy ? normalizeEmail(opts.assignedBy) : null,
+    assigned_at: opts.nowIso ?? new Date().toISOString(),
+  })
+}
+
+/** Return a conversation to the unassigned pool. Guidance survives this too. */
+export async function unassignConversation(id: string): Promise<void> {
+  await updateConversation(id, {
+    assigned_to: null,
+    assigned_by: null,
+    assigned_at: null,
+  })
+}
+
+/**
+ * Write the admin's guidance, independently of who holds the conversation, so an
+ * admin can think about how it should be opened before deciding who is right to
+ * open it. The stamp is what tl-06 uses to tell an evaluator the guidance changed
+ * after they last read it.
+ */
+export async function setAdminGuidance(
+  id: string,
+  guidance: string,
+  nowIso?: string,
+): Promise<void> {
+  const trimmed = guidance.trim()
+  await updateConversation(id, {
+    admin_guidance: trimmed === '' ? null : trimmed,
+    admin_guidance_updated_at: nowIso ?? new Date().toISOString(),
+  })
+}
+
+export interface EvaluatorLoad {
+  email: string
+  /** Assigned and not yet finished: what the person is actually carrying. */
+  open: number
+  /** Of the open ones, those with a date already set. */
+  scheduled: number
+  completed: number
+}
+
+/**
+ * How much each evaluator is carrying, so assignment is not blind.
+ *
+ * Pure, and takes the roster of evaluators rather than deriving it from the
+ * conversations, because the answer an admin needs includes the people carrying
+ * nothing — those are the ones with room, and a group-by over the conversations
+ * would omit exactly them.
+ */
+export function evaluatorLoads(
+  conversations: MentoringConversation[],
+  evaluatorEmails: string[],
+): EvaluatorLoad[] {
+  const byEmail = new Map<string, EvaluatorLoad>()
+  for (const email of evaluatorEmails) {
+    const key = normalizeEmail(email)
+    if (!byEmail.has(key)) byEmail.set(key, { email: key, open: 0, scheduled: 0, completed: 0 })
+  }
+
+  for (const c of conversations) {
+    if (!c.assigned_to) continue
+    const key = normalizeEmail(c.assigned_to)
+    // Somebody who has left the workshop still shows here while they hold work.
+    // Dropping them would make the queue add up to less than it contains.
+    let load = byEmail.get(key)
+    if (!load) {
+      load = { email: key, open: 0, scheduled: 0, completed: 0 }
+      byEmail.set(key, load)
+    }
+    if (c.status === 'completed') load.completed++
+    else if (c.status === 'dismissed') continue
+    else {
+      load.open++
+      if (c.status === 'scheduled') load.scheduled++
+    }
+  }
+
+  return [...byEmail.values()].sort(
+    (a, b) => b.open - a.open || a.email.localeCompare(b.email),
+  )
 }

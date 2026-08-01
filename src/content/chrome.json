@@ -728,6 +728,206 @@
     {
       "id": "sync-health.by-evaluator.empty",
       "label": "No submitted evaluations in this workshop yet."
+    },
+    {
+      "id": "nav.admin-conversations",
+      "label": "Conversation queue"
+    },
+    {
+      "id": "admin-conversations.title",
+      "label": "Conversation queue"
+    },
+    {
+      "id": "admin-conversations.intro",
+      "label": "Follow-up conversations raised by confirmed low observations. Assign each one to an evaluator, and say how you want it opened."
+    },
+    {
+      "id": "admin-conversations.reconcile",
+      "label": "Check for new triggers"
+    },
+    {
+      "id": "admin-conversations.reconcile.working",
+      "label": "Checking…"
+    },
+    {
+      "id": "admin-conversations.reconcile.found",
+      "label": "Found {added} new conversation(s)."
+    },
+    {
+      "id": "admin-conversations.reconcile.none",
+      "label": "No new conversations."
+    },
+    {
+      "id": "admin-conversations.reconcile.repaired",
+      "label": "Repaired {repaired} conversation(s) that had no workshop and could not be shared."
+    },
+    {
+      "id": "admin-conversations.empty",
+      "label": "No conversations yet. They appear once an observation is confirmed at the low end of the scale."
+    },
+    {
+      "id": "admin-conversations.unassigned.title",
+      "label": "Waiting to be handed out"
+    },
+    {
+      "id": "admin-conversations.unassigned.intro",
+      "label": "Nobody owns these. Until one is assigned, no evaluator can see it."
+    },
+    {
+      "id": "admin-conversations.unassigned.empty",
+      "label": "Everything open has an owner."
+    },
+    {
+      "id": "admin-conversations.load.title",
+      "label": "What each evaluator is carrying"
+    },
+    {
+      "id": "admin-conversations.load.intro",
+      "label": "Open means assigned and not yet logged or dismissed. Assigning without looking here is how one person ends up with six hard conversations and everybody else with none."
+    },
+    {
+      "id": "admin-conversations.load.empty",
+      "label": "No evaluators in this workshop yet."
+    },
+    {
+      "id": "admin-conversations.load.col.evaluator",
+      "label": "Evaluator"
+    },
+    {
+      "id": "admin-conversations.load.col.open",
+      "label": "Open"
+    },
+    {
+      "id": "admin-conversations.load.col.scheduled",
+      "label": "Scheduled"
+    },
+    {
+      "id": "admin-conversations.load.col.completed",
+      "label": "Logged"
+    },
+    {
+      "id": "admin-conversations.all.title",
+      "label": "The whole queue"
+    },
+    {
+      "id": "admin-conversations.all.intro",
+      "label": "Every conversation in this workshop, whoever holds it."
+    },
+    {
+      "id": "admin-conversations.col.participant",
+      "label": "Participant"
+    },
+    {
+      "id": "admin-conversations.col.trigger",
+      "label": "Triggered by"
+    },
+    {
+      "id": "admin-conversations.col.status",
+      "label": "Status"
+    },
+    {
+      "id": "admin-conversations.col.assignee",
+      "label": "Assigned to"
+    },
+    {
+      "id": "admin-conversations.col.guidance",
+      "label": "Guidance"
+    },
+    {
+      "id": "admin-conversations.guidance.yes",
+      "label": "Written"
+    },
+    {
+      "id": "admin-conversations.guidance.no",
+      "label": "—"
+    },
+    {
+      "id": "admin-conversations.unassigned.pill",
+      "label": "Unassigned"
+    },
+    {
+      "id": "admin-conversations.drawer.title",
+      "label": "Assign this conversation"
+    },
+    {
+      "id": "admin-conversations.drawer.trigger",
+      "label": "{ksa} at {designation}, confirmed. This is the evidence that called for the conversation."
+    },
+    {
+      "id": "admin-conversations.assign.label",
+      "label": "Evaluator"
+    },
+    {
+      "id": "admin-conversations.assign.placeholder",
+      "label": "Choose an evaluator…"
+    },
+    {
+      "id": "admin-conversations.assign.submit",
+      "label": "Assign"
+    },
+    {
+      "id": "admin-conversations.assign.reassign",
+      "label": "Reassign"
+    },
+    {
+      "id": "admin-conversations.assign.unassign",
+      "label": "Return to the pool"
+    },
+    {
+      "id": "admin-conversations.assign.saving",
+      "label": "Saving…"
+    },
+    {
+      "id": "admin-conversations.assign.current",
+      "label": "Held by {email} since {date}."
+    },
+    {
+      "id": "admin-conversations.assign.none",
+      "label": "Not assigned to anyone yet."
+    },
+    {
+      "id": "admin-conversations.assign.no-evaluators",
+      "label": "Nobody in this workshop can take a conversation yet. Add evaluators first."
+    },
+    {
+      "id": "admin-conversations.guidance.label",
+      "label": "How to approach this conversation"
+    },
+    {
+      "id": "admin-conversations.guidance.help",
+      "label": "The assigned evaluator sees this. Say what you know that they do not: what prompted it, what to be careful of, how you would open it."
+    },
+    {
+      "id": "admin-conversations.guidance.placeholder",
+      "label": "He took the first round of feedback hard. Lead with what improved before naming the gap."
+    },
+    {
+      "id": "admin-conversations.guidance.save",
+      "label": "Save guidance"
+    },
+    {
+      "id": "admin-conversations.guidance.saved",
+      "label": "Guidance saved."
+    },
+    {
+      "id": "admin-conversations.guidance.stamp",
+      "label": "Last edited {date}."
+    },
+    {
+      "id": "conversations.mine.title",
+      "label": "Your conversations"
+    },
+    {
+      "id": "conversations.mine.intro",
+      "label": "The follow-up conversations you have been asked to hold. An administrator assigns these and writes the guidance."
+    },
+    {
+      "id": "conversations.mine.empty",
+      "label": "Nothing assigned to you right now."
+    },
+    {
+      "id": "conversations.mine.guidance-title",
+      "label": "How your administrator suggests approaching this"
     }
   ]
 }
