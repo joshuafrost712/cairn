@@ -2,6 +2,7 @@ import { db, activityKsaPk } from './local'
 import { supabase, isSupabaseConfigured } from '../lib/supabase'
 import { pushReferenceOutbox } from './referenceWrite'
 import { cacheSettingRows, mirrorActiveWorkshop } from './settings'
+import { cacheScalePoints, mirrorActiveScale, seedDefaultScale } from './scale'
 import { cacheAssignmentRows } from './assignments'
 import { getActiveWorkshopId } from '../lib/activeWorkshop'
 import * as seed from '../data/seed'
@@ -56,7 +57,7 @@ export async function loadReferenceData(): Promise<void> {
       return
     }
     try {
-      const [w, t, p, a, g, k, ak, st, ra] = await Promise.all([
+      const [w, t, p, a, g, k, ak, st, ra, sp] = await Promise.all([
         supabase.from('workshop').select('*'),
         supabase.from('team').select('*'),
         supabase.from('participant').select('*'),
@@ -66,8 +67,9 @@ export async function loadReferenceData(): Promise<void> {
         supabase.from('activity_ksa').select('*'),
         supabase.from('workshop_setting').select('*'),
         supabase.from('report_assignment').select('*'),
+        supabase.from('scale_point').select('*'),
       ])
-      const firstError = [w, t, p, a, g, k, ak, st, ra].find((r) => r.error)?.error
+      const firstError = [w, t, p, a, g, k, ak, st, ra, sp].find((r) => r.error)?.error
       if (firstError) throw firstError
 
       await db.transaction(
@@ -113,11 +115,14 @@ export async function loadReferenceData(): Promise<void> {
       const inScope = (w.data ?? []).map((row: { id: string }) => row.id)
       await cacheSettingRows(st.data ?? [], inScope)
       await cacheAssignmentRows(ra.data ?? [], inScope)
+      await cacheScalePoints(sp.data ?? [], inScope)
       // Re-point the synchronous verification threshold at what just arrived.
       // It happens HERE rather than in a separate effect so there is no window
       // in which fresh settings sit in Dexie while the gate still runs on the
       // previous value. See the header of db/settings.ts for why the mirror
       // exists at all.
+      // Moves the threshold AND (tl-09) the scale; see that function's header for
+      // why both mirrors travel together rather than one call site each.
       await mirrorActiveWorkshop(getActiveWorkshopId())
       return
     } catch (err) {
@@ -147,6 +152,11 @@ export async function primeFromSeed(): Promise<void> {
       )
     },
   )
+  // The seed carries no scale of its own: local-only mode is the app's original
+  // 0-3, which is what defaultScalePoints() is. Seeded as rows rather than left
+  // to buildScale()'s fallback so the Setup editor has something to edit.
+  for (const w of seed.seedWorkshops) await seedDefaultScale(w.id)
+  await mirrorActiveScale(getActiveWorkshopId())
 }
 
 /**

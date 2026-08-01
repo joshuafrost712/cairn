@@ -24,6 +24,7 @@ import type {
 import type { DraftDoc } from '../drafts/types'
 import { planBackfill } from './backfill'
 import { planGoalBackfill } from './goalBackfill'
+import { defaultScalePoints, type ScalePoint } from '../lib/scale'
 import { getActiveWorkshopId } from '../lib/activeWorkshop'
 
 /**
@@ -56,6 +57,7 @@ class CairnDB extends Dexie {
   workshopSettings!: EntityTable<WorkshopSettingRow, 'pk'>
   assignments!: EntityTable<ReportAssignment, 'pk'>
   setupChangeLog!: EntityTable<SetupChangeLogEntry, 'id'>
+  scalePoints!: EntityTable<ScalePoint, 'pk'>
 
   constructor() {
     super('cairn')
@@ -242,6 +244,26 @@ class CairnDB extends Dexie {
             `[honest-eval] tl-08 backfill: ${plan.crossWorkshop.length} question(s) were wired across more than one workshop and were assigned to their primary one; the backend clones these, so the copies arrive on the next sync`,
           )
         }
+      })
+    // v15 (tl-09): the workshop's own grading scale.
+    //
+    // VERSION CLAIM: the program file assigned v15 to tl-09 before either this
+    // spec or tl-10 was implemented. v16 is tl-10's and is not taken here.
+    //
+    // The upgrade seeds today's 0-3 scale for every cached workshop, which is the
+    // device half of the migration's own seed. It is not strictly required —
+    // `buildScale()` falls back to the same four points when a workshop has no
+    // rows — and it is worth doing anyway, because without it the Scale section
+    // on a device that has not yet pulled would show an administrator an empty
+    // editor for a workshop that is demonstrably scoring people 0-3.
+    this.version(15)
+      .stores({
+        scalePoints: 'pk, workshop_id',
+      })
+      .upgrade(async (tx) => {
+        const workshops = await tx.table('workshops').toArray()
+        const rows = workshops.flatMap((w: { id: string }) => defaultScalePoints(w.id))
+        if (rows.length > 0) await tx.table('scalePoints').bulkPut(rows)
       })
   }
 }

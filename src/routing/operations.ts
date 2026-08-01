@@ -9,7 +9,8 @@
 
 import { db } from '../db/local'
 import { ksasForActivity } from '../db/reference'
-import { validateObservation } from '../ai/contract'
+import { isOnScale, validateObservation } from '../ai/contract'
+import { scaleForWorkshop } from '../db/scale'
 import {
   buildCaptureFile,
   inboxPath,
@@ -50,6 +51,9 @@ async function captureFileFor(e: EvaluationRecord): Promise<CaptureFile> {
   const workshop = e.workshop_id ? (await db.workshops.get(e.workshop_id)) ?? null : null
   const activity = e.activity_id ? (await db.activities.get(e.activity_id)) ?? null : null
   const ksasInScope = e.activity_id ? await ksasForActivity(e.activity_id) : []
+  // The CAPTURE's workshop, not the active one: routing is a queue and a queue
+  // outlives a workshop switch.
+  const scale = await scaleForWorkshop(e.workshop_id ?? null)
   return buildCaptureFile(
     {
       client_id: e.client_id,
@@ -64,6 +68,7 @@ async function captureFileFor(e: EvaluationRecord): Promise<CaptureFile> {
       activity: activity ? { id: activity.id, title: activity.title, day: activity.day } : null,
       ksasInScope,
       participantScope: e.participant_scope.map((p) => ({ name: p.name, participant_id: p.participant_id })),
+      scale,
     },
   )
 }
@@ -264,11 +269,25 @@ async function storeObservationsFile(file: ObservationsFile): Promise<{ stored: 
     captureId,
     validated.map((v) => (v.ok ? v.value.participant_id : null)),
   )
+  // THE SECOND HALF OF THE IMPORT BOUNDARY (tl-09). `validateObservation` checked
+  // the shape; this checks the designation against the scale of the workshop the
+  // capture actually belongs to, which could only be resolved once the file's
+  // participants had been read. A routed observation carrying a value the
+  // workshop does not define is rejected exactly as a malformed one is: it would
+  // otherwise sit in a report as a number no legend can label.
+  const scale = await scaleForWorkshop(workshopId)
   const records: ObservationRecord[] = []
   let rejected = 0
   validated.forEach((v, i) => {
     if (!v.ok) {
       rejected++
+      return
+    }
+    if (!isOnScale(v.value, scale)) {
+      rejected++
+      console.warn(
+        `[honest-eval] routed observation ${captureId}::${i} rejected: designation ${v.value.evidence_designation} is not a point on this workshop's scale`,
+      )
       return
     }
     records.push({

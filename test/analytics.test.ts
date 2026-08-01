@@ -1,11 +1,11 @@
 import { describe, it, expect } from 'vitest'
+import { DEFAULT_SCALE, buildScale, normalizeScalePoints } from '../src/lib/scale'
 import { activity, evaluation, ksa, obs, participant, team, verdict } from './factories'
 import { annotateObservations, participantGate } from '../src/reports/verification'
 import { buildAllReports } from '../src/reports/build'
 import type { Gate } from '../src/reports/verification'
 import { discrepancyId } from '../src/reports/discrepancy'
 import {
-  AT_RISK_MAX,
   EMPTY_STATS,
   MIN_N_FOR_MEAN,
   UNKNOWN_EVALUATOR,
@@ -129,9 +129,39 @@ describe('designationStats', () => {
     expect(s.dist.reduce((a, b) => a + b, 0)).toBe(s.n)
   })
 
-  it('counts at-risk values at or below AT_RISK_MAX', () => {
-    expect(AT_RISK_MAX).toBe(1)
-    expect(designationStats([0, 1, 2, 3]).atRisk).toBe(2)
+  it('counts at-risk values by the scale\'s trigger flags, not by a threshold (tl-09)', () => {
+    // Unchanged on the app's original scale, where 0 and 1 are the triggers.
+    expect(designationStats([0, 1, 2, 3], DEFAULT_SCALE).atRisk).toBe(2)
+
+    // On a 1-5 scale where only the bottom point calls for a conversation, a
+    // `v <= 1` rule would still have said one; it agrees here by accident. The
+    // case that separates them is the scale below, where 2 IS a trigger and 1
+    // is not, which no threshold can express.
+    const odd = buildScale(
+      'w1',
+      normalizeScalePoints('w1', [
+        { value: 1, label: 'unusual but fine', description: null, is_low_trigger: false },
+        { value: 2, label: 'the worrying one', description: null, is_low_trigger: true },
+        { value: 3, label: 'good', description: null, is_low_trigger: false },
+      ]),
+    )
+    expect(designationStats([1, 2, 3], odd).atRisk).toBe(1)
+    expect(designationStats([1, 1, 1], odd).atRisk).toBe(0)
+  })
+
+  it('buckets a distribution by scale POSITION, so a 1-5 scale has five buckets', () => {
+    const five = buildScale(
+      'w1',
+      normalizeScalePoints('w1', [1, 2, 3, 4, 5].map((v) => ({
+        value: v,
+        label: `p${v}`,
+        description: null,
+        is_low_trigger: v === 1,
+      }))),
+    )
+    const s = designationStats([1, 1, 3, 5], five)
+    expect(s.dist).toEqual([2, 0, 1, 0, 1])
+    expect(s.dist.reduce((a, b) => a + b, 0)).toBe(s.n)
   })
 })
 

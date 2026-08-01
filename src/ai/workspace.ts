@@ -11,7 +11,8 @@
 
 import type { ResolvedKsa } from '../lib/goals'
 import type { Activity, Participant, Workshop } from '../lib/types'
-import { ROUTING_RULES, OBSERVATIONS_SCHEMA, type RoutedObservation } from './contract'
+import { observationsSchema, routingRules, type RoutedObservation } from './contract'
+import { DEFAULT_SCALE, maxValue, minValue, type Scale } from '../lib/scale'
 
 export const CAPTURE_SCHEMA_ID = 'cairn.capture/v1'
 export const OBSERVATIONS_FILE_SCHEMA_ID = 'cairn.observations/v1'
@@ -34,6 +35,16 @@ export interface CaptureFile {
     ai_facing_rubric: string | null
     evidence_levels: Record<string, string | undefined> | null
   }[]
+  /**
+   * The workshop's grading scale, inlined (tl-09).
+   *
+   * The file is routable on its own — that is the whole point of inlining the
+   * KSAs — and a router handed evidence-level descriptors with no statement of
+   * what the legal answers ARE has to infer the range from the descriptor keys.
+   * It gets that right until a workshop authors descriptors for only some of its
+   * points, which is the normal state of a workshop mid-setup.
+   */
+  scale: { value: number; label: string; is_low_trigger: boolean }[]
   source_text: string
   ruleset_version: string | null
   created_at: string
@@ -52,6 +63,8 @@ export interface CaptureContext {
   activity: Pick<Activity, 'id' | 'title' | 'day'> | null
   ksasInScope: ResolvedKsa[]
   participantScope: { name: string; participant_id?: string }[]
+  /** The capture's own workshop's scale. Defaults to the app's original 0-3. */
+  scale?: Scale
 }
 
 /** Build the inbox capture file for one evaluation. */
@@ -81,6 +94,11 @@ export function buildCaptureFile(
       ai_facing_rubric: k.ai_facing_rubric,
       evidence_levels: k.evidence_levels ?? null,
     })),
+    scale: (ctx.scale ?? DEFAULT_SCALE).points.map((p) => ({
+      value: p.value,
+      label: p.label,
+      is_low_trigger: p.is_low_trigger,
+    })),
     source_text: args.source_text,
     ruleset_version: args.ruleset_version,
     created_at: args.created_at,
@@ -96,7 +114,7 @@ export const outboxPath = (clientId: string) => `${OUTBOX}/${clientId}.json`
 // ---- generated workspace docs --------------------------------------------
 
 /** routing/ROUTING.md — the runbook Claude (via Max) follows on the repo. */
-export function renderRoutingDoc(): string {
+export function renderRoutingDoc(scale: Scale = DEFAULT_SCALE): string {
   return `# Routing runbook (for Claude)
 
 This repo is the routing substrate for the Cairn participant-evaluation app. **No
@@ -115,7 +133,7 @@ full picture if you want it; \`reference/schema.json\` is the exact output shape
 
 ## The routing contract
 
-${ROUTING_RULES}
+${routingRules(scale)}
 
 ## Output
 
@@ -144,12 +162,12 @@ synced between devices) and is not part of routing.
 }
 
 /** routing/reference/rubric.md — the full KSA rubric. */
-export function renderRubricDoc(ksas: ResolvedKsa[]): string {
+export function renderRubricDoc(ksas: ResolvedKsa[], scale: Scale = DEFAULT_SCALE): string {
   const body = ksas
     .map((k) => {
       const levels = k.evidence_levels ?? {}
-      const levelText = (['0', '1', '2', '3'] as const)
-        .map((n) => `- **${n}** — ${levels[n] ?? '(unspecified)'}`)
+      const levelText = scale.points
+        .map((p) => `- **${p.value}** (${p.label}) — ${levels[String(p.value)] ?? '(unspecified)'}`)
         .join('\n')
       return `## ${k.code} — ${k.goal_title}
 
@@ -157,7 +175,7 @@ export function renderRubricDoc(ksas: ResolvedKsa[]): string {
 
 **Rubric:** ${k.ai_facing_rubric ?? ''}
 
-**Evidence levels (0–3, DRAFT placeholders):**
+**Evidence levels (${minValue(scale)}–${maxValue(scale)}, DRAFT placeholders):**
 ${levelText}
 
 **CBC sub-points:** ${k.cbc_subpoint_refs.join('; ')}`
@@ -190,6 +208,6 @@ ${rows}
 }
 
 /** routing/reference/schema.json — the output JSON schema. */
-export function renderSchemaJson(): string {
-  return JSON.stringify(OBSERVATIONS_SCHEMA, null, 2) + '\n'
+export function renderSchemaJson(scale: Scale = DEFAULT_SCALE): string {
+  return JSON.stringify(observationsSchema(scale), null, 2) + '\n'
 }

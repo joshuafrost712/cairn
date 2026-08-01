@@ -9,6 +9,7 @@
 import type { ParticipantReport } from './build'
 import type { AnnotatedObservation, Gate } from './verification'
 import { toCsv } from './csv'
+import { getActiveScale, type Scale } from '../lib/scale'
 
 export interface CbcEvidence {
   ksa_code: string
@@ -40,10 +41,22 @@ export interface CbcParticipant {
   competencies: CbcCompetency[]
 }
 export interface CbcExport {
-  schema: 'cairn.cbc-export/v1'
+  /**
+   * Bumped to v2 by tl-09, and the bump is the point: the file gained a `scale`
+   * block, and a consumer that reads a designation without reading the scale it
+   * was recorded on is now capable of being wrong. A version string exists so
+   * that consumer can notice rather than guess.
+   */
+  schema: 'cairn.cbc-export/v2'
   workshop: { id: string | null; name: string | null }
   generated_at: string
   required_confirmations: number
+  /**
+   * What the numbers in this file MEAN. Without it a 2 is unreadable: it could
+   * be the middle of four points or the second-worst of six, and the CBC process
+   * this export feeds has no way to tell.
+   */
+  scale: { value: number; label: string; description: string | null; is_low_trigger: boolean }[]
   participants: CbcParticipant[]
 }
 
@@ -55,8 +68,15 @@ const maxOrNull = (xs: (number | null)[]): number | null => {
 export function buildCbcExport(
   reports: ParticipantReport<AnnotatedObservation>[],
   gateOf: (participantId: string) => Gate,
-  opts: { workshop: { id: string | null; name: string | null }; generatedOn: string; requiredConfirmations: number; onlyFinalized?: boolean },
+  opts: {
+    workshop: { id: string | null; name: string | null }
+    generatedOn: string
+    requiredConfirmations: number
+    onlyFinalized?: boolean
+    scale?: Scale
+  },
 ): CbcExport {
+  const scale = opts.scale ?? getActiveScale()
   const participants: CbcParticipant[] = []
   for (const r of reports) {
     const gate = gateOf(r.participant_id)
@@ -97,10 +117,16 @@ export function buildCbcExport(
   }
 
   return {
-    schema: 'cairn.cbc-export/v1',
+    schema: 'cairn.cbc-export/v2',
     workshop: opts.workshop,
     generated_at: opts.generatedOn,
     required_confirmations: opts.requiredConfirmations,
+    scale: scale.points.map((p) => ({
+      value: p.value,
+      label: p.label,
+      description: p.description,
+      is_low_trigger: p.is_low_trigger,
+    })),
     participants,
   }
 }

@@ -9,8 +9,8 @@
 
 import type { ParticipantReport, KsaRollup } from './build'
 import type { Gate } from './verification'
+import { getActiveScale, labelFor, maxValue, type Scale } from '../lib/scale'
 import {
-  LEVEL_WORD,
   SEGMENT_ID_VERSION,
   claimEvidence,
   derivationNote,
@@ -24,13 +24,13 @@ import {
   type EvidenceObservation,
 } from './segments'
 
-function designationLine(r: KsaRollup): string {
+function designationLine(r: KsaRollup, scale: Scale): string {
   if (r.representative === null) return 'No evidence recorded yet.'
-  const word = LEVEL_WORD[r.representative] ?? ''
+  const word = labelFor(scale, r.representative)
   const spread =
     r.designations.length > 1 ? ` (recorded evidence ranged ${r.designations[0]}–${r.designations[r.designations.length - 1]})` : ''
   const conflict = r.conflict ? ' This KSA shows conflicting evidence and should be reviewed before it is finalized.' : ''
-  return `**Designation: ${r.representative}/3 (${word}).**${spread}${conflict}`
+  return `**Designation: ${r.representative}/${maxValue(scale)} (${word}).**${spread}${conflict}`
 }
 
 /** Build the participant report as segments. */
@@ -39,6 +39,10 @@ export function buildParticipantReportSegments(
   workshopName: string,
   generatedOn: string,
   gate?: Gate,
+  // Resolved once, here, and passed down. A helper reaching for the active
+  // workshop's scale instead would print one workshop's words on another's
+  // numbers the first time somebody generated a report while switched away.
+  scale: Scale = getActiveScale(),
 ): DocSegment[] {
   const pid = report.participant_id
   const root = segId(SEGMENT_ID_VERSION, `pr:${slug(pid)}`)
@@ -57,7 +61,7 @@ export function buildParticipantReportSegments(
   push(out, {
     id: segId(root, 'intro'),
     kind: 'paragraph',
-    text: `${workshopName}${teamBit}. Draft evidence summary generated ${generatedOn} from facilitator observations. Numbers are draft 0–3 designations and the evidence levels behind them are still being finalized, so treat this as input to a human judgment rather than a final score.`,
+    text: `${workshopName}${teamBit}. Draft evidence summary generated ${generatedOn} from facilitator observations. Numbers are draft ${scale.points[0].value}–${maxValue(scale)} designations and the evidence levels behind them are still being finalized, so treat this as input to a human judgment rather than a final score.`,
     participantId: pid,
   })
   endBlock(out)
@@ -114,7 +118,7 @@ export function buildParticipantReportSegments(
     push(out, {
       id: segId(kRoot, 'claim'),
       kind: 'paragraph',
-      text: designationLine(r),
+      text: designationLine(r, scale),
       participantId: pid,
       ksaCode: r.ksa_code,
       evidence: claimEvidence(r),
@@ -191,7 +195,7 @@ export function buildParticipantReportSegments(
   // on the line is what it is, not just the first.
   const byCode = new Map(report.ksaRollups.map((r) => [r.ksa_code, r]))
   for (const c of report.cbc) {
-    const parts = c.entries.map((e) => `${e.ksa_code} ${e.representative === null ? '(no evidence)' : `${e.representative}/3`}`)
+    const parts = c.entries.map((e) => `${e.ksa_code} ${e.representative === null ? '(no evidence)' : `${e.representative}/${maxValue(scale)}`}`)
     push(out, {
       id: segId(root, 'cbc', `s:${slug(c.subpoint)}`),
       kind: 'bullet',

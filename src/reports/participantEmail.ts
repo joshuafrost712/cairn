@@ -16,10 +16,9 @@
 
 import type { ParticipantReport } from './build'
 import type { AnnotatedObservation, Gate } from './verification'
+import { getActiveScale, isLowTrigger, labelFor, maxValue, type Scale } from '../lib/scale'
 import { strongestEvidence } from './dayEmail'
 import {
-  LEVEL_WORD,
-  MENTORING_THRESHOLD,
   SEGMENT_ID_VERSION,
   claimEvidence,
   derivationNote,
@@ -45,6 +44,12 @@ export interface ParticipantEmailOptions {
    * itself says it went out unverified.
    */
   statePendingVerification?: boolean
+  /**
+   * The workshop's grading scale (tl-09). Defaults to the ACTIVE workshop's,
+   * which is right for every in-app caller and wrong for a job that generates
+   * documents for a workshop the operator is not currently in — those pass it.
+   */
+  scale?: Scale
 }
 
 /**
@@ -62,6 +67,7 @@ export function buildParticipantEmailSegments(
   dateLabel: string,
   opts: ParticipantEmailOptions = {},
 ): DocSegment[] {
+  const scale = opts.scale ?? getActiveScale()
   const pid = report.participant_id
   const root = segId(SEGMENT_ID_VERSION, `pe:${slug(pid)}`)
   const maxHighlights = opts.maxHighlights ?? 3
@@ -96,7 +102,7 @@ export function buildParticipantEmailSegments(
   push(out, {
     id: segId(root, 'intro'),
     kind: 'paragraph',
-    text: `Here is what the facilitators noted about your work at ${workshopName} on ${dateLabel}. The 0–3 numbers are draft designations against the competency areas, and each one is followed by the evidence it came from so you can see exactly what it is based on. Treat them as a read on one day's work, not a final assessment.`,
+    text: `Here is what the facilitators noted about your work at ${workshopName} on ${dateLabel}. The ${scale.points[0].value}–${maxValue(scale)} numbers are draft designations against the competency areas, and each one is followed by the evidence it came from so you can see exactly what it is based on. Treat them as a read on one day's work, not a final assessment.`,
     participantId: pid,
   })
   endBlock(out)
@@ -116,11 +122,11 @@ export function buildParticipantEmailSegments(
     })
     for (const k of highlights) {
       const kRoot = segId(root, 'hl', `k:${slug(k.ksa_code)}`)
-      const word = LEVEL_WORD[k.representative ?? 0] ?? ''
+      const word = labelFor(scale, k.representative)
       push(out, {
         id: segId(kRoot, 'claim'),
         kind: 'bullet',
-        text: `- ${k.goal_title}: ${word} (${k.representative}/3).`,
+        text: `- ${k.goal_title}: ${word} (${k.representative}/${maxValue(scale)}).`,
         participantId: pid,
         ksaCode: k.ksa_code,
         evidence: claimEvidence(k),
@@ -143,7 +149,7 @@ export function buildParticipantEmailSegments(
   }
 
   const growth = evidenced
-    .filter((k) => (k.representative ?? 0) <= MENTORING_THRESHOLD)
+    .filter((k) => isLowTrigger(scale, k.representative))
     .sort((a, b) => (a.representative ?? 0) - (b.representative ?? 0))
 
   if (growth.length) {
@@ -156,11 +162,11 @@ export function buildParticipantEmailSegments(
     })
     for (const k of growth) {
       const kRoot = segId(root, 'gr', `k:${slug(k.ksa_code)}`)
-      const word = LEVEL_WORD[k.representative ?? 0] ?? ''
+      const word = labelFor(scale, k.representative)
       push(out, {
         id: segId(kRoot, 'claim'),
         kind: 'bullet',
-        text: `- ${k.goal_title}: ${word} (${k.representative}/3).`,
+        text: `- ${k.goal_title}: ${word} (${k.representative}/${maxValue(scale)}).`,
         participantId: pid,
         ksaCode: k.ksa_code,
         evidence: claimEvidence(k),
@@ -188,7 +194,7 @@ export function buildParticipantEmailSegments(
   // final, which the intro already says and the gate line reinforces below.
   const low = evidenced
     .flatMap((k) => k.contributing)
-    .filter((o) => o.effective_designation <= MENTORING_THRESHOLD)
+    .filter((o) => isLowTrigger(scale, o.effective_designation))
   if (low.length) {
     push(out, {
       id: segId(root, 'fu'),
@@ -196,7 +202,7 @@ export function buildParticipantEmailSegments(
       text: 'One of us will find you for a short conversation about the area above. It is a working conversation, not a review: the aim is to agree what to try next.',
       participantId: pid,
       evidence: low.map((o) => o.id),
-      note: `Triggered by ${low.length} confirmed observation${low.length === 1 ? '' : 's'} at or below ${MENTORING_THRESHOLD}/3.`,
+      note: `Triggered by ${low.length} confirmed observation${low.length === 1 ? '' : 's'} on a point this workshop treats as a growth signal.`,
     })
     endBlock(out)
   }

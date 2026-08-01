@@ -209,10 +209,38 @@ button.tile:hover {
   position: relative;
 }
 
-.chip-d[data-d='0'] { background: var(--d0); color: var(--d0-ink); }
-.chip-d[data-d='1'] { background: var(--d1); color: var(--d1-ink); }
-.chip-d[data-d='2'] { background: var(--d2); color: var(--d2-ink); }
-.chip-d[data-d='3'] { background: var(--d3); color: var(--d3-ink); }
+/* The fill and ink arrive as inline custom properties (tl-09): with a scale of
+   two to six points there are twenty (fill, ink) pairs, and enumerating them as
+   selectors here would be sixty rules across three components that all say the
+   same thing. viz.ts computes the token reference from the value's POSITION on
+   its workshop's scale, and the components hand it over as --fill/--ink. The
+   tokens themselves still live in tokens.css, so dark mode stays a values-only
+   change to that file.
+
+   Deliberately at class specificity (0,1,0) and not `[data-d]:not(…)`, so the
+   `data-d='none'` and `data-deemph` rules below — which are (0,2,0) — still win.
+   The component simply does not set --fill when there is no value to colour. */
+.chip-d {
+  background: var(--fill, var(--d-empty));
+  color: var(--ink-on, var(--d-empty-ink));
+}
+
+/* A low-trigger point is marked in INK as well as in colour, because which
+   points are low is the workshop's choice and cannot be read off the ramp's
+   direction: on a 6-point scale an organization may mark only the bottom one,
+   and a reader has no way to know that from the fill alone. */
+.chip-d[data-trigger='true']::before,
+.heat__cell[data-trigger='true']::before {
+  content: '';
+  position: absolute;
+  left: 15%;
+  right: 15%;
+  bottom: 2px;
+  height: 2px;
+  border-radius: 1px;
+  background: currentColor;
+  opacity: 0.75;
+}
 
 .chip-d[data-d='none'] {
   background: var(--d-empty);
@@ -274,10 +302,7 @@ button.tile:hover {
   overflow: hidden;
 }
 
-.distbar__seg[data-d='0'] { background: var(--d0); color: var(--d0-ink); }
-.distbar__seg[data-d='1'] { background: var(--d1); color: var(--d1-ink); }
-.distbar__seg[data-d='2'] { background: var(--d2); color: var(--d2-ink); }
-.distbar__seg[data-d='3'] { background: var(--d3); color: var(--d3-ink); }
+.distbar__seg[data-d] { background: var(--fill, var(--d-empty)); color: var(--ink-on, var(--d-empty-ink)); }
 .distbar__seg[data-deemph='true'] { background: var(--deemph); color: var(--ink); }
 
 .distbar--empty {
@@ -385,10 +410,8 @@ button.tile:hover {
   justify-content: center;
 }
 
-.heat__cell[data-d='0'] { background: var(--d0); color: var(--d0-ink); }
-.heat__cell[data-d='1'] { background: var(--d1); color: var(--d1-ink); }
-.heat__cell[data-d='2'] { background: var(--d2); color: var(--d2-ink); }
-.heat__cell[data-d='3'] { background: var(--d3); color: var(--d3-ink); }
+/* Class specificity, so the two (0,2,0) rules under it still win. See .chip-d. */
+.heat__cell { background: var(--fill, var(--d-empty)); color: var(--ink-on, var(--d-empty-ink)); }
 .heat__cell[data-d='none'] { background: var(--d-empty); color: var(--d-empty-ink); }
 .heat__cell[data-deemph='true'] { background: var(--deemph); color: var(--ink); }
 
@@ -440,6 +463,41 @@ button.tile:hover {
   height: 14px;
   border-radius: 3px;
   display: inline-block;
+  position: relative;
+}
+
+/* The same ink underline the chips and cells carry on a low-trigger point, so
+   the legend's swatch is recognisably the same mark rather than a second
+   convention the reader has to learn (tl-09). */
+.legend__swatch[data-trigger='true']::after {
+  content: '';
+  position: absolute;
+  left: 2px;
+  right: 2px;
+  bottom: 2px;
+  height: 2px;
+  border-radius: 1px;
+  background: var(--ink);
+  opacity: 0.75;
+}
+
+/* The key for that mark: a bare rule on the page surface, no fill, because it is
+   explaining the mark rather than standing for a point. */
+.legend__swatch--rule {
+  background: transparent;
+  height: 14px;
+}
+
+.legend__swatch--rule::after {
+  content: '';
+  position: absolute;
+  left: 1px;
+  right: 1px;
+  bottom: 5px;
+  height: 2px;
+  border-radius: 1px;
+  background: var(--ink);
+  opacity: 0.75;
 }
 
 /* ---- sparkline ---------------------------------------------------------- */

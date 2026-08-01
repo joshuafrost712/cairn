@@ -2,14 +2,15 @@
 // This is the end-of-day note a consultant sends out. It is deliberately NOT a
 // rehash of every observation: for each participant it surfaces two or three
 // highlights to encourage, the growth area(s) that matter, and — when a confirmed
-// low designation (0 or 1) appears — a recommendation to hold a short mentoring
+// designation lands on a point the workshop marked a low trigger (tl-09; it was
+// the literal 0 or 1) — a recommendation to hold a short mentoring
 // conversation the next day. Evidence stays traceable: every highlight and growth
 // note carries the evaluator's attribution and the verbatim excerpt behind it, and
 // where two evaluators conflicted on the same participant that is made explicit so
 // a human reconciles it before anything is finalized.
 //
 // The merge itself is already done in build.ts (max designation per KSA, conflict
-// flag on a spread of 2+); this only selects and renders it. Formatting follows the
+// flag on a spread the scale decides); this only selects and renders it. Formatting follows the
 // vault conventions: no "---" dividers, a sentence of body between heading levels,
 // em dashes used sparingly.
 //
@@ -20,9 +21,8 @@
 
 import type { ParticipantReport, KsaRollup } from './build'
 import type { AnnotatedObservation, Gate } from './verification'
+import { getActiveScale, isLowTrigger, labelFor, maxValue, type Scale } from '../lib/scale'
 import {
-  LEVEL_WORD,
-  MENTORING_THRESHOLD,
   SEGMENT_ID_VERSION,
   claimEvidence,
   endBlock,
@@ -61,6 +61,12 @@ export interface DayEmailOptions {
   toName?: string
   /** Who the summary is from, shown in the sign-off. */
   fromName?: string
+  /**
+   * The workshop's grading scale (tl-09). Defaults to the ACTIVE workshop's,
+   * which is right for every in-app caller and wrong for a job that generates
+   * documents for a workshop the operator is not currently in — those pass it.
+   */
+  scale?: Scale
 }
 
 /**
@@ -75,6 +81,7 @@ export function buildDayEmailSegments(
   dateLabel: string,
   opts: DayEmailOptions = {},
 ): DocSegment[] {
+  const scale = opts.scale ?? getActiveScale()
   const root = segId(SEGMENT_ID_VERSION, 'de')
   const withEvidence = reports.filter(
     (r) => r.totals.evidencedKsas > 0 || (gates.get(r.participant_id)?.total ?? 0) > 0,
@@ -89,7 +96,7 @@ export function buildDayEmailSegments(
   push(out, {
     id: segId(root, 'intro'),
     kind: 'paragraph',
-    text: `Here are the highlights and growth areas for ${dateLabel}, drawn from the facilitator observations captured today. These are draft 0–3 designations meant as input to a human judgment, not final scores. Where more than one of us evaluated the same participant, the summary notes whether we agreed or need to reconcile.`,
+    text: `Here are the highlights and growth areas for ${dateLabel}, drawn from the facilitator observations captured today. These are draft ${scale.points[0].value}–${maxValue(scale)} designations meant as input to a human judgment, not final scores. Where more than one of us evaluated the same participant, the summary notes whether we agreed or need to reconcile.`,
   })
   endBlock(out)
 
@@ -133,11 +140,11 @@ export function buildDayEmailSegments(
       for (const k of highlightKsas) {
         const kRoot = segId(pRoot, 'hl', `k:${slug(k.ksa_code)}`)
         const best = strongestEvidence(k)
-        const word = LEVEL_WORD[k.representative ?? 0] ?? ''
+        const word = labelFor(scale, k.representative)
         push(out, {
           id: segId(kRoot, 'claim'),
           kind: 'bullet',
-          text: `- Strong work on ${k.goal_title} (${word}, ${k.representative}/3).`,
+          text: `- Strong work on ${k.goal_title} (${word}, ${k.representative}/${maxValue(scale)}).`,
           participantId: pid,
           ksaCode: k.ksa_code,
           evidence: claimEvidence(k),
@@ -159,18 +166,18 @@ export function buildDayEmailSegments(
 
     // Growth areas: KSAs whose best evidence is still 0–1.
     const growthKsas = evidenced
-      .filter((k) => (k.representative ?? 0) <= MENTORING_THRESHOLD)
+      .filter((k) => isLowTrigger(scale, k.representative))
       .sort((a, b) => (a.representative ?? 0) - (b.representative ?? 0))
 
     if (growthKsas.length) {
       push(out, { id: segId(pRoot, 'gr', 'h'), kind: 'heading', level: 4, text: '**Growth areas**', participantId: pid })
       for (const k of growthKsas) {
         const kRoot = segId(pRoot, 'gr', `k:${slug(k.ksa_code)}`)
-        const word = LEVEL_WORD[k.representative ?? 0] ?? ''
+        const word = labelFor(scale, k.representative)
         push(out, {
           id: segId(kRoot, 'claim'),
           kind: 'bullet',
-          text: `- ${k.goal_title}: ${word} (${k.representative}/3).`,
+          text: `- ${k.goal_title}: ${word} (${k.representative}/${maxValue(scale)}).`,
           participantId: pid,
           ksaCode: k.ksa_code,
           evidence: claimEvidence(k),
@@ -229,7 +236,7 @@ export function buildDayEmailSegments(
     // the threshold means a short follow-up conversation is warranted tomorrow.
     const low = evidenced
       .flatMap((k) => k.contributing)
-      .filter((o) => o.effective_designation <= MENTORING_THRESHOLD)
+      .filter((o) => isLowTrigger(scale, o.effective_designation))
     if (low.length) {
       push(out, {
         id: segId(pRoot, 'fu'),
@@ -237,7 +244,7 @@ export function buildDayEmailSegments(
         text: `**Recommended follow-up:** A short mentoring conversation tomorrow to work through the growth area(s) above, agree on specific next steps, and note how the feedback is received.`,
         participantId: pid,
         evidence: low.map((o) => o.id),
-        note: `Triggered by ${low.length} confirmed observation${low.length === 1 ? '' : 's'} at or below ${MENTORING_THRESHOLD}/3.`,
+        note: `Triggered by ${low.length} confirmed observation${low.length === 1 ? '' : 's'} on a point this workshop treats as a growth signal.`,
       })
       endBlock(out)
     }

@@ -39,8 +39,12 @@ export type VerificationStatus = 'pending' | 'verified' | 'adjusted' | 'disputed
 
 export interface AnnotatedObservation extends ObservationRecord {
   vstatus: VerificationStatus
-  /** the designation a finalized report should use (adjusted value when agreed) */
-  effective_designation: 0 | 1 | 2 | 3
+  /**
+   * The designation a finalized report should use (the adjusted value when the
+   * confirming evaluators agreed on one). A point on the workshop's scale since
+   * tl-09, so `number` rather than a four-value union.
+   */
+  effective_designation: number
   confirmCount: number
   rejectCount: number
   verdicts: VerificationVerdict[]
@@ -58,7 +62,7 @@ export function observationStatus(
   obs: ObservationRecord,
   verdicts: VerificationVerdict[],
   required: number = getRequiredConfirmations(),
-): { status: VerificationStatus; effective_designation: 0 | 1 | 2 | 3; confirmCount: number; rejectCount: number } {
+): { status: VerificationStatus; effective_designation: number; confirmCount: number; rejectCount: number } {
   const rejects = verdicts.filter((v) => v.decision === 'reject')
   const confirms = verdicts.filter((v) => v.decision === 'confirm' || v.decision === 'adjust')
   // What each confirming evaluator thinks the designation should be.

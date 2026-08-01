@@ -1,6 +1,7 @@
 import { db, workshopSettingPk } from './local'
 import { enqueueReferenceWrite, pushReferenceOutbox } from './referenceWrite'
 import { setRequiredConfirmations } from '../reports/verification'
+import { mirrorActiveScale } from './scale'
 import { resolveSettings, settingValue, SETTINGS_DEFAULTS } from '../lib/settings'
 import { SETTING_KEYS } from '../lib/types'
 import type { SettingKey, WorkshopSettings, WorkshopSettingRow } from '../lib/types'
@@ -157,15 +158,24 @@ export async function cacheSettingRows(
 }
 
 /**
- * Re-point the device mirror at whichever workshop is currently selected.
+ * Re-point EVERY synchronous per-workshop mirror at whichever workshop is
+ * currently selected.
  *
- * Separate from `cacheSettingRows` because the cache is per workshop and the
- * mirror is one value: switching the active scenario has to move the threshold
- * with it, or the gate would keep applying the previous workshop's rule.
+ * Separate from `cacheSettingRows` because the cache is per workshop and a mirror
+ * is one value: switching the active scenario has to move the threshold with it,
+ * or the gate would keep applying the previous workshop's rule.
+ *
+ * tl-09 gave the app a second such mirror (the grading scale, db/scale.ts) and
+ * put it HERE rather than beside each of the six callers of this function. A
+ * second mirror with its own six call sites is one forgotten call away from a
+ * page that labels this workshop's numbers with the previous workshop's words,
+ * and every number on it would still look plausible. One function moves them both
+ * or neither.
  */
 export async function mirrorActiveWorkshop(workshopId: string | null): Promise<WorkshopSettings> {
   const settings = await getSettings(workshopId)
   mirrorToDevice(settings)
+  await mirrorActiveScale(workshopId)
   return settings
 }
 

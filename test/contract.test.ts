@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import { validateObservation } from '../src/ai/contract'
+import { DEFAULT_SCALE } from '../src/lib/scale'
+import { validateObservation, isOnScale } from '../src/ai/contract'
 
 const valid = {
   participant_name: 'CIT One',
@@ -24,9 +25,25 @@ describe('validateObservation', () => {
     expect(validateObservation({ ...valid, participant_id: null }).ok).toBe(true)
   })
 
-  it('rejects an out-of-range designation', () => {
-    const r = validateObservation({ ...valid, evidence_designation: 4 })
-    expect(r.ok).toBe(false)
+  it('rejects a designation that is not an integer', () => {
+    expect(validateObservation({ ...valid, evidence_designation: 2.5 }).ok).toBe(false)
+    expect(validateObservation({ ...valid, evidence_designation: '2' }).ok).toBe(false)
+  })
+
+  it('accepts any integer here, because this pass does not know the scale (tl-09)', () => {
+    // Range is not this function's job any more. Which workshop a routed file
+    // belongs to is resolved from the participants it names, so the scale check
+    // happens in a second pass — `isOnScale` — once that is known.
+    expect(validateObservation({ ...valid, evidence_designation: 4 }).ok).toBe(true)
+    expect(validateObservation({ ...valid, evidence_designation: 5 }).ok).toBe(true)
+  })
+
+  it('isOnScale is what refuses a value the workshop does not define', () => {
+    const four = validateObservation({ ...valid, evidence_designation: 4 })
+    expect(four.ok).toBe(true)
+    if (!four.ok) return
+    expect(isOnScale(four.value, DEFAULT_SCALE)).toBe(false)
+    expect(isOnScale({ ...four.value, evidence_designation: 3 }, DEFAULT_SCALE)).toBe(true)
   })
 
   it('rejects bad enums', () => {
