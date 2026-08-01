@@ -546,7 +546,119 @@ begin
 end $$;
 
 -- ---------------------------------------------------------------------------
--- 6. Report.
+-- 6. The sign-up admission queue.
+--
+--    The claim is arithmetic over a shared, deployment-wide budget, so it is
+--    tested by setting the budget to a known number and inviting more people than
+--    it allows. The fixture budget is restored at the end; a harness that left the
+--    live deployment metering at 3 an hour would be worse than no harness.
+-- ---------------------------------------------------------------------------
+
+do $$
+declare
+  _w1  uuid := 'a3000000-0000-4000-8000-000000000001';
+  _ca  uuid := 'a3000000-0000-4000-8000-0000000000c1';
+  _e1  uuid := 'a3000000-0000-4000-8000-0000000000e1';
+  _prior jsonb;
+  _hours numeric[];
+begin
+  select value into _prior from platform_setting where key = 'signup_budget_per_hour';
+
+  -- A budget of 2, and five fresh invitations. Existing pending rows from the
+  -- sections above occupy windows too, which is the point: the queue is
+  -- deployment-wide and this counts them.
+  update platform_setting set value = to_jsonb(2) where key = 'signup_budget_per_hour';
+  perform tl11_assert('the budget reads back as it was set',
+    signup_budget_per_hour() = 2, format('%s per hour', signup_budget_per_hour()));
+
+  delete from workshop_invitation where email like 'tl11-queue-%';
+
+  perform invite_to_workshop(_w1, 'tl11-queue-1@example.org', 'evaluator');
+  perform invite_to_workshop(_w1, 'tl11-queue-2@example.org', 'evaluator');
+  perform invite_to_workshop(_w1, 'tl11-queue-3@example.org', 'evaluator');
+  perform invite_to_workshop(_w1, 'tl11-queue-4@example.org', 'evaluator');
+  perform invite_to_workshop(_w1, 'tl11-queue-5@example.org', 'evaluator');
+
+  -- No hour anywhere in the deployment may hold more than the budget.
+  select array_agg(n) into _hours from (
+    select count(*) as n from workshop_invitation
+     where status = 'pending' group by date_trunc('hour', opens_at)) c;
+  perform tl11_assert('no hour is scheduled above the budget',
+    (select bool_and(n <= 2) from unnest(_hours) as n),
+    format('per-hour counts: %s', _hours));
+
+  perform tl11_assert('five invitations were spread over more than one hour',
+    (select count(distinct date_trunc('hour', opens_at)) from workshop_invitation
+      where email like 'tl11-queue-%') > 1,
+    format('%s distinct hour(s)',
+      (select count(distinct date_trunc('hour', opens_at)) from workshop_invitation
+        where email like 'tl11-queue-%')));
+
+  perform tl11_assert('no window is in the past',
+    not exists (select 1 from workshop_invitation
+                 where email like 'tl11-queue-%' and opens_at < date_trunc('hour', now())),
+    'all windows are now or later');
+
+  -- An address that already has an account is added outright, creates no signup,
+  -- and so must consume no window at all.
+  perform tl11_assert('adding an existing account took no window',
+    (select opens_at <= now() from workshop_invitation
+      where email = 'tl11-existing@example.org'),
+    'immediate');
+
+  -- The anonymous check: a wait for an address it holds, and NOTHING for one it
+  -- does not. The second assertion is the privacy claim, not a nicety.
+  perform tl11_assert('the anonymous check reports a wait for a queued address',
+    (invitation_window('tl11-queue-5@example.org')->>'status') = 'waiting',
+    invitation_window('tl11-queue-5@example.org')::text);
+
+  perform tl11_assert('and says open for an address it is holding nothing for',
+    (invitation_window('tl11-nobody-at-all@example.org')->>'status') = 'open',
+    invitation_window('tl11-nobody-at-all@example.org')::text);
+
+  perform tl11_assert('and is case-insensitive, like every other address path here',
+    (invitation_window('TL11-Queue-5@Example.ORG')->>'status') = 'waiting',
+    invitation_window('TL11-Queue-5@Example.ORG')::text);
+
+  -- Raising the budget must open windows for invitations issued from then on.
+  update platform_setting set value = to_jsonb(100) where key = 'signup_budget_per_hour';
+  perform invite_to_workshop(_w1, 'tl11-queue-6@example.org', 'evaluator');
+  perform tl11_assert('raising the budget opens the next window immediately',
+    (select opens_at <= now() + interval '1 minute' from workshop_invitation
+      where email = 'tl11-queue-6@example.org'),
+    'immediate');
+
+  update platform_setting set value = coalesce(_prior, to_jsonb(2)) where key = 'signup_budget_per_hour';
+  perform tl11_assert('the harness restored the deployment budget it found',
+    (select value from platform_setting where key = 'signup_budget_per_hour') = coalesce(_prior, to_jsonb(2)),
+    (select value::text from platform_setting where key = 'signup_budget_per_hour'));
+end $$;
+
+do $$
+declare
+  _ca uuid := 'a3000000-0000-4000-8000-0000000000c1';
+  _e1 uuid := 'a3000000-0000-4000-8000-0000000000e1';
+begin
+  -- The budget is a platform power, not a workshop one: an admin of one workshop
+  -- must not be able to widen a budget every other workshop draws on.
+  perform tl11_try('blocked', 'a chief admin cannot change the deployment budget', _ca,
+    'select set_platform_setting(''signup_budget_per_hour'', to_jsonb(50))');
+  perform tl11_slug('tl11.platform_owner_only', 'and is told it is the deployment owner''s', _ca,
+    'select set_platform_setting(''signup_budget_per_hour'', to_jsonb(50))');
+
+  perform tl11_try('blocked', 'nor write the settings table directly', _ca,
+    'update platform_setting set value = to_jsonb(50) where key = ''signup_budget_per_hour''');
+
+  perform tl11_try('blocked', 'nor invent a setting', _ca,
+    'select set_platform_setting(''disable_everything'', to_jsonb(true))');
+
+  -- Readable, though: an administrator has to be able to see why somebody waits.
+  perform tl11_try('permitted', 'an evaluator can read the budget', _e1,
+    'select 1 from platform_setting where key = ''signup_budget_per_hour''');
+end $$;
+
+-- ---------------------------------------------------------------------------
+-- 7. Report.
 -- ---------------------------------------------------------------------------
 
 select verdict, expect, label, outcome from tl11_results order by seq;

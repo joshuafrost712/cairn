@@ -16,6 +16,7 @@ begin
   -- by the email prefix rather than the workshop id; none are created today, and
   -- this is here so that stays true if a later run adds one.
   delete from workshop_invitation where email like 'tl11-%@example.org';
+  delete from workshop_invitation where email like 'tl11-queue-%';
   delete from app_user  where email like 'tl11-%@example.org';
   delete from auth.users where email like 'tl11-%@example.org';
   delete from role_allowlist where email like 'tl11-%@example.org';

@@ -4,6 +4,8 @@ import { useAuth } from '../auth/AuthContext'
 import { isSupabaseConfigured } from '../lib/supabase'
 import { c } from '../lib/content/chrome'
 import { classifySignupError, SIGNUP_ERROR_ID } from '../lib/signupErrors'
+import { describeWindow } from '../lib/admission'
+import { invitationWindow } from '../db/membership'
 
 /**
  * The role picker is gone (tl-11).
@@ -58,6 +60,26 @@ function SupabaseSignIn() {
     setBusy(true)
     setError(null)
     try {
+      // Ask before spending a slot. Sign-up sends a confirmation email and this
+      // project's mailer is capped per hour for the whole deployment, so an
+      // invited person arriving before their window would burn somebody else's
+      // slot and be told only that a rate limit was exceeded. This turns that into
+      // a time they can come back at. It fails open, so a check that cannot reach
+      // the server never becomes a door nobody can walk through.
+      const window = await invitationWindow(email)
+      if (window.status === 'waiting') {
+        const described = describeWindow(window.opensAt, new Date())
+        if (!described.open) {
+          setError(
+            c('signin.window-wait', 'label', {
+              clock: described.clock,
+              relative: described.relative,
+            }),
+          )
+          return
+        }
+      }
+
       const { error: err, confirmationRequired } = await signUp(name, email, password)
       if (err) {
         const kind = classifySignupError(err)

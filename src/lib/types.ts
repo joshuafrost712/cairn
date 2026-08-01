@@ -300,6 +300,15 @@ export interface WorkshopInvitation {
   status: 'pending' | 'accepted' | 'revoked'
   accepted_at: string | null
   accepted_app_user_id: string | null
+  /**
+   * When this address may create its account (tl-11 addendum).
+   *
+   * Not decoration and not a courtesy: sign-up sends a confirmation email, and the
+   * project's mailer is capped per hour for the whole deployment. Windows are
+   * assigned across every workshop at once so a cohort is staggered rather than
+   * two people getting in and the rest meeting a rate-limit error.
+   */
+  opens_at: string | null
 }
 
 /**

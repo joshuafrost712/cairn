@@ -280,7 +280,7 @@ export async function transferChiefAdmin(
 export type InviteOutcome = 'invited' | 'added'
 
 export type InviteResult =
-  | { ok: true; outcome: InviteOutcome; invitationId: string | null }
+  | { ok: true; outcome: InviteOutcome; invitationId: string | null; opensAt: string | null }
   | Exclude<MembershipResult, { ok: true }>
 
 /** Invite an email into a workshop, or add it directly if it already has an account. */
@@ -298,7 +298,7 @@ export async function inviteToWorkshop(
     })
     const result = toResult(error)
     if (!result.ok) return result
-    const payload = (data ?? {}) as { outcome?: string; invitation_id?: string }
+    const payload = (data ?? {}) as { outcome?: string; invitation_id?: string; opens_at?: string }
     return {
       ok: true,
       // Defaulting to `invited` would claim a message is owed when the server may
@@ -306,6 +306,7 @@ export async function inviteToWorkshop(
       // louder of the two rather than the quieter.
       outcome: payload.outcome === 'added' ? 'added' : 'invited',
       invitationId: payload.invitation_id ?? null,
+      opensAt: payload.opens_at ?? null,
     }
   } catch (err) {
     return {
@@ -346,7 +347,7 @@ export async function listInvitations(workshopId: string | null): Promise<Worksh
   const { data, error } = await supabase
     .from('workshop_invitation')
     .select(
-      'id, workshop_id, email, role, invited_by, invited_by_email, invited_at, status, accepted_at, accepted_app_user_id',
+      'id, workshop_id, email, role, invited_by, invited_by_email, invited_at, status, accepted_at, accepted_app_user_id, opens_at',
     )
     .eq('workshop_id', workshopId)
     .order('invited_at', { ascending: false })
@@ -355,6 +356,84 @@ export async function listInvitations(workshopId: string | null): Promise<Worksh
     return []
   }
   return (data ?? []) as WorkshopInvitation[]
+}
+
+/**
+ * ## The sign-up admission queue (tl-11 addendum)
+ *
+ * Sign-up sends a confirmation email and this project's mailer is capped per hour
+ * for the whole DEPLOYMENT, so invitations are given windows and the sign-up form
+ * asks before it tries. See supabase/migrations/20260801000600_signup_admission.sql
+ * for what this can and cannot promise; the short version is that it meters the
+ * instruction, because the send belongs to the invitee.
+ */
+
+export type InvitationWindow =
+  | { status: 'open' }
+  | { status: 'waiting'; opensAt: string }
+
+/**
+ * When may this address create an account?
+ *
+ * Callable signed out, which is the point: the person asking has no account yet.
+ * It answers `open` for any address it is holding nothing for, so the only thing a
+ * stranger can learn is that an address it IS holding has a window still to come.
+ *
+ * Fails OPEN on any error, including offline. A check that cannot reach the server
+ * must not become a door nobody can walk through: the worst case of guessing `open`
+ * is one wasted attempt that the rate-limit message already explains, and the worst
+ * case of guessing `waiting` is an invited person locked out by a network blip.
+ */
+export async function invitationWindow(email: string): Promise<InvitationWindow> {
+  if (!isSupabaseConfigured || !supabase || !navigator.onLine) return { status: 'open' }
+  try {
+    const { data, error } = await supabase.rpc('invitation_window', { _email: email })
+    if (error) return { status: 'open' }
+    const payload = (data ?? {}) as { status?: string; opens_at?: string }
+    return payload.status === 'waiting' && payload.opens_at
+      ? { status: 'waiting', opensAt: payload.opens_at }
+      : { status: 'open' }
+  } catch {
+    return { status: 'open' }
+  }
+}
+
+/** How many accounts this deployment may create in an hour. */
+export async function signupBudgetPerHour(): Promise<number | null> {
+  if (!isSupabaseConfigured || !supabase || !navigator.onLine) return null
+  const { data, error } = await supabase
+    .from('platform_setting')
+    .select('value')
+    .eq('key', 'signup_budget_per_hour')
+    .maybeSingle()
+  if (error || !data) return null
+  const n = Number((data as { value: unknown }).value)
+  return Number.isFinite(n) ? n : null
+}
+
+/**
+ * Change the hourly budget. Platform owner only, server-enforced.
+ *
+ * This mirrors the project's `rate_limit_email_sent`; it does not set it. Raising
+ * this without raising that would schedule people into an hour the mailer will
+ * still refuse, which the Setup card says in as many words.
+ */
+export async function setSignupBudgetPerHour(perHour: number): Promise<MembershipResult> {
+  if (!isSupabaseConfigured || !supabase || !navigator.onLine) return OFFLINE
+  try {
+    const { error } = await supabase.rpc('set_platform_setting', {
+      _key: 'signup_budget_per_hour',
+      _value: Math.max(1, Math.floor(perHour)),
+    })
+    return toResult(error)
+  } catch (err) {
+    return {
+      ok: false,
+      reason: 'failed',
+      slug: null,
+      message: err instanceof Error ? err.message : 'That setting could not be changed.',
+    }
+  }
 }
 
 /**

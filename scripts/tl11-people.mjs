@@ -16,6 +16,8 @@
  *   B5  removing a member opens the change dialog, and the dialog says the evidence
  *       they recorded is not touched
  *   B6  the section does not widen a 390px phone
+ *   B7  with the budget at one an hour, a second invitation is given a LATER
+ *       window, the row says so, and the message carries the time to wait for
  *
  *   node scripts/tl11-people.mjs --setup      # accounts and a workshop
  *   npm run dev -- --port 5191                # in another shell
@@ -45,6 +47,19 @@ const ADMIN = 'tl11-ui-admin@example.org'
 const ADMIN2 = 'tl11-ui-admin2@example.org'
 const EVALUATOR = 'tl11-ui-evaluator@example.org'
 const INVITEE = 'tl11-ui-invitee@example.org'
+const INVITEE2 = 'tl11-ui-queued@example.org'
+
+/**
+ * The deployment-wide sign-up budget, forced to one for the duration of this run
+ * so the queue has something to do, and restored in teardown.
+ *
+ * It is deployment-wide by nature — the mailer cap is — so this genuinely changes
+ * a shared setting for the length of the run. Restored in the `finally`, and again
+ * by `--teardown`, because leaving the live deployment metering at one an hour
+ * would be worse than not testing this at all.
+ */
+const TEST_BUDGET = 1
+let priorBudget = null
 
 const env = readFileSync(new URL('../.env', import.meta.url), 'utf8')
 const readEnv = (key) =>
@@ -80,6 +95,11 @@ async function serviceRoleKey() {
 
 async function teardown() {
   const serviceKey = await serviceRoleKey()
+  await sql(`
+    update platform_setting set value = to_jsonb(${priorBudget ?? 2})
+     where key = 'signup_budget_per_hour';
+    delete from workshop_invitation where email like 'tl11-ui-%';
+    select 1;`)
   const list = await fetch(`${SUPABASE_URL}/auth/v1/admin/users?per_page=200`, {
     headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}` },
   }).then((r) => r.json())
@@ -108,8 +128,16 @@ async function teardown() {
 }
 
 async function setup() {
+  const found = await sql(
+    `select value::text::int as n from platform_setting where key = 'signup_budget_per_hour';`,
+  )
+  priorBudget = found[0]?.n ?? 2
   await teardown()
   const serviceKey = await serviceRoleKey()
+  await sql(`
+    update platform_setting set value = to_jsonb(${TEST_BUDGET})
+     where key = 'signup_budget_per_hour';
+    select 1;`)
   await sql(`
     insert into workshop (id, name, start_date, end_date, location)
     values ('${WS}', '${WS_NAME}', '2027-07-01', '2027-07-05', 'Nowhere');
@@ -289,6 +317,41 @@ try {
       INVITEE,
     )
     check(!stillListed, 'B4 withdrawing removes it from the list', stillListed ? 'still listed' : 'gone')
+  }
+
+  {
+    // B7: the queue, end to end. The budget is one an hour for this run, and the
+    // first invitation above already took this hour, so this one must be told to
+    // wait — on its row, and in the message the administrator sends.
+    const chief = await device(CHIEF)
+    await openPeople(chief)
+    await chief.getByLabel(/email address/i).fill(INVITEE2)
+    await chief.getByRole('button', { name: /^invite$/i }).click()
+    await chief.waitForFunction(
+      (email) =>
+        [...document.querySelectorAll('table tbody tr')].some((tr) => tr.innerText.includes(email)),
+      INVITEE2,
+      { timeout: 20000 },
+    )
+    const queuedRow = await chief.evaluate(
+      (email) =>
+        [...document.querySelectorAll('table tbody tr')]
+          .find((tr) => tr.innerText.includes(email))?.innerText.replace(/\s+/g, ' ') ?? '',
+      INVITEE2,
+    )
+    check(
+      /opens .*in about/i.test(queuedRow),
+      'B7 a queued invitation says on its row when it opens',
+      queuedRow.slice(0, 110),
+    )
+    const queuedMessage = await chief.evaluate(
+      () => document.querySelector('textarea[readonly]')?.value ?? '',
+    )
+    check(
+      /create your account at .* or later/i.test(queuedMessage),
+      'B7 and the message tells them the time to wait for',
+      (queuedMessage.match(/please create your account at [^.]*\./i)?.[0] ?? '').slice(0, 90),
+    )
   }
 
   {

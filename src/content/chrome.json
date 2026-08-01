@@ -2094,6 +2094,42 @@
       "label": "Too many sign-up emails have been sent from this site in the last hour, so the confirmation email could not go out. Wait a few minutes and try again. Nothing is wrong with your invitation."
     },
     {
+      "id": "signin.window-wait",
+      "label": "Your account opens at {clock}, {relative}. Come back then and this will work — the invitation is already waiting for you. The site can only set up a few accounts an hour, so everyone invited gets a turn."
+    },
+    {
+      "id": "people.status.opens",
+      "label": "opens {clock}, {relative}"
+    },
+    {
+      "id": "people.budget.title",
+      "label": "How fast people can join"
+    },
+    {
+      "id": "people.budget.help",
+      "label": "Creating an account sends a confirmation email, and this site can send {budget} an hour in total, across every workshop. So invitations are given turns: each person is told when their account opens, and the time is in the message you send them."
+    },
+    {
+      "id": "people.budget.mirror-note",
+      "label": "This number has to match the email limit set on the backend. Raising it here alone would tell people to come back at a time the mail service still refuses. Set up a proper mail provider and both can go up together."
+    },
+    {
+      "id": "people.budget.field",
+      "label": "Accounts per hour"
+    },
+    {
+      "id": "people.budget.save",
+      "label": "Save"
+    },
+    {
+      "id": "people.budget.saved",
+      "label": "New invitations will be spread over {budget} an hour. Ones already sent keep the times they were given."
+    },
+    {
+      "id": "people.message.window",
+      "label": "One thing about timing: please create your account at {clock} or later. The site can only set up a few accounts an hour, so everyone invited has been given a turn. Trying earlier will not work, and waiting until then will."
+    },
+    {
       "id": "signin.role-note",
       "label": "Your role comes from the workshop you were invited to, so there is nothing to choose here."
     }

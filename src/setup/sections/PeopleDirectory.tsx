@@ -10,10 +10,13 @@ import {
   removeWorkshopMember,
   resendInvitation,
   revokeInvitation,
+  setSignupBudgetPerHour,
   setWorkshopMemberRole,
+  signupBudgetPerHour,
   transferChiefAdmin,
   type MembershipResult,
 } from '../../db/membership'
+import { describeWindow } from '../../lib/admission'
 import { c, findChromeNode } from '../../lib/content/chrome'
 import { canRemove, canTransferChiefAdmin, grantableRoles } from '../../lib/permissions'
 import { useIsPlatformOwner, useWorkshopRole } from '../../layout/roles'
@@ -240,11 +243,7 @@ export function PeopleDirectory({ workshop }: { workshop: Workshop }) {
         row.kind === 'member' ? (
           <span className="pill ok">{c('people.status.member')}</span>
         ) : (
-          <span className="pill queued">
-            {c('people.status.invited', 'label', {
-              date: row.invitation.invited_at.slice(0, 10),
-            })}
-          </span>
+          <PendingStatus invitation={row.invitation} />
         ),
     },
     {
@@ -336,6 +335,8 @@ export function PeopleDirectory({ workshop }: { workshop: Workshop }) {
         onRefused={(text) => setNotice({ tone: 'error', text })}
         request={request}
       />
+
+      <BudgetCard />
 
       {pendingMessage && (
         <InvitationMessage
@@ -593,6 +594,7 @@ function InvitationMessage({
   onClose: () => void
 }) {
   const [copied, setCopied] = useState(false)
+  const described = describeWindow(invitation.opens_at, new Date())
   const tokens = {
     email: invitation.email,
     workshop: workshop.name,
@@ -600,7 +602,15 @@ function InvitationMessage({
     url: window.location.origin + import.meta.env.BASE_URL,
   }
   const subject = c('people.message.subject', 'label', tokens)
-  const body = c('people.message.body', 'label', tokens)
+  // The window is a separate paragraph rather than a token inside the body,
+  // because an invitation that opens immediately must not carry a sentence about
+  // waiting — and a token that resolves to an empty string leaves the punctuation
+  // around it stranded.
+  const body = described.open
+    ? c('people.message.body', 'label', tokens)
+    : `${c('people.message.body', 'label', tokens)}\n\n${c('people.message.window', 'label', {
+        clock: described.clock,
+      })}`
 
   return (
     <div className="card form-col">
@@ -627,6 +637,95 @@ function InvitationMessage({
           {c('people.message.close')}
         </button>
       </div>
+    </div>
+  )
+}
+
+/**
+ * A pending row's status: invited when, and open when.
+ *
+ * The relative phrasing rather than the clock one, because this reader is scanning
+ * a column of them and comparing. The person who has to wait gets the clock time,
+ * in the message and at the sign-up form.
+ */
+function PendingStatus({ invitation }: { invitation: WorkshopInvitation }) {
+  const described = describeWindow(invitation.opens_at, new Date())
+  return (
+    <span>
+      <span className="pill queued">
+        {c('people.status.invited', 'label', { date: invitation.invited_at.slice(0, 10) })}
+      </span>
+      {!described.open && (
+        <span className="small muted">
+          {' '}
+          {c('people.status.opens', 'label', { clock: described.clock, relative: described.relative })}
+        </span>
+      )}
+    </span>
+  )
+}
+
+/**
+ * How many accounts this deployment may create in an hour.
+ *
+ * Shown to every administrator and editable only by the platform owner, because
+ * the cap is one number the whole deployment draws on: an admin of one workshop
+ * raising it would be spending a budget every other workshop shares.
+ *
+ * It MIRRORS the project's auth `rate_limit_email_sent`; it does not set it. That
+ * is stated on the card rather than left to be discovered, because raising this
+ * without raising that schedules people into an hour the mailer will still refuse
+ * — which would turn an honest wait into a wait followed by an error.
+ */
+function BudgetCard() {
+  const isPlatformOwner = useIsPlatformOwner()
+  const [budget, setBudget] = useState<number | null>(null)
+  const [draft, setDraft] = useState('')
+  const [notice, setNotice] = useState<string | null>(null)
+
+  useEffect(() => {
+    void signupBudgetPerHour().then((n) => {
+      setBudget(n)
+      setDraft(n === null ? '' : String(n))
+    })
+  }, [])
+
+  if (budget === null) return null
+
+  return (
+    <div className="card form-col">
+      <h2>{c('people.budget.title')}</h2>
+      <p className="small muted">{c('people.budget.help', 'label', { budget })}</p>
+      <p className="small muted">{c('people.budget.mirror-note')}</p>
+      {isPlatformOwner && (
+        <div className="row">
+          <input
+            type="number"
+            min={1}
+            value={draft}
+            aria-label={c('people.budget.field')}
+            onChange={(e) => setDraft(e.target.value)}
+            style={{ width: '6rem', margin: 0 }}
+          />
+          <button
+            disabled={!draft.trim() || Number(draft) === budget}
+            onClick={async () => {
+              const n = Number(draft)
+              if (!Number.isFinite(n) || n < 1) return
+              const result = await setSignupBudgetPerHour(n)
+              if (result.ok) {
+                setBudget(Math.floor(n))
+                setNotice(c('people.budget.saved', 'label', { budget: Math.floor(n) }))
+              } else {
+                setNotice(refusalText(result))
+              }
+            }}
+          >
+            {c('people.budget.save')}
+          </button>
+        </div>
+      )}
+      {notice && <p className="small muted">{notice}</p>}
     </div>
   )
 }
