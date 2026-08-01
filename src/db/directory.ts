@@ -21,13 +21,16 @@ import type { EvaluationRecord, ObservationRecord, WorkshopPerson, WorkshopRole 
  * share a workshop with, both from tl-01's migration. Like every other client
  * cache here, this decides what to render and never what is allowed.
  *
- * ## The write gap, which this module cannot close
+ * ## The write gap, which this module still does not close
  *
  * `workshop_member` has no client write path at all: tl-01 revoked the grants
  * rather than merely omitting a policy, so a browser cannot add anyone to a
- * workshop. This module reads a roster; it cannot grow one. Until tl-02/tl-11
- * ship the security-definer RPCs, people are added by an operator running SQL,
- * and the assignment UI says so rather than offering a button that would fail.
+ * workshop. This module reads a roster; it cannot grow one. tl-02 shipped the
+ * three security-definer RPCs that can (`setWorkshopMemberRole`,
+ * `removeWorkshopMember`, `transferChiefAdmin` in db/membership.ts), so the
+ * enforcement exists; the screen that calls them is tl-11's. Until then people
+ * are still added by an operator running SQL, and the assignment UI still says
+ * so rather than offering a button nothing is wired to.
  */
 
 /** Bound on the directory fetch. A stall must degrade to the cache. */

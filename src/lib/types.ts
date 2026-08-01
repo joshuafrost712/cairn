@@ -254,6 +254,29 @@ export interface WorkshopPerson {
 }
 
 /**
+ * One membership change, as recorded by the tl-02 RPCs.
+ *
+ * Append-only in Postgres (`membership_change_log` has no update or delete
+ * policy) and never written from a browser. The email columns are denormalized
+ * because both id columns are `on delete set null`: the account-deletion case the
+ * recovery path exists for would otherwise erase the row that explains it.
+ */
+export interface MembershipChangeLog {
+  id: string
+  workshop_id: string
+  actor_app_user_id: string | null
+  actor_email: string | null
+  target_app_user_id: string | null
+  target_email: string | null
+  /** Null when the person held no membership before the change. */
+  from_role: WorkshopRole | null
+  /** Null when the change was a removal. */
+  to_role: WorkshopRole | null
+  operation: 'grant' | 'revoke' | 'transfer' | 'recover'
+  at: string
+}
+
+/**
  * The settings that belong to a workshop rather than to a device.
  *
  * `required_confirmations` lived in localStorage until Wave 2, which made an
