@@ -1,0 +1,257 @@
+/**
+ * The motion layer (tl-20). Every transition, keyframe, and animation in the
+ * signed-in app lives here and nowhere else.
+ *
+ * This is ACTIVATION, not invention. `--dur-1`, `--dur-2` and `--ease` have sat
+ * in tokens.css since the design system landed, and until this file existed a
+ * full-repo grep found zero transitions outside the landing page. That is the
+ * single biggest reason the app read as a flat internal tool: the drawer teleported,
+ * hover states snapped, and a confirmed verdict looked exactly like a click that
+ * had not registered.
+ *
+ * One file rather than a stanza in each stylesheet, because the two rules below are
+ * only checkable if the whole layer is in one place, and test/motion.test.ts checks
+ * them by parsing this file. Motion is also the one layer where a mistake is
+ * invisible to the person who made it and disabling to somebody else.
+ *
+ * RULE 1 — ANIMATE TOWARDS THE NATURAL STATE, NEVER AWAY FROM IT.
+ * Every @keyframes here starts at an offset or transparent state and ends at the
+ * element's own resting style, and NOTHING uses `animation-fill-mode: forwards`.
+ * That is what makes reduced motion free: tokens.css zeroes --dur-1 and --dur-2
+ * under `prefers-reduced-motion`, a zero-duration animation has no visual effect,
+ * and the element is left showing its normal style. An animation that ended on a
+ * held final state would vanish for those users instead.
+ *
+ * RULE 2 — A DELAY OR A LOOP MUST BE SWITCHED OFF BY NAME.
+ * Reduced motion zeroes DURATIONS only. An entrance with `animation-delay` and
+ * `backwards` fill would still hold its from-state through the delay, so a staggered
+ * list would flash invisible for a third of a second on exactly the devices asking
+ * for less movement; and an infinite pulse cannot be stopped by shortening it. So
+ * every animation carrying a delay or `infinite` is also named in the
+ * reduced-motion block at the bottom, and the test fails if one is not.
+ */
+
+/* ---- interactive transitions -------------------------------------------- */
+
+/* One rule set for everything a pointer can act on. Properties are listed rather
+   than using `all`: `all` animates layout properties too, so a width change from a
+   live data update would slide instead of settling. */
+button,
+.nav__link,
+.masterlist__item,
+a.tile,
+.activity-item,
+.day-fold > summary,
+.team__summary,
+.kanban__card,
+.member-chip button,
+.dt th.sortable {
+  transition:
+    background-color var(--dur-1) var(--ease),
+    border-color var(--dur-1) var(--ease),
+    color var(--dur-1) var(--ease),
+    box-shadow var(--dur-1) var(--ease),
+    transform var(--dur-1) var(--ease);
+}
+
+a {
+  transition: color var(--dur-1) var(--ease);
+}
+
+/* The primary button is the only control that lifts. Everything else changes
+   colour, because a page where six things move on hover reads as nervous rather
+   than responsive. */
+button.primary:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: var(--e-1);
+}
+
+button:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+/* ---- the nav's active bar ------------------------------------------------ */
+
+/* aria-current is the source of truth for the active state (see Nav.tsx), so the
+   inset bar transitions off the same attribute the screen reader uses. */
+.nav__link[aria-current='page'] {
+  transition:
+    background-color var(--dur-1) var(--ease),
+    box-shadow var(--dur-1) var(--ease);
+}
+
+/* ---- the drawer --------------------------------------------------------- */
+
+/* Entry only. An exit animation needs the panel to outlive the state that renders
+   it, which means either a presence library or an unmount timer in MobileNav, and
+   the spec put that out of scope. */
+@keyframes drawer-in {
+  from {
+    transform: translateX(-100%);
+  }
+}
+
+@keyframes drawer-in-right {
+  from {
+    transform: translateX(100%);
+  }
+}
+
+@keyframes drawer-in-bottom {
+  from {
+    transform: translateY(100%);
+  }
+}
+
+@keyframes scrim-in {
+  from {
+    opacity: 0;
+  }
+}
+
+.drawer {
+  animation: drawer-in var(--dur-2) var(--ease);
+}
+
+/* Each variant slides from its own edge. Sliding the right-hand drawer in from the
+   left would cross the whole screen to arrive where it started. */
+.drawer--right {
+  animation-name: drawer-in-right;
+}
+
+.drawer--bottom {
+  animation-name: drawer-in-bottom;
+}
+
+.drawer-scrim {
+  animation: scrim-in var(--dur-2) var(--ease);
+}
+
+/* ---- page enter --------------------------------------------------------- */
+
+/* Applied by AppShell, which re-triggers it on every pathname change WITHOUT
+   remounting the route (see the comment there — /reports/:id reuses one element
+   across participants, so a React `key` would throw away the master list's scroll
+   position every time somebody picked a different person). */
+@keyframes page-enter {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+}
+
+.shell__content--enter {
+  animation: page-enter var(--dur-2) var(--ease);
+}
+
+/* ---- banners ------------------------------------------------------------ */
+
+@keyframes banner-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
+
+.banner {
+  animation: banner-in var(--dur-2) var(--ease);
+}
+
+/* ---- the verify confirm ------------------------------------------------- */
+
+/* The one micro-interaction that is doing real work rather than decoration: on a
+   list of thirty observations, a verdict that lands with no acknowledgement is
+   indistinguishable from a click that missed, and the recorded fix for that used to
+   be clicking again. The class is added by VerifyControls and removed on
+   animationend, so re-confirming re-animates. */
+@keyframes confirm-pop {
+  0% {
+    transform: scale(1);
+  }
+  45% {
+    transform: scale(1.14);
+  }
+}
+
+.verify-pop {
+  animation: confirm-pop var(--dur-2) var(--ease);
+}
+
+/* ---- a stat tile whose number changed ----------------------------------- */
+
+/* Same argument as the confirm, one screen up: a count that ticks over while you
+   are looking at the page should say so. Scalar values only (StatTile.tsx explains
+   why), and the flash is on the wash rather than the numeral, so the number stays
+   readable throughout. */
+@keyframes value-changed {
+  from {
+    background-color: var(--accent-wash);
+  }
+}
+
+.tile__value--changed {
+  animation: value-changed var(--dur-2) var(--ease);
+  border-radius: var(--r-1);
+}
+
+/* ---- the sync status bar ------------------------------------------------ */
+
+/* tl-18 made this the one place a device admits it is holding work that has not
+   counted. It swapped states with a hard repaint, which is the wrong texture for a
+   claim that important. */
+.offline-dot {
+  transition: background-color var(--dur-2) var(--ease);
+}
+
+/* ---- the task list's entrance ------------------------------------------- */
+
+/* Capped stagger. `--i` comes from EvaluatorHome and stops at 8: past that the
+   delay is longer than the patience of somebody standing in a workshop room. The
+   `backwards` fill is what makes it a stagger rather than a flash, and it is also
+   exactly why this animation is named in the reduced-motion block (Rule 2). */
+@keyframes item-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
+.activity-item {
+  animation: item-in var(--dur-2) var(--ease) backwards;
+  animation-delay: calc(var(--i, 0) * 40ms);
+}
+
+/* ---- the splash --------------------------------------------------------- */
+
+/* The one looping animation in the app, on the one screen whose whole message is
+   "still working". 1600ms is written literally rather than tokenised: --dur-1 and
+   --dur-2 are interaction durations that reduced motion zeroes, and zeroing an
+   infinite loop's duration is meaningless. A loop is switched OFF by name instead,
+   which is what the block below does. */
+@keyframes splash-pulse {
+  50% {
+    opacity: 0.45;
+  }
+}
+
+.app-splash .app-mark {
+  animation: splash-pulse 1600ms var(--ease) infinite;
+}
+
+/* ---- reduced motion ----------------------------------------------------- */
+
+/*
+ * The two cases tokens.css cannot reach, per Rule 2 above. Everything else in this
+ * file is already handled by --dur-1 and --dur-2 going to 0ms, which is why this
+ * block is short: a long list here would mean the rules above were animating away
+ * from their natural state.
+ */
+@media (prefers-reduced-motion: reduce) {
+  .activity-item {
+    animation: none;
+  }
+
+  .app-splash .app-mark {
+    animation: none;
+  }
+}

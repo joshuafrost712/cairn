@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { recordVerdict, clearVerdict } from '../db/verifications'
 import { c } from '../lib/content/chrome'
 import { Copy } from './Copy'
@@ -15,6 +16,13 @@ const STATUS_CLASS: Record<string, string> = {
 // their prior verdict; "clear" removes it.
 export function VerifyControls({ obs, evaluatorEmail }: { obs: AnnotatedObservation; evaluatorEmail: string }) {
   const mine = obs.verdicts.find((v) => v.evaluator_email === evaluatorEmail)
+  // tl-20: the confirm acknowledges itself. On a list of thirty observations the
+  // only feedback for a recorded verdict was the pill changing several lines away,
+  // so a click that had registered looked like one that had missed. Cleared on
+  // animationend rather than on a timer, so re-confirming re-animates and a
+  // reduced-motion visitor (where the animation is a no-op) is not left with a
+  // stuck class.
+  const [popped, setPopped] = useState(false)
   const mineLabel =
     mine?.decision === 'confirm'
       ? c('verify.you-confirmed')
@@ -33,8 +41,12 @@ export function VerifyControls({ obs, evaluatorEmail }: { obs: AnnotatedObservat
           id="verify.confirm"
           tokens={{ level: obs.evidence_designation }}
           as="button"
-          className={`ghost small ${mine?.decision === 'confirm' ? 'primary' : ''}`}
-          onClick={() => recordVerdict(obs, evaluatorEmail, 'confirm')}
+          className={`ghost small ${mine?.decision === 'confirm' ? 'primary' : ''} ${popped ? 'verify-pop' : ''}`}
+          onClick={() => {
+            setPopped(true)
+            recordVerdict(obs, evaluatorEmail, 'confirm')
+          }}
+          onAnimationEnd={() => setPopped(false)}
         />
         <Copy id="verify.adjust" className="small muted" />
         {[0, 1, 2, 3].map((n) => (

@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useMemo, type CSSProperties } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '../db/local'
@@ -63,10 +63,20 @@ export function EvaluatorHome() {
     navigate(`/capture/${draft.client_id}`)
   }
 
-  const activityButton = (a: Activity) => (
+  /**
+   * `index` is the stagger position, and it arrives for free: every call site is a
+   * `.map(activityButton)`, which already hands the callback (item, index).
+   *
+   * Capped at 8 (motion.css multiplies it by 40ms). Uncapped, a thirty-activity day
+   * would take 1.2 seconds to finish appearing, and the person waiting is standing
+   * in a workshop room with a session already under way. The counter restarts per
+   * day group on purpose: each fold is a list in its own right.
+   */
+  const activityButton = (a: Activity, index = 0) => (
     <button
       key={a.id}
       className={`activity-item ${a.id === suggestedId ? 'suggested' : ''}`}
+      style={{ '--i': Math.min(index, 8) } as CSSProperties}
       onClick={() => start(a.id)}
     >
       <span>

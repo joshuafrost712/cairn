@@ -1,11 +1,18 @@
 /* Base layer. Tokens come first, then layout (the only file with @media queries
-   for the shell), then the dashboard density layer, then the workbench. Everything
-   below this block is the original component styling for the capture flow and is
-   deliberately unchanged. */
+   for the shell), then the dashboard density layer, then the workbench, then
+   motion. Everything below this block is the original component styling for the
+   capture flow and is deliberately unchanged.
+
+   Motion is imported LAST on purpose: it is the only file that styles elements it
+   does not own, so it has to win the tie against an equally specific rule
+   elsewhere. It is also the only file whose entire contents can be deleted without
+   changing what the app says — which is the test of whether motion stayed
+   decoration. */
 @import './styles/tokens.css';
 @import './styles/layout.css';
 @import './styles/dashboard.css';
 @import './styles/workbench.css';
+@import './styles/motion.css';
 
 * { box-sizing: border-box; }
 

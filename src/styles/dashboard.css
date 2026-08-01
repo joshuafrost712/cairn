@@ -14,11 +14,31 @@
 
 /* ---- table: the primary component of this dashboard --------------------- */
 
+/*
+ * tl-20 gave this the same scrolling-shadow affordance as the kanban strip (see the
+ * long note on `.kanban` for how the four layers work), and the reason it now needs
+ * one is a consequence of tl-20's own phone fix. Until `.grid > *` got `min-width:
+ * 0`, a table wider than the phone widened the PAGE, so the whole document scrolled
+ * and the clipped column was obvious. Now the wrapper clips it properly — which is
+ * correct, and silent. A column cut off at a hard edge with no shadow reads as the
+ * last column rather than as the fourth of seven.
+ *
+ * The cover layers are --card rather than --bg here because this container's own
+ * surface is the card. Rows are transparent (only :hover and .selected paint), so
+ * the shadow shows through the body of the table.
+ */
 .dt-wrap {
   overflow-x: auto;
   border: 1px solid var(--line);
   border-radius: var(--r-3);
-  background: var(--card);
+  background:
+    linear-gradient(to right, var(--card), transparent) left center / 18px 100% no-repeat local,
+    linear-gradient(to left, var(--card), transparent) right center / 18px 100% no-repeat local,
+    radial-gradient(farthest-side at 0 50%, rgba(15, 23, 42, 0.13), transparent) left center / 8px 100% no-repeat
+      scroll,
+    radial-gradient(farthest-side at 100% 50%, rgba(15, 23, 42, 0.13), transparent) right center / 8px 100% no-repeat
+      scroll,
+    var(--card);
 }
 
 .dt {
@@ -713,6 +733,19 @@ button.btn--block-left {
    workshop room, swiping between four evaluators beats four stacked lists that
    can no longer be compared. */
 
+/*
+ * tl-20 keeps the horizontal scroll (it is deliberate, see above) and adds the two
+ * things it was missing on a phone: a snap so a swipe lands on a column instead of
+ * between two, and some evidence that there is anything to swipe to.
+ *
+ * The affordance is Lea Verou's scrolling-shadows trick, and it is the only
+ * CSS-only version that tells the truth. Four backgrounds: two page-coloured
+ * gradients attached `local` (so they scroll away with the content) sitting on top
+ * of two shadows attached `scroll` (so they stay pinned to the edges). At scroll
+ * zero the left cover hides the left shadow exactly; move one pixel and the shadow
+ * appears. A plain permanent mask would fade the first column even when there is
+ * nothing to its left, which is a cue that lies.
+ */
 .kanban {
   display: flex;
   gap: var(--s-3);
@@ -720,10 +753,21 @@ button.btn--block-left {
   padding-bottom: var(--s-2);
   /* Cards keep their own scroll; the strip scrolls sideways. */
   align-items: flex-start;
+  scroll-snap-type: x proximity;
+  background:
+    linear-gradient(to right, var(--bg), transparent) left center / 20px 100% no-repeat local,
+    linear-gradient(to left, var(--bg), transparent) right center / 20px 100% no-repeat local,
+    radial-gradient(farthest-side at 0 50%, rgba(15, 23, 42, 0.16), transparent) left center / 10px 100% no-repeat
+      scroll,
+    radial-gradient(farthest-side at 100% 50%, rgba(15, 23, 42, 0.16), transparent) right center / 10px 100% no-repeat
+      scroll;
 }
 
 .kanban__col {
   flex: 0 0 15rem;
+  /* `start`, not `center`: the column's own heading is what the reader is looking
+     for, and it sits at the top left of the card. */
+  scroll-snap-align: start;
   display: flex;
   flex-direction: column;
   gap: var(--s-2);

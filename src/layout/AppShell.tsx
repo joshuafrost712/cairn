@@ -1,6 +1,7 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, Outlet, useLocation } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
+import { Mark } from '../components/Mark'
 import { SyncStatusBar } from '../components/SyncStatusBar'
 import { c } from '../lib/content/chrome'
 import { MobileNav } from './MobileNav'
@@ -32,6 +33,26 @@ export function AppShell({ mode }: { mode: 'narrow' | 'wide' }) {
   const onHome = loc.pathname === '/'
   const wide = mode === 'wide'
 
+  // tl-20: re-run the page-enter animation on every navigation, by taking the class
+  // off and putting it back with a forced reflow in between. That is the whole
+  // trick, and it is deliberately NOT the obvious `key={loc.pathname}` on the
+  // wrapper: /reports and /reports/:participantId are the same <Reports/> element,
+  // so React Router keeps one instance across participants, and keying the wrapper
+  // would remount it on every selection — throwing away the master list's scroll
+  // position and the filter bar's state to play a 220ms fade. Animation is not
+  // worth losing state for.
+  //
+  // React never rewrites className here (the prop is a constant string), so a class
+  // added by hand survives re-renders.
+  const contentRef = useRef<HTMLDivElement | null>(null)
+  useEffect(() => {
+    const el = contentRef.current
+    if (!el) return
+    el.classList.remove('shell__content--enter')
+    void el.offsetWidth // reflow: without it the class comes back in the same frame and nothing restarts
+    el.classList.add('shell__content--enter')
+  }, [loc.pathname])
+
   return (
     <div className={`shell shell--${mode}`}>
       <header className="shell__header">
@@ -44,6 +65,12 @@ export function AppShell({ mode }: { mode: 'narrow' | 'wide' }) {
           >
             ☰
           </button>
+          {/* The mark, from tl-19, at header size. Same geometry as the installed
+              icon and the landing page, so the app a person opens looks like the
+              page that talked them into it. Decorative here: the brand text beside
+              it already carries the name, so a second accessible label would make
+              screen readers say it twice (Mark is aria-hidden). */}
+          <Mark size={28} />
           <div>
             <Link className="shell__brand" to="/">
               Honest Eval
@@ -78,7 +105,7 @@ export function AppShell({ mode }: { mode: 'narrow' | 'wide' }) {
       )}
 
       <main className="shell__main">
-        <div className="shell__content">
+        <div className="shell__content" ref={contentRef}>
           <Outlet />
         </div>
       </main>

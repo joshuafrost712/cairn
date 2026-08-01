@@ -33,6 +33,13 @@
   min-height: 100dvh;
 }
 
+/* The accent edge is an INSET SHADOW, not a thicker border, and that is a layout
+   decision rather than a stylistic one. `.shell--wide .shell__nav` pins itself with
+   `top: var(--header-h, 57px)`, and nothing in the app ever sets --header-h — 57px
+   is a measured constant wearing a custom property's clothes. Growing the border to
+   2px would make the real header 58px and leave the sidebar one pixel out of
+   register on every wide screen, for a colour. A shadow paints inside the box and
+   costs no height. */
 .shell__header {
   grid-area: header;
   position: sticky;
@@ -40,6 +47,7 @@
   z-index: 30;
   background: var(--card);
   border-bottom: 1px solid var(--line);
+  box-shadow: inset 0 -2px 0 var(--accent);
 }
 
 .shell__nav {
@@ -171,16 +179,40 @@
   padding: var(--s-3) var(--s-4);
 }
 
+/* `nowrap` because the name of the app is not a paragraph. Without it the flex row
+   shrinks this anchor to its min-content width — the widest single word — and
+   "Honest Eval" breaks in two on a phone. The identity block on the right is the
+   element that should give way, and it already stacks and wraps. */
 .shell__brand {
   font-weight: var(--fw-bold);
   letter-spacing: 0.02em;
   color: var(--ink);
   text-decoration: none;
+  white-space: nowrap;
 }
 
+/*
+ * The tagline is desktop-only, and tl-20 made that necessary rather than merely
+ * tidy. Adding the mark took 28px plus a gap out of a 390px header that was already
+ * holding a hamburger, the brand, the sync state, a name, a role and a sign-out
+ * button — enough that "Honest Eval" wrapped onto two lines. Something had to give,
+ * and of everything in that row the tagline is the only element that tells a
+ * signed-in evaluator something they do not already know. The mark is the brand; the
+ * role is the hat they are wearing (tl-01); the sync state is tl-18's whole point.
+ *
+ * Mobile-first, per this file's own guarantee: hidden is the base rule and the
+ * min-width query turns it back on, never the reverse.
+ */
 .shell__sub {
+  display: none;
   color: var(--muted);
   font-size: var(--t--2);
+}
+
+@media (min-width: 900px) {
+  .shell__sub {
+    display: block;
+  }
 }
 
 .shell__identity {
@@ -313,6 +345,28 @@
 .grid {
   display: grid;
   gap: var(--s-4);
+}
+
+/*
+ * THE PHONE FIX (tl-20). A grid item's `min-width` defaults to `auto`, which means
+ * it refuses to shrink below its content's min-content width — and a grid TRACK
+ * that cannot shrink widens the page rather than overflowing it. That is why the
+ * tl-19 audit found /admin/roster rendering a 515px layout viewport on a 390px
+ * phone: the Participants card's min-content width is 499px, set by the widest row
+ * of its data table, and the single-column grid handed the whole page that number.
+ *
+ * It has to be fixed here rather than on the table, because `.dt-wrap`'s
+ * `overflow-x: auto` does NOT zero its own min-content contribution: a scroll
+ * container's automatic minimum size collapses to zero only when the container is
+ * itself a flex or grid item, and .dt-wrap is a plain block inside .card. So the
+ * intrinsic width propagates up through the card to the track, and the track is
+ * where it must be stopped. With this rule the table scrolls inside its wrapper —
+ * which is what it was always meant to do and what it already does on a laptop.
+ *
+ * `.shell__main` carries the same one-line fix for the same reason one level up.
+ */
+.grid > * {
+  min-width: 0;
 }
 
 .grid--tiles {
