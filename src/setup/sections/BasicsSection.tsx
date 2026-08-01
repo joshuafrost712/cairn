@@ -1,8 +1,10 @@
 import { useState } from 'react'
-import { useLiveQuery } from 'dexie-react-hooks'
-import { db } from '../../db/local'
+import { Link } from 'react-router-dom'
 import { updateWorkshop } from '../../db/admin'
-import { createWorkshop, deleteWorkshop, duplicateWorkshop } from '../../db/referenceWrite'
+import { deleteWorkshop, duplicateWorkshop, workshopReachedBackend } from '../../db/referenceWrite'
+import { useAuth } from '../../auth/AuthContext'
+import { mirrorActiveWorkshop } from '../../db/settings'
+import { WorkshopSwitcher } from '../../components/WorkshopSwitcher'
 import { setActiveWorkshopId } from '../../lib/activeWorkshop'
 import { c } from '../../lib/content/chrome'
 import { isSupabaseConfigured } from '../../lib/supabase'
@@ -12,12 +14,24 @@ import { diffFields } from '../impact'
 import { useSetupSave } from '../useSetupSave'
 
 /**
- * Workshop basics: what this workshop is, when it runs, and the create/duplicate/
- * delete operations on the workshop itself.
+ * Workshop basics: what this workshop is, when it runs, and the duplicate/delete
+ * operations on the workshop itself.
  *
- * The scenario selector moved here from the Scenario Builder. tl-17 replaces it with
- * a proper switcher and a create flow across several workshops; until then this is
- * the only way to make a second one, so it moves rather than disappearing.
+ * tl-07 moved the scenario selector here from the Scenario Builder and said tl-17
+ * would replace it. It has. Two changes, and both are about there being exactly one
+ * of each thing:
+ *
+ *  - **The `<select>` is the shared `WorkshopSwitcher`**, the same component the
+ *    header and the drawer render. Two switching controls can disagree; this one
+ *    also lists memberships rather than every cached workshop, so it can no longer
+ *    offer a workshop that `resolveActiveWorkshopId` will silently refuse.
+ *  - **Create moved to `/workshops`**, where it asks for dates and lands the
+ *    administrator in guided setup. Creating a nameless, dateless workshop from a
+ *    text box on a settings page was the cheap version, and a workshop with no end
+ *    date reads as `draft` forever.
+ *
+ * Duplicate and delete stay, because they are authoring acts ON this workshop rather
+ * than navigation between workshops.
  *
  * Meta is saved by an explicit button, not on blur, because the dates are what decide
  * whether the workshop reads as closed — and that decides whether every OTHER save
@@ -26,31 +40,43 @@ import { useSetupSave } from '../useSetupSave'
  */
 export function BasicsSection({ workshop }: { workshop: Workshop | null }) {
   const { request, busy } = useSetupSave()
-  const workshops = useLiveQuery(() => db.workshops.toArray(), [], [] as Workshop[])
-  const [newName, setNewName] = useState('')
+  const { reloadMemberships } = useAuth()
+  const [queued, setQueued] = useState(false)
 
-  const create = async (name: string) => {
-    let created: Workshop | null = null
-    await request({
-      change: { entity: 'workshop', operation: 'create', entityId: null, label: name },
-      commit: async () => {
-        created = await createWorkshop(name)
-      },
-    })
-    if (created) setActiveWorkshopId((created as Workshop).id)
-  }
-
+  /**
+   * Duplicate, then wait for the copy to exist server-side before switching into it.
+   *
+   * The same sequence the create flow on /workshops uses, and for the same reason:
+   * the copy's `chief_admin` row comes from a Postgres AFTER INSERT trigger, so
+   * switching before the insert lands selects a workshop the memberships do not
+   * support and `resolveActiveWorkshopId` throws the selection away.
+   *
+   * This was invisible until tl-17, because the old scenario `<select>` listed every
+   * CACHED workshop: the copy appeared in it, the header changed, and the app looked
+   * like it had switched while every workshop-scoped read still pointed at the
+   * original. Listing memberships instead is what made the gap show, which is the
+   * argument for listing memberships.
+   */
   const duplicate = async () => {
     if (!workshop) return
     let created: Workshop | null = null
     const name = `${workshop.name} (copy)`
+    setQueued(false)
     await request({
       change: { entity: 'workshop', operation: 'create', entityId: null, label: name },
       commit: async () => {
         created = await duplicateWorkshop(workshop.id, name)
       },
     })
-    if (created) setActiveWorkshopId((created as Workshop).id)
+    if (!created) return
+    const id = (created as Workshop).id
+    if (!(await workshopReachedBackend(id))) {
+      setQueued(true)
+      return
+    }
+    await reloadMemberships()
+    setActiveWorkshopId(id)
+    await mirrorActiveWorkshop(id)
   }
 
   const remove = async () => {
@@ -90,44 +116,17 @@ export function BasicsSection({ workshop }: { workshop: Workshop | null }) {
         <h2>{c('setup.basics.switch-title')}</h2>
         <p className="small muted">{c('setup.basics.switch-help')}</p>
         <div className="row">
-          <select
-            value={workshop?.id ?? ''}
-            onChange={(e) => setActiveWorkshopId(e.target.value)}
-            disabled={busy || (workshops ?? []).length === 0}
-            style={{ flex: 1 }}
-            aria-label={c('setup.basics.switch-title')}
-          >
-            {(workshops ?? []).length === 0 && <option value="">(none)</option>}
-            {(workshops ?? []).map((w) => (
-              <option key={w.id} value={w.id}>
-                {w.name}
-              </option>
-            ))}
-          </select>
+          <WorkshopSwitcher className="switcher switcher--drawer" />
           {workshop && (
             <button className="ghost" disabled={busy} onClick={() => void duplicate()}>
               {c('setup.basics.duplicate')}
             </button>
           )}
         </div>
-        <div className="row">
-          <input
-            placeholder={c('setup.basics.new-placeholder')}
-            value={newName}
-            onChange={(e) => setNewName(e.target.value)}
-            style={{ flex: 1 }}
-          />
-          <button
-            disabled={busy || !newName.trim()}
-            onClick={() => {
-              const name = newName.trim()
-              setNewName('')
-              void create(name)
-            }}
-          >
-            {c('setup.basics.create')}
-          </button>
-        </div>
+        {queued && <div className="banner warn">{c('workshops.create.queued')}</div>}
+        <p className="small muted">
+          <Link to="/workshops">{c('setup.basics.overview-link')}</Link>
+        </p>
         {workshop && (
           <div className="row">
             <button className="ghost small" disabled={busy} onClick={() => void remove()}>

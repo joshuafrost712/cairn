@@ -55,3 +55,35 @@ export function useHasWorkshopRole(roles: readonly WorkshopRole[]): boolean {
 export function useIsChief(): boolean {
   return useHasWorkshopRole(CHIEF_ROLES)
 }
+
+/**
+ * Whether the signed-in user holds one of `roles` in ANY workshop they belong to.
+ *
+ * The active-workshop hooks above answer "what may I do here", which is the right
+ * question for every surface except one. `/workshops` is the page you go to
+ * BECAUSE you are in the wrong workshop, so gating it on the active workshop
+ * would lock an admin out of the only control that would fix that: an
+ * administrator of the Crash Course who is currently pointed at Bali, where they
+ * are only an evaluator, would be bounced home by the very page that exists to
+ * move them.
+ *
+ * Still not a security boundary, for the same reason as its siblings: it decides
+ * what to render, and every row behind it is re-scoped by RLS from auth.uid().
+ */
+export function useHasWorkshopRoleAnywhere(roles: readonly WorkshopRole[]): boolean {
+  const { memberships } = useAuth()
+  return memberships.some((m) => roles.includes(m.role))
+}
+
+/**
+ * The platform tier, which is a different question from any workshop role.
+ *
+ * Only `platform_owner` may INSERT a workshop (the `workshop_insert` policy in
+ * 20260728000700_workshop_membership.sql), so this is what the Create button
+ * mirrors. Read from the `app_user` row via AuthContext, never from session
+ * metadata — see identityFromSession for why that distinction is load-bearing.
+ */
+export function useIsPlatformOwner(): boolean {
+  const { identity } = useAuth()
+  return identity?.platformRole === 'platform_owner'
+}

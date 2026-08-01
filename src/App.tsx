@@ -9,6 +9,7 @@ import { refreshDirectory, synthesizeLocalDirectory } from './db/directory'
 import { mirrorActiveWorkshop } from './db/settings'
 import { AppShell } from './layout/AppShell'
 import { RequireRole } from './layout/RequireRole'
+import { RequireRoleAnywhere } from './layout/RequireRoleAnywhere'
 import { ADMIN_ROLES, CHIEF_ROLES, useHasWorkshopRole, useScopedWorkshopId } from './layout/roles'
 import { syncDrafts } from './db/draftSync'
 import { enforceTokenHygiene } from './routing/config'
@@ -40,6 +41,7 @@ import { Conversations } from './pages/Conversations'
 import { Inbox } from './pages/Inbox'
 import { Outgoing } from './pages/Outgoing'
 import { Workbench } from './pages/Workbench'
+import { Workshops } from './pages/Workshops'
 import { DevFeedbackRoot } from './devfeedback/DevFeedbackRoot'
 
 function Shell() {
@@ -220,6 +222,14 @@ function Shell() {
           <Route path="/admin/participants/:participantId" element={<ParticipantDetail />} />
           <Route path="/admin/evaluators" element={<EvaluatorList />} />
           <Route path="/admin/evaluators/:email" element={<EvaluatorDetail />} />
+        </Route>
+
+        {/* tl-17: the cross-workshop overview. Gated on holding an admin role in
+            ANY membership rather than in the active workshop, because this is the
+            page you open precisely when the active workshop is the wrong one. See
+            RequireRoleAnywhere for why that is a separate component. */}
+        <Route element={<RequireRoleAnywhere roles={ADMIN_ROLES} orPlatformOwner />}>
+          <Route path="/workshops" element={<Workshops />} />
         </Route>
 
         <Route element={<RequireRole roles={ADMIN_ROLES} />}>

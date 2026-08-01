@@ -7,6 +7,7 @@ import { generateEventDigests, generateParticipantEmails } from '../db/drafts'
 import { describeSync, syncDrafts } from '../db/draftSync'
 import { ADMIN_ROLES, useHasWorkshopRole, useScopedWorkshopId } from '../layout/roles'
 import { isSupabaseConfigured } from '../lib/supabase'
+import { c } from '../lib/content/chrome'
 import { PageHeader } from '../layout/PageHeader'
 import { DataTable } from '../components/data/DataTable'
 import type { Column } from '../components/data/DataTable'
@@ -145,32 +146,40 @@ export function Outgoing() {
         />
 
         <div className="row">
+          {/* tl-17: both generators now demand a workshop id rather than
+              defaulting to whichever row Dexie held first, so with no active
+              workshop the honest state is a disabled button and a line saying
+              why, not a batch stamped with somebody else's workshop name. */}
           <button
-            disabled={busy}
-            onClick={() =>
-              run(
+            disabled={busy || !workshopId}
+            onClick={() => {
+              if (!workshopId) return
+              void run(
                 () =>
                   generateParticipantEmails({
                     now: new Date().toISOString(),
                     dateLabel: day,
                     fromName: identity?.email ?? undefined,
+                    workshopId,
                   }),
                 'participant email(s)',
               )
-            }
+            }}
           >
             Participant emails
           </button>
           <button
             className="ghost"
-            disabled={busy}
-            onClick={() =>
-              run(
+            disabled={busy || !workshopId}
+            onClick={() => {
+              if (!workshopId) return
+              void run(
                 () =>
                   generateEventDigests({
                     now: new Date().toISOString(),
                     dateLabel: day,
                     fromName: identity?.email ?? undefined,
+                    workshopId,
                     facilitators: facilitators
                       .split(',')
                       .map((s) => s.trim())
@@ -179,11 +188,12 @@ export function Outgoing() {
                   }),
                 'event digest(s)',
               )
-            }
+            }}
           >
             Event digests
           </button>
         </div>
+        {!workshopId && <p className="small muted">{c('outgoing.no-workshop')}</p>}
         {msg && <p className="small muted">{msg}</p>}
       </div>
 

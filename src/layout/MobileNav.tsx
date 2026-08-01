@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react'
+import { WorkshopSwitcher } from '../components/WorkshopSwitcher'
 import { c } from '../lib/content/chrome'
 import { Nav } from './Nav'
 
@@ -45,6 +46,10 @@ export function MobileNav({ open, onClose }: { open: boolean; onClose: () => voi
             {c('nav.close')}
           </button>
         </div>
+        {/* tl-17. Above the nav, because it changes what every link below it
+            points at. Renders nothing on a single membership, so a phone
+            evaluator's drawer is unchanged. */}
+        <WorkshopSwitcher id="drawer-switcher" className="switcher switcher--drawer" />
         <Nav onNavigate={onClose} />
       </div>
     </div>

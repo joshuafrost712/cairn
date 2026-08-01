@@ -23,6 +23,7 @@
  *
  *   node scripts/tl03-evaluator-surface.mjs --setup     # accounts + fixtures
  *   npm run dev -- --port 5180                          # in another shell
+ *   TL03_PORT=5187 node scripts/tl03-evaluator-surface.mjs   # a concurrent session
  *   node scripts/tl03-evaluator-surface.mjs
  *   node scripts/tl03-evaluator-surface.mjs --teardown
  *
@@ -32,7 +33,12 @@
 import { readFileSync } from 'node:fs'
 import { execFileSync } from 'node:child_process'
 
-const BASE = 'http://localhost:5180/'
+// tl-17: made overridable. It was the one harness in the repo with the port
+// hard-coded, so a concurrent session could not run it at all — and the
+// concurrency rule it violates ("a port per session, and move the harness
+// constant with it") exists precisely because a harness on the wrong port
+// silently grades somebody else's build.
+const BASE = `http://localhost:${process.env.TL03_PORT ?? 5180}/`
 const PROJECT = 'vdbirmjvjzfdgajwgowj'
 const PILOT_WS = '11111111-1111-1111-1111-111111111111'
 const PASSWORD = 'tl03-Throwaway-Password-1!'

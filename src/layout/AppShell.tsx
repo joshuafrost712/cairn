@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link, Outlet, useLocation } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
 import { SyncStatusBar } from '../components/SyncStatusBar'
+import { WorkshopSwitcher } from '../components/WorkshopSwitcher'
 import { c } from '../lib/content/chrome'
 import { MobileNav } from './MobileNav'
 import { Nav } from './Nav'
@@ -58,6 +59,11 @@ export function AppShell({ mode }: { mode: 'narrow' | 'wide' }) {
           <span className="spacer" />
           <div className="shell__identity">
             <SyncStatusBar />
+            {/* tl-17. Renders nothing on a single membership, so a one-workshop
+                evaluator's header is unchanged. Beside the role rather than
+                below it because the two are one sentence: which workshop, and
+                which hat in it. */}
+            <WorkshopSwitcher className="switcher switcher--header" />
             {identity && (
               <div className="small">
                 {identity.name}{' '}

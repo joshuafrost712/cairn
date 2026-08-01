@@ -148,8 +148,40 @@ async function pendingCount(): Promise<number> {
  *
  * Returns how many pushed, how many remain worth retrying, and how many were
  * refused outright.
+ *
+ * SERIALIZED (tl-17), and the reason is a bug rather than tidiness. Callers fire
+ * this from several places at once — `upsertWorkshop` kicks it off without
+ * awaiting, the sync loop calls it, `loadReferenceData` drains before its pull.
+ * Two overlapping drains both read the entry list before either deletes anything,
+ * so both push the same row. The first INSERTs; the second arrives as PostgREST's
+ * `INSERT … ON CONFLICT DO UPDATE`, which makes Postgres evaluate the UPDATE
+ * policy's USING clause as well, and the row comes back `42501 … (USING
+ * expression)`. The write SUCCEEDED and the app records it as refused, which is
+ * the worst shape of wrong: a red entry in Setup's rejected-writes card for an
+ * edit that is sitting in the database.
+ *
+ * Chained rather than deduplicated, deliberately: a caller that enqueued while a
+ * drain was already running must get a drain that runs AFTER its enqueue, and
+ * handing it the in-flight promise would tell it its own write had been attempted
+ * when it had not.
  */
-export async function pushReferenceOutbox(): Promise<{
+export function pushReferenceOutbox(): Promise<{
+  pushed: number
+  pending: number
+  rejected: number
+}> {
+  const run = pushQueue.then(drainReferenceOutbox, drainReferenceOutbox)
+  // Swallowed on the CHAIN only; `run` keeps its rejection for the caller.
+  pushQueue = run.then(
+    () => undefined,
+    () => undefined,
+  )
+  return run
+}
+
+let pushQueue: Promise<void> = Promise.resolve()
+
+async function drainReferenceOutbox(): Promise<{
   pushed: number
   pending: number
   rejected: number
@@ -240,18 +272,55 @@ export async function upsertWorkshop(w: Workshop): Promise<void> {
   void pushReferenceOutbox()
 }
 
-/** Create a fresh, empty scenario (workshop). */
-export async function createWorkshop(name: string): Promise<Workshop> {
+/**
+ * Create a fresh, empty scenario (workshop).
+ *
+ * The optional meta is tl-17's addition, and it is not cosmetic: the end date is
+ * what `deriveWorkshopState` reads to decide whether a workshop is `closed`, and
+ * therefore whether every later setup save gets the closed-workshop warning. A
+ * workshop created without dates reads as `draft` forever until somebody
+ * remembers to go back and set them, so the create flow asks at the one moment
+ * the answer is in front of the person typing.
+ */
+export async function createWorkshop(
+  name: string,
+  meta: Partial<Pick<Workshop, 'start_date' | 'end_date' | 'location'>> = {},
+): Promise<Workshop> {
   const w: Workshop = {
     id: newId(),
     name: name.trim() || 'Untitled scenario',
-    start_date: null,
-    end_date: null,
-    location: null,
+    start_date: meta.start_date ?? null,
+    end_date: meta.end_date ?? null,
+    location: meta.location ?? null,
     languages: [],
   }
   await upsertWorkshop(w)
   return w
+}
+
+/**
+ * Drain the outbox and report whether one workshop's own insert actually landed.
+ *
+ * The one thing a caller who has just made a workshop needs to know, and it
+ * cannot be answered by "did createWorkshop resolve": that writes to Dexie and
+ * kicks the outbox off without awaiting it, which is right everywhere except
+ * here. The creator's `chief_admin` row is written by an AFTER INSERT trigger in
+ * Postgres, so until the insert lands there is no membership — and a workshop
+ * with no membership cannot become the active one, because
+ * `resolveActiveWorkshopId` correctly discards a selection the memberships do not
+ * support. The symptom is not an error: the workshop is created and the
+ * administrator is silently returned to the one they were in.
+ *
+ * Asks about THIS workshop's entry rather than the outbox's total, so an
+ * unrelated stale entry cannot report a perfectly good creation as queued.
+ *
+ * False offline, which is correct rather than a failure: the workshop is safely
+ * queued and the caller should say so instead of switching into it.
+ */
+export async function workshopReachedBackend(id: string): Promise<boolean> {
+  if (!isSupabaseConfigured) return true
+  await pushReferenceOutbox()
+  return (await db.referenceOutbox.get(`workshop:${id}`)) === undefined
 }
 
 /**
