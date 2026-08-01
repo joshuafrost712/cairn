@@ -231,7 +231,7 @@ function SectionBody({ section, workshop }: { section: string; workshop: Worksho
     case 'participants':
       return <Roster embedded />
     case 'people':
-      return <PeopleSection workshopId={workshop.id} />
+      return <PeopleSection workshop={workshop} />
     case 'ai':
       return <AiSection workshopId={workshop.id} />
     case 'templates':

@@ -1756,6 +1756,346 @@
     {
       "id": "workshops.create.queued",
       "label": "The workshop is saved on this device and queued to send, but it cannot become your current workshop until the server has it: your administrator role in it is granted server-side when the record arrives. Reconnect and it will appear in the switcher."
+    },
+    {
+      "id": "people.title",
+      "label": "Who has access"
+    },
+    {
+      "id": "people.help",
+      "label": "Everyone who can sign in to this workshop, and everyone who has been invited and has not joined yet. Roles decide what each person can see and do."
+    },
+    {
+      "id": "people.not-participants",
+      "label": "These are the people running the workshop, not the people being evaluated. Participants live under Participants and do not have accounts."
+    },
+    {
+      "id": "people.table-caption",
+      "label": "Members and pending invitations"
+    },
+    {
+      "id": "people.empty",
+      "label": "Nobody has access to this workshop yet."
+    },
+    {
+      "id": "people.column.person",
+      "label": "Person"
+    },
+    {
+      "id": "people.column.role",
+      "label": "Role"
+    },
+    {
+      "id": "people.column.status",
+      "label": "Status"
+    },
+    {
+      "id": "people.column.actions",
+      "label": "Actions"
+    },
+    {
+      "id": "people.status.member",
+      "label": "Signed in"
+    },
+    {
+      "id": "people.status.invited",
+      "label": "Invited {date}, not joined"
+    },
+    {
+      "id": "people.role.chief-admin",
+      "label": "Chief admin"
+    },
+    {
+      "id": "people.role.admin",
+      "label": "Admin"
+    },
+    {
+      "id": "people.role.chief-evaluator",
+      "label": "Chief evaluator"
+    },
+    {
+      "id": "people.role.consultant",
+      "label": "Consultant"
+    },
+    {
+      "id": "people.role.evaluator",
+      "label": "Evaluator"
+    },
+    {
+      "id": "people.role.participant",
+      "label": "Participant"
+    },
+    {
+      "id": "people.action.change-role",
+      "label": "Change role…"
+    },
+    {
+      "id": "people.action.remove",
+      "label": "Remove"
+    },
+    {
+      "id": "people.action.remove-confirm",
+      "label": "Remove {name} from this workshop"
+    },
+    {
+      "id": "people.action.transfer",
+      "label": "Make chief admin"
+    },
+    {
+      "id": "people.action.transfer-confirm",
+      "label": "Hand the workshop to {name}"
+    },
+    {
+      "id": "people.action.transfer-warning",
+      "label": "{name} becomes this workshop's chief admin and you become an admin. You cannot take it back on your own: only {name} can hand it to somebody else. Type their name exactly to confirm."
+    },
+    {
+      "id": "people.action.none",
+      "label": "An admin can only add and remove evaluators. Ask the chief admin to change anyone else."
+    },
+    {
+      "id": "people.action.none-self",
+      "label": "You cannot change your own role."
+    },
+    {
+      "id": "people.action.none-chief",
+      "label": "The chief admin's role changes only by transferring it."
+    },
+    {
+      "id": "people.action.message",
+      "label": "Message"
+    },
+    {
+      "id": "people.action.resend",
+      "label": "Re-date"
+    },
+    {
+      "id": "people.action.revoke",
+      "label": "Withdraw"
+    },
+    {
+      "id": "people.action.revoke-confirm",
+      "label": "Withdraw this invitation"
+    },
+    {
+      "id": "people.invite.title",
+      "label": "Invite somebody"
+    },
+    {
+      "id": "people.invite.help",
+      "label": "Invite by email. If they already have an account here they join straight away; if not, the invitation waits until they sign up with that same address."
+    },
+    {
+      "id": "people.invite.email-label",
+      "label": "Email address"
+    },
+    {
+      "id": "people.invite.email-placeholder",
+      "label": "name@organisation.org"
+    },
+    {
+      "id": "people.invite.role-label",
+      "label": "Role in this workshop"
+    },
+    {
+      "id": "people.invite.submit",
+      "label": "Invite"
+    },
+    {
+      "id": "people.invite.no-email-sent",
+      "label": "No email is sent for you. Inviting somebody records the invitation and gives you a message to send from your own mail."
+    },
+    {
+      "id": "people.invite.not-permitted",
+      "label": "Only this workshop's administrators can invite people to it."
+    },
+    {
+      "id": "people.invite.participant-note",
+      "label": "Inviting somebody as a participant gives them an account and no access to anything yet. It is here for a future participant-facing view; to add somebody being evaluated, use Participants."
+    },
+    {
+      "id": "people.notice.invited",
+      "label": "{email} is invited. They are not in yet: send them the message below and they join when they sign up with that address."
+    },
+    {
+      "id": "people.notice.added-directly",
+      "label": "{email} already had an account, so they are in the workshop now. Nothing needs sending."
+    },
+    {
+      "id": "people.notice.role-changed",
+      "label": "{name} is now {role} in this workshop."
+    },
+    {
+      "id": "people.notice.removed",
+      "label": "{name} no longer has access to this workshop."
+    },
+    {
+      "id": "people.notice.transferred",
+      "label": "{name} is this workshop's chief admin."
+    },
+    {
+      "id": "people.notice.revoked",
+      "label": "The invitation to {email} is withdrawn. That address can no longer create an account from it."
+    },
+    {
+      "id": "people.notice.resent",
+      "label": "The invitation is dated today. Nothing was emailed: copy the message and send it yourself."
+    },
+    {
+      "id": "people.message.title",
+      "label": "The message to send"
+    },
+    {
+      "id": "people.message.help",
+      "label": "Nothing has been emailed to {email}. Copy this into your own mail, or open it in your mail app."
+    },
+    {
+      "id": "people.message.subject",
+      "label": "You are invited to {workshop}"
+    },
+    {
+      "id": "people.message.body",
+      "label": "Hello,\n\nYou have been invited to help run {workshop} as {role}.\n\nTo join, go to {url} and create an account using this email address ({email}). It has to be the same address, or the invitation will not find you.\n\nOnce you are in, everything you need is on the first screen.\n\nThank you."
+    },
+    {
+      "id": "people.message.copy",
+      "label": "Copy the message"
+    },
+    {
+      "id": "people.message.copied",
+      "label": "Copied"
+    },
+    {
+      "id": "people.message.mailto",
+      "label": "Open in mail"
+    },
+    {
+      "id": "people.message.close",
+      "label": "Close"
+    },
+    {
+      "id": "people.refusal.offline",
+      "label": "This change needs a connection. Who belongs to a workshop is decided on the server, so it cannot be queued up and applied later."
+    },
+    {
+      "id": "people.refusal.tl02.no_account",
+      "label": "You are not signed in to an account this deployment knows."
+    },
+    {
+      "id": "people.refusal.tl02.unknown_target",
+      "label": "That person does not have an account yet. Invite them by email instead."
+    },
+    {
+      "id": "people.refusal.tl02.no_self_role_change",
+      "label": "You cannot change your own role in a workshop."
+    },
+    {
+      "id": "people.refusal.tl02.chief_admin_by_transfer_only",
+      "label": "The chief admin role is handed over, not granted. Use Make chief admin."
+    },
+    {
+      "id": "people.refusal.tl02.cannot_change_chief_admin",
+      "label": "The chief admin's role can only change by transferring it to somebody else."
+    },
+    {
+      "id": "people.refusal.tl02.admin_may_only_grant_evaluator",
+      "label": "An admin can add and remove evaluators. Only the chief admin can change anyone else."
+    },
+    {
+      "id": "people.refusal.tl02.admin_may_only_remove_evaluator",
+      "label": "An admin can remove evaluators. Only the chief admin can remove anyone else."
+    },
+    {
+      "id": "people.refusal.tl02.not_an_administrator",
+      "label": "Only this workshop's administrators can change who belongs to it."
+    },
+    {
+      "id": "people.refusal.tl02.not_a_member",
+      "label": "That person is not a member of this workshop."
+    },
+    {
+      "id": "people.refusal.tl02.chief_admin_cannot_leave",
+      "label": "Transfer the chief admin role to somebody else before leaving this workshop."
+    },
+    {
+      "id": "people.refusal.tl02.cannot_remove_chief_admin",
+      "label": "The chief admin cannot be removed. Transfer the role first."
+    },
+    {
+      "id": "people.refusal.tl02.only_chief_admin_transfers",
+      "label": "Only this workshop's chief admin can hand the role to somebody else."
+    },
+    {
+      "id": "people.refusal.tl02.target_not_a_member",
+      "label": "Add that person to the workshop before making them its chief admin."
+    },
+    {
+      "id": "people.refusal.tl02.already_chief_admin",
+      "label": "That person is already the chief admin."
+    },
+    {
+      "id": "people.refusal.tl11.bad_email",
+      "label": "That does not look like an email address."
+    },
+    {
+      "id": "people.refusal.tl11.already_a_member",
+      "label": "That person is already in this workshop. Change their role from the list above instead."
+    },
+    {
+      "id": "people.refusal.tl11.already_invited",
+      "label": "That address already has an invitation waiting. Withdraw it first if the role should change."
+    },
+    {
+      "id": "people.refusal.tl11.unknown_invitation",
+      "label": "That invitation no longer exists."
+    },
+    {
+      "id": "people.refusal.tl11.not_pending",
+      "label": "That invitation has already been accepted or withdrawn."
+    },
+    {
+      "id": "setup.impact.membership.create",
+      "label": "{label} joins this workshop as {role}."
+    },
+    {
+      "id": "setup.impact.membership.role",
+      "label": "{label} moves from {from} to {to} in this workshop. Everything they have already recorded stays exactly as it is."
+    },
+    {
+      "id": "setup.impact.membership.gains-admin",
+      "label": "{label} will be able to edit this workshop's whole setup, and to add and remove evaluators."
+    },
+    {
+      "id": "setup.impact.membership.loses-admin",
+      "label": "{label} will no longer be able to edit the setup or change who belongs to this workshop."
+    },
+    {
+      "id": "setup.impact.membership.remove",
+      "label": "{label} loses access to this workshop. The {captures} evaluation(s) they submitted stay in it, attributed to them exactly as now: nothing they recorded is deleted or re-scored."
+    },
+    {
+      "id": "setup.impact.membership.remove-clean",
+      "label": "{label} loses access to this workshop. They have submitted nothing here, so no evidence is touched."
+    },
+    {
+      "id": "setup.impact.membership.remove-assigned",
+      "label": "{conversations} follow-up conversation(s) are assigned to {label}. Nobody will be working them until you hand them to somebody else."
+    },
+    {
+      "id": "setup.impact.membership.remove-last-admin",
+      "label": "This leaves the chief admin as the only person who can change anything about this workshop."
+    },
+    {
+      "id": "signin.invite-only",
+      "label": "This address could not create an account. The most likely reason is that it has not been invited to a workshop: ask the workshop's administrator to invite you, then sign up again with the same address."
+    },
+    {
+      "id": "signin.email-rate-limit",
+      "label": "Too many sign-up emails have been sent from this site in the last hour, so the confirmation email could not go out. Wait a few minutes and try again. Nothing is wrong with your invitation."
+    },
+    {
+      "id": "signin.role-note",
+      "label": "Your role comes from the workshop you were invited to, so there is nothing to choose here."
     }
   ]
 }

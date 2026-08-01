@@ -1,7 +1,12 @@
 import { db } from './local'
 import { supabase, isSupabaseConfigured } from '../lib/supabase'
 import { memberPk } from '../auth/membership'
-import type { MembershipChangeLog, WorkshopMember, WorkshopRole } from '../lib/types'
+import type {
+  MembershipChangeLog,
+  WorkshopInvitation,
+  WorkshopMember,
+  WorkshopRole,
+} from '../lib/types'
 
 /**
  * The caller's own workshop memberships: fetch from Postgres, cache in Dexie,
@@ -146,7 +151,14 @@ export type MembershipResult =
   | { ok: false; reason: 'offline'; slug: null; message: null }
   | { ok: false; reason: 'refused' | 'failed'; slug: string | null; message: string }
 
-const OFFLINE: MembershipResult = { ok: false, reason: 'offline', slug: null, message: null }
+// Typed as the refusal half rather than the whole union, so it can also be
+// returned from `inviteToWorkshop`, whose success shape carries more than `ok`.
+const OFFLINE: Exclude<MembershipResult, { ok: true }> = {
+  ok: false,
+  reason: 'offline',
+  slug: null,
+  message: null,
+}
 
 interface PostgrestLikeError {
   message?: string
@@ -154,10 +166,18 @@ interface PostgrestLikeError {
   code?: string | null
 }
 
+/**
+ * Slugs are `tl<NN>.<reason>`. Matched by shape rather than by an exact prefix
+ * because tl-11 raises `tl11.*` from the same `raise_refusal()` and an
+ * exact-prefix check would have silently downgraded every one of its refusals to
+ * unlabelled server prose — with nothing failing, since `message` is still there.
+ */
+const SLUG = /^tl\d{2}\.[a-z_]+$/
+
 /** A refusal raised by `raise_refusal()` carries 42501 and a slug in `details`. */
 function toResult(error: PostgrestLikeError | null): MembershipResult {
   if (!error) return { ok: true }
-  const slug = typeof error.details === 'string' && error.details.startsWith('tl02.')
+  const slug = typeof error.details === 'string' && SLUG.test(error.details)
     ? error.details
     : null
   return {
@@ -168,8 +188,16 @@ function toResult(error: PostgrestLikeError | null): MembershipResult {
   }
 }
 
+type MembershipRpc =
+  | 'set_workshop_member_role'
+  | 'remove_workshop_member'
+  | 'transfer_chief_admin'
+  | 'invite_to_workshop'
+  | 'revoke_invitation'
+  | 'resend_invitation'
+
 async function callMembershipRpc(
-  fn: 'set_workshop_member_role' | 'remove_workshop_member' | 'transfer_chief_admin',
+  fn: MembershipRpc,
   args: Record<string, string>,
 ): Promise<MembershipResult> {
   if (!isSupabaseConfigured || !supabase || !navigator.onLine) return OFFLINE
@@ -225,6 +253,108 @@ export async function transferChiefAdmin(
     _workshop_id: workshopId,
     _to_app_user_id: toAppUserId,
   })
+}
+
+/**
+ * ## Invitations (tl-11)
+ *
+ * The three RPCs above address a person by `app_user_id`, and `app_user_select`
+ * shows you only people you ALREADY share a workshop with. So the browser could
+ * re-rank somebody who was in the room and could not put anybody into it. These
+ * take an email instead, resolve it inside the definer, and are the client's only
+ * way to grow a workshop.
+ *
+ * Online-only for the same reason the tl-02 three are: the answer is the server's
+ * decision, not the caller's observation.
+ */
+
+/**
+ * Which of the two things an invite did.
+ *
+ * `added` is not a lesser version of `invited`: it means the address already had
+ * an account, so the membership was written on the spot and there is nobody to
+ * send anything to. The UI must say which happened, because "invitation sent"
+ * over an immediate grant is exactly the misleading-status failure this spec's
+ * out-of-scope note warns about in the other direction.
+ */
+export type InviteOutcome = 'invited' | 'added'
+
+export type InviteResult =
+  | { ok: true; outcome: InviteOutcome; invitationId: string | null }
+  | Exclude<MembershipResult, { ok: true }>
+
+/** Invite an email into a workshop, or add it directly if it already has an account. */
+export async function inviteToWorkshop(
+  workshopId: string,
+  email: string,
+  role: Exclude<WorkshopRole, 'chief_admin'>,
+): Promise<InviteResult> {
+  if (!isSupabaseConfigured || !supabase || !navigator.onLine) return OFFLINE
+  try {
+    const { data, error } = await supabase.rpc('invite_to_workshop', {
+      _workshop_id: workshopId,
+      _email: email,
+      _role: role,
+    })
+    const result = toResult(error)
+    if (!result.ok) return result
+    const payload = (data ?? {}) as { outcome?: string; invitation_id?: string }
+    return {
+      ok: true,
+      // Defaulting to `invited` would claim a message is owed when the server may
+      // have granted the membership outright, so an unreadable payload is the
+      // louder of the two rather than the quieter.
+      outcome: payload.outcome === 'added' ? 'added' : 'invited',
+      invitationId: payload.invitation_id ?? null,
+    }
+  } catch (err) {
+    return {
+      ok: false,
+      reason: 'failed',
+      slug: null,
+      message: err instanceof Error ? err.message : 'That invitation could not be sent.',
+    }
+  }
+}
+
+/** Withdraw a pending invitation. One write: nothing else grants that signup. */
+export async function revokeInvitation(invitationId: string): Promise<MembershipResult> {
+  return callMembershipRpc('revoke_invitation', { _id: invitationId })
+}
+
+/**
+ * Re-date a pending invitation.
+ *
+ * There is no outbound mail service, so this sends nothing and the UI must not
+ * imply it did. What it does is stamp the invitation today, so the message an
+ * admin copies into their own mail client is not dated a fortnight ago.
+ */
+export async function resendInvitation(invitationId: string): Promise<MembershipResult> {
+  return callMembershipRpc('resend_invitation', { _id: invitationId })
+}
+
+/**
+ * This workshop's invitations, newest first.
+ *
+ * Read live from Postgres with no Dexie cache, like `membershipHistory`. Only a
+ * workshop's admins can read the table at all, an admin's device is online when
+ * they are administering, and a cached list of who has not joined yet is stale in
+ * precisely the moment somebody joins.
+ */
+export async function listInvitations(workshopId: string | null): Promise<WorkshopInvitation[]> {
+  if (!workshopId || !isSupabaseConfigured || !supabase || !navigator.onLine) return []
+  const { data, error } = await supabase
+    .from('workshop_invitation')
+    .select(
+      'id, workshop_id, email, role, invited_by, invited_by_email, invited_at, status, accepted_at, accepted_app_user_id',
+    )
+    .eq('workshop_id', workshopId)
+    .order('invited_at', { ascending: false })
+  if (error) {
+    console.warn('[honest-eval] invitations unavailable.', error)
+    return []
+  }
+  return (data ?? []) as WorkshopInvitation[]
 }
 
 /**

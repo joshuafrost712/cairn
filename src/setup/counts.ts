@@ -173,6 +173,44 @@ export async function countsForWorkshop(workshopId: string): Promise<ImpactCount
 }
 
 /**
+ * What removing one person from a workshop costs (tl-11).
+ *
+ * Keyed on EMAIL, not on `app_user_id`, because that is what evaluation and
+ * verdict rows carry: `evaluator_email` is the join every evaluator-facing record
+ * in this app uses, and counting by account id would report a confident zero for
+ * somebody with a hundred captures.
+ *
+ * `remainingAdmins` counts the workshop's `admin` holders other than this person,
+ * with the chief admin deliberately excluded — the question the dialog asks is
+ * whether anybody but the chief admin will be left able to administer, and
+ * counting the chief admin would answer it "yes" every time by construction.
+ */
+export async function countsForMembership(
+  workshopId: string,
+  email: string,
+  appUserId: string,
+): Promise<ImpactCounts> {
+  const key = email.trim().toLowerCase()
+  const [captures, verdicts, people] = await Promise.all([
+    submittedCaptures(workshopId),
+    db.verifications.toArray(),
+    db.workshopPeople.where('workshop_id').equals(workshopId).toArray(),
+  ])
+  return {
+    captures: captures.filter((e) => e.evaluator_email?.toLowerCase() === key).length,
+    verdicts: verdicts.filter((v) => v.evaluator_email?.toLowerCase() === key).length,
+    // `assignedConversations` is deliberately NOT gathered here, and the gap is
+    // guarded rather than described. `MentoringConversation.assigned_to` is tl-05's
+    // column and does not exist on this branch, so a filter on it would count zero
+    // forever and read as "nobody is holding a follow-up" — the exact false green
+    // this wave keeps finding. `test/peopleDirectory.test.ts` fails the moment that
+    // field lands, so whoever merges tl-05 into this wires the count instead of
+    // inheriting a silent zero. impact.ts already classifies the consequence.
+    remainingAdmins: people.filter((p) => p.role === 'admin' && p.app_user_id !== appUserId).length,
+  }
+}
+
+/**
  * How much a verification-threshold change costs, in observations that cross the
  * verified line.
  *

@@ -86,6 +86,26 @@ export type SetupEntity =
    * bar re-decides whether evidence already gathered counts.
    */
   | 'setting'
+  /**
+   * Somebody's role in this workshop (tl-11). `update` re-ranks them, `delete`
+   * removes them.
+   *
+   * The first entity here whose cost is not evidence-shaped. Every other entity is
+   * classified by what a change does to recorded observations; a promotion touches
+   * no observation and is still a change worth stopping to read, because it hands
+   * somebody authority over everyone else's. See `applyState` for the consequence
+   * that has for the draft-workshop discount.
+   */
+  | 'membership'
+  /**
+   * An invitation (tl-11): issuing one or withdrawing one. `safe` in both
+   * directions and deliberately so — nobody has been granted anything until they
+   * create an account, and a warning layer that fires on an act with no
+   * consequence is how it loses the credibility it needs for the acts that have
+   * one. It is still routed through the save hook, because silent means "no
+   * dialog", not "no log".
+   */
+  | 'invitation'
 
 export type SetupOperation = 'create' | 'update' | 'delete'
 
@@ -136,6 +156,25 @@ export interface ImpactCounts {
    * invalidates evidence.
    */
   regrouped?: number
+  /**
+   * Follow-up conversations currently assigned to the person being removed (tl-11,
+   * over tl-05's assignments).
+   *
+   * Their own count rather than a fold into `captures`, because it is the one
+   * consequence of a removal that leaves WORK UNDONE rather than work merely
+   * re-attributed: an assigned conversation whose assignee is gone is a
+   * participant nobody is following up.
+   */
+  assignedConversations?: number
+  /**
+   * Administrators who would still be able to run the workshop afterwards, not
+   * counting its chief admin.
+   *
+   * Zero is the number worth a sentence of its own: the chief admin becomes the
+   * only person who can change anything, which is recoverable but is not what an
+   * admin removing a colleague usually intends.
+   */
+  remainingAdmins?: number
 }
 
 export interface SetupChange {
@@ -382,6 +421,13 @@ function applyState(
   state: WorkshopState,
 ): SetupSeverity {
   if (state !== 'draft') return severity
+  // The draft discount is an argument about EVIDENCE: nothing has been captured,
+  // so nothing already recorded can be harmed. Membership is the first entity that
+  // argument does not reach. Making somebody an admin of a workshop that has not
+  // started yet is exactly as consequential as making them one mid-workshop —
+  // more so, since they will be an admin for the whole of it — and the cost is
+  // authority rather than data. So these two keep the severity they earned.
+  if (change.entity === 'membership' || change.entity === 'invitation') return severity
   // Nothing has been captured, so by the definition of the tiers nothing already
   // recorded can be affected: editing a draft workshop is free, and a warning
   // layer that fires anyway is one admins learn to click through.
@@ -414,7 +460,123 @@ function classify(change: SetupChange): Verdict {
       return classifyScale(change)
     case 'setting':
       return { severity: 'safe', consequences: [] }
+    case 'membership':
+      return classifyMembership(change)
+    case 'invitation':
+      return classifyInvitation()
   }
+}
+
+// ---------------------------------------------------------------------------
+// People (tl-11)
+// ---------------------------------------------------------------------------
+
+/**
+ * The roles whose holders can change the workshop rather than only work in it.
+ * Promoting somebody into this set is the change worth naming in its own sentence.
+ */
+const ADMINISTERING_ROLES = ['chief_admin', 'admin']
+
+const words = (role: string | null): string => (role ?? '').replace(/_/g, ' ')
+
+const roleOf = (change: SetupChange, key: 'before' | 'after'): string | null => {
+  const field = (change.fields ?? []).find((f) => f.field === 'role')
+  const value = field?.[key]
+  return typeof value === 'string' ? value : null
+}
+
+/**
+ * A role change or a removal.
+ *
+ * Two things this does NOT do, both deliberate:
+ *
+ *  1. It never returns `destructive`. `destructive` means work is unrecoverably
+ *     lost, and removing somebody loses none: every evaluation and every verdict
+ *     they recorded stays in the workshop, attributed to them by email exactly as
+ *     before. Reaching for the loudest tier here would be the classifier lying in
+ *     the direction it is least allowed to.
+ *  2. It does not treat a demotion as cheaper than a promotion. Both change who
+ *     can do what from now on, and the person losing an ability is at least as
+ *     entitled to have somebody read a sentence about it first.
+ */
+function classifyMembership(change: SetupChange): Verdict {
+  const c = change.counts
+  const before = roleOf(change, 'before')
+  const after = roleOf(change, 'after')
+
+  if (change.operation === 'delete') {
+    const captures = n(c, 'captures')
+    const assigned = n(c, 'assignedConversations')
+    const consequences: Consequence[] = []
+
+    // The spec's tier, and the wording it demands. `invalidates_evidence` is the
+    // level of ATTENTION this deserves, not a claim about the evidence: the
+    // consequence line says in as many words that everything they recorded stands.
+    // If that reads as a contradiction, it is one the tier names carry, not one the
+    // dialog shows an administrator.
+    consequences.push({
+      id: captures > 0 ? 'setup.impact.membership.remove' : 'setup.impact.membership.remove-clean',
+      tokens: { label: change.label, captures },
+    })
+    if (assigned > 0) {
+      consequences.push({
+        id: 'setup.impact.membership.remove-assigned',
+        tokens: { label: change.label, conversations: assigned },
+      })
+    }
+    if (before === 'admin' && n(c, 'remainingAdmins') === 0) {
+      consequences.push({ id: 'setup.impact.membership.remove-last-admin' })
+    }
+    return {
+      severity: captures > 0 ? 'invalidates_evidence' : 'affects_future',
+      consequences,
+    }
+  }
+
+  if (change.operation === 'create') {
+    return {
+      severity: 'affects_future',
+      consequences: [
+        { id: 'setup.impact.membership.create', tokens: { label: change.label, role: after ?? '' } },
+      ],
+    }
+  }
+
+  const consequences: Consequence[] = [
+    {
+      id: 'setup.impact.membership.role',
+      // Humanized here rather than in the dialog, because a consequence is a
+      // sentence and `chief_evaluator` is not a word. The CLASSIFICATION above
+      // still reads the raw role; only the token that gets printed is softened.
+      tokens: { label: change.label, from: words(before), to: words(after) },
+    },
+  ]
+  if (after && ADMINISTERING_ROLES.includes(after)) {
+    consequences.push({ id: 'setup.impact.membership.gains-admin', tokens: { label: change.label } })
+  } else if (before && ADMINISTERING_ROLES.includes(before)) {
+    consequences.push({ id: 'setup.impact.membership.loses-admin', tokens: { label: change.label } })
+  }
+  return { severity: 'affects_future', consequences }
+}
+
+/**
+ * Issuing or withdrawing an invitation.
+ *
+ * `safe` both ways, which is the spec's call and the right one: until the person
+ * creates an account they hold nothing, and a withdrawn invitation takes nothing
+ * away from anybody who had it. The act is still logged.
+ *
+ * The one case worth knowing about: `invite_to_workshop` writes the membership
+ * immediately when the address already has an account, so an invite can be a grant.
+ * That is classified here rather than as a `membership` create, because the caller
+ * cannot know which it will be until the server answers — and re-classifying after
+ * the fact would mean showing a warning about a change that has already committed,
+ * which is worse than not showing one. What makes it acceptable is that inviting is
+ * additive: the matrix has already refused anything the actor could not grant, and
+ * the log records it either way.
+ */
+function classifyInvitation(): Verdict {
+  return { severity: 'safe', consequences: [] }
 }
 
 // ---------------------------------------------------------------------------

@@ -119,7 +119,7 @@ interface AuthValue {
   reloadMemberships: () => Promise<void>
   /** Supabase path: email + password. Local path: name + email (password ignored). */
   signIn: (emailOrName: string, emailOrPassword: string, passwordOrRole?: string, roleForLocal?: WorkshopRole) => Promise<{ error: string | null }>
-  signUp: (name: string, email: string, password: string, role: WorkshopRole) => Promise<{ error: string | null; confirmationRequired?: boolean }>
+  signUp: (name: string, email: string, password: string) => Promise<{ error: string | null; confirmationRequired?: boolean }>
   signOut: () => Promise<void>
   /** True when operating on local-only identity (no Supabase configured). */
   isLocalMode: boolean
@@ -142,8 +142,9 @@ interface AppUserRow {
  * row.
  *
  * Neither the platform tier nor any workshop role is taken from `user_metadata`.
- * That field is written by the user at signup (SignIn's role picker), so trusting
- * it would let an account self-assert its way into the elevated UI. The `app_user`
+ * That field is written by the client at signup, so trusting it would let an
+ * account self-assert its way into the elevated UI. (The role picker it used to
+ * carry is gone as of tl-11; the principle stands for anything else put there.) The `app_user`
  * row is the only source for the platform tier, and `workshop_member` the only
  * source for a workshop role, so a session on its own yields the least privilege
  * and we elevate once the rows arrive. Display name still falls back to metadata,
@@ -536,11 +537,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // --------------------------------------------------------------------------
   // signUp (Supabase only)
   // --------------------------------------------------------------------------
+  /**
+   * Create an account.
+   *
+   * No role argument since tl-11. It used to carry the sign-up form's picker into
+   * `raw_user_meta_data`, where `handle_new_user` honored it if the allowlist
+   * happened to permit it — a request the server was free to ignore and usually
+   * did. A workshop role now comes from the invitation that let the account exist
+   * at all, so passing one here would be a field nobody reads pretending to be a
+   * choice somebody made.
+   */
   const signUp = async (
     name: string,
     email: string,
     password: string,
-    role: WorkshopRole,
   ): Promise<{ error: string | null; confirmationRequired?: boolean }> => {
     if (!isSupabaseConfigured || !supabase) {
       return { error: 'Supabase is not configured; use local-only sign-in.' }
@@ -549,7 +559,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const { data, error: authErr } = await supabase.auth.signUp({
         email: email.trim().toLowerCase(),
         password,
-        options: { data: { name: name.trim(), role } },
+        options: { data: { name: name.trim() } },
       })
       if (authErr) return { error: authErr.message }
       if (!data.session) {
