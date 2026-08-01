@@ -12,6 +12,9 @@ delete from workshop_member wm
    and u.email like 'tl07-%@example.org';
 
 delete from app_user where email like 'tl07-%@example.org';
+-- tl-12: the app_user_link_person trigger mints a person row for every account,
+-- so a teardown that removes the account and stops there leaves one behind.
+delete from person where primary_email like 'tl07-%@example.org';
 delete from auth.users where id in (
   '7a000000-0000-4000-8000-000000000001',
   '7e000000-0000-4000-8000-000000000002',

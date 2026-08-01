@@ -22,6 +22,7 @@ import { canRemove, canTransferChiefAdmin, grantableRoles } from '../../lib/perm
 import { useIsPlatformOwner, useWorkshopRole } from '../../layout/roles'
 import { countsForMembership } from '../counts'
 import { useSetupSave } from '../useSetupSave'
+import { ProfileButton } from '../../components/ProfileButton'
 import type { Workshop, WorkshopInvitation, WorkshopPerson, WorkshopRole } from '../../lib/types'
 
 /**
@@ -225,6 +226,18 @@ export function PeopleDirectory({ workshop }: { workshop: Workshop }) {
           <strong>{rowName(row)}</strong>
           {row.kind === 'member' && row.person.name !== row.person.email && (
             <span className="small muted"> · {row.person.email}</span>
+          )}
+          {/* tl-12. Members only: an invitation has an address and no person yet,
+              which is the whole reason `workshop_invitation` is its own table. */}
+          {row.kind === 'member' && (
+            <>
+              {' '}
+              <ProfileButton
+                email={row.person.email}
+                name={row.person.name}
+                workshopId={workshopId}
+              />
+            </>
           )}
         </span>
       ),

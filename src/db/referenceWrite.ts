@@ -59,6 +59,13 @@ const TABLE_SPEC: Record<ReferenceTable, { order: number; keyFields: string[] }>
     order: 8,
     keyFields: ['workshop_id', 'participant_id', 'evaluator_email', 'kind'],
   },
+  // tl-12. `person` sits at order -1, ABOVE workshop, because `participant.person_id`
+  // and `app_user.person_id` reference it: a queue that creates a person and links a
+  // participant in the same drain must push the person first or the link fails its
+  // foreign key. A negative order rather than renumbering the eight above it, which
+  // would be a diff across every line of this table for no behavioural gain.
+  person: { order: -1, keyFields: ['id'] },
+  person_profile: { order: 9, keyFields: ['person_id'] },
 }
 
 /** The columns forming a table's primary key, in the order `rowKey` joins them. */

@@ -30,7 +30,16 @@ export interface FreshStartResult {
   coverage: number
 }
 
-/** The stores a fresh start empties. Reference data and identity are not here. */
+/**
+ * The stores a fresh start empties. Reference data and identity are not here.
+ *
+ * tl-12's `persons` and `personProfiles` are deliberately NOT in this list, and
+ * the omission is a decision rather than an oversight of the kind tl-18 warned
+ * about. A profile is background, not evidence: it is the same kind of thing as
+ * the roster and the schedule, which this function keeps precisely so somebody can
+ * carry on capturing straight afterwards. Discarding it would also throw away
+ * hand-typed content that no re-sync recovers if the server copy went with it.
+ */
 export async function clearDeviceEvidence(): Promise<FreshStartResult> {
   const [evaluations, observations, verdicts, tombstones, conversations, coverage] =
     await Promise.all([

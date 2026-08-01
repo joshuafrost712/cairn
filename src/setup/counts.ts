@@ -247,3 +247,39 @@ export async function countsForThreshold(
   })
   return { crossing, participants: distinctParticipants(affected), observations: crossing }
 }
+
+/**
+ * What a person merge joins together (tl-12).
+ *
+ * Both sides, summed, because the dialog's question is "how big is the history you
+ * are about to make one person's" and answering it with only the absorbed side
+ * would understate it every time.
+ *
+ * `observations` is resolved through the participant rows rather than read off a
+ * person, because an `ObservationRecord` has no `person_id` and never will: it
+ * belongs to one workshop's participant. That indirection is the reason this
+ * cannot be a one-line count, and it is also the reason a merge is worth a dialog
+ * — the evidence being re-attributed is two joins away from the thing being
+ * clicked.
+ */
+export async function countsForMerge(
+  survivorId: string,
+  absorbedId: string,
+): Promise<ImpactCounts> {
+  const [survivorRows, absorbedRows] = await Promise.all([
+    db.participants.where('person_id').equals(survivorId).toArray(),
+    db.participants.where('person_id').equals(absorbedId).toArray(),
+  ])
+  const participantIds = new Set([...survivorRows, ...absorbedRows].map((p) => p.id))
+  if (participantIds.size === 0) {
+    return { participants: 0, observations: 0, reports: 0, verdicts: 0 }
+  }
+  const all = await db.observations.toArray()
+  const obs = all.filter((o) => o.participant_id && participantIds.has(o.participant_id))
+  return {
+    participants: participantIds.size,
+    observations: obs.length,
+    reports: distinctParticipants(obs),
+    verdicts: await verdictsOn(obs),
+  }
+}

@@ -10,6 +10,9 @@ import type {
   MentoringConversation,
   ObservationRecord,
   Participant,
+  Person,
+  PersonCard,
+  PersonProfile,
   ReferenceOutboxEntry,
   ReportAssignment,
   SetupChangeLogEntry,
@@ -56,6 +59,9 @@ class CairnDB extends Dexie {
   workshopSettings!: EntityTable<WorkshopSettingRow, 'pk'>
   assignments!: EntityTable<ReportAssignment, 'pk'>
   setupChangeLog!: EntityTable<SetupChangeLogEntry, 'id'>
+  persons!: EntityTable<Person, 'id'>
+  personProfiles!: EntityTable<PersonProfile, 'person_id'>
+  personCards!: EntityTable<PersonCard, 'person_id'>
 
   constructor() {
     super('cairn')
@@ -243,6 +249,29 @@ class CairnDB extends Dexie {
           )
         }
       })
+    // v17 (tl-12): the person layer. Two new stores, plus a `person_id` index on
+    // `participants` so the derived track history — every workshop whose
+    // participant rows share one person — is a keyed lookup rather than a table
+    // scan on a screen an evaluator opens mid-observation.
+    //
+    // VERSION CLAIM: v15 is tl-09's and v16 is tl-10's; both were claimed in the
+    // program file and neither is visible from this branch, so both are skipped
+    // over rather than reused. Dexie is content with a gap and is not content with
+    // a collision.
+    //
+    // A version is genuinely owed here, on the narrower rule tl-06 established: it
+    // is owed when the INDEXES change or when existing rows need a value written
+    // into them. New stores are new indexes. (Contrast tl-06's two booleans, which
+    // needed nothing.) No upgrade function: `person_id` is absent on every cached
+    // participant until the next pull fills it, and absent is the correct value.
+    this.version(17).stores({
+      persons: 'id, primary_email',
+      personProfiles: 'person_id',
+      // The server's answer about one person, cached so the drawer opens offline
+      // during capture — which is the whole reason any of this is cached at all.
+      personCards: 'person_id',
+      participants: 'id, workshop_id, team_id, person_id',
+    })
   }
 }
 

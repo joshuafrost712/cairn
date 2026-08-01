@@ -2132,6 +2132,318 @@
     {
       "id": "signin.role-note",
       "label": "Your role comes from the workshop you were invited to, so there is nothing to choose here."
+    },
+    {
+      "id": "setup.impact.merge.combines",
+      "label": "{label} becomes one person. Everything recorded about either of them will be read as one track record from now on."
+    },
+    {
+      "id": "setup.impact.merge.participants",
+      "label": "{participants} participant record(s) across the deployment will point at the surviving person."
+    },
+    {
+      "id": "setup.impact.merge.evidence-stays",
+      "label": "No evidence moves or disappears: {observations} observation(s) across {reports} report(s) stay attached to the same participants they are attached to now."
+    },
+    {
+      "id": "setup.impact.merge.irreversible",
+      "label": "There is no undo. If these are two different people, separating them afterwards is worse than never having merged them."
+    },
+    {
+      "id": "profile.title",
+      "label": "Background"
+    },
+    {
+      "id": "profile.open",
+      "label": "Background"
+    },
+    {
+      "id": "profile.open-help",
+      "label": "Certifications, education, work areas and previous trainings. Read this before you watch somebody, not instead of watching them."
+    },
+    {
+      "id": "profile.empty",
+      "label": "No background has been recorded for this person yet."
+    },
+    {
+      "id": "profile.empty-admin",
+      "label": "No background yet. Add certifications, education, work areas and any training they have done elsewhere."
+    },
+    {
+      "id": "profile.headline",
+      "label": "In a line"
+    },
+    {
+      "id": "profile.certifications",
+      "label": "Certifications"
+    },
+    {
+      "id": "profile.education",
+      "label": "Education"
+    },
+    {
+      "id": "profile.experience-areas",
+      "label": "Areas of work experience"
+    },
+    {
+      "id": "profile.languages",
+      "label": "Languages"
+    },
+    {
+      "id": "profile.trainings",
+      "label": "Trainings in this track"
+    },
+    {
+      "id": "profile.trainings-none",
+      "label": "No previous trainings on record."
+    },
+    {
+      "id": "profile.training-derived",
+      "label": "in this system"
+    },
+    {
+      "id": "profile.training-derived-help",
+      "label": "Taken from a workshop in this deployment that this person attended."
+    },
+    {
+      "id": "profile.training-self-reported",
+      "label": "self-reported"
+    },
+    {
+      "id": "profile.training-self-reported-help",
+      "label": "Entered by hand. This deployment has no record of it and cannot vouch for it."
+    },
+    {
+      "id": "profile.notes",
+      "label": "Notes"
+    },
+    {
+      "id": "profile.updated",
+      "label": "Last edited {when} by {who}."
+    },
+    {
+      "id": "profile.boundary",
+      "label": "Background, not assessment. What you observed goes in an observation; this is what they brought with them."
+    },
+    {
+      "id": "profile.denied.admins-only",
+      "label": "This person's background is set to administrators only."
+    },
+    {
+      "id": "profile.denied.private",
+      "label": "This person's background is private."
+    },
+    {
+      "id": "profile.denied.not-in-workshop",
+      "label": "You are not in a workshop with this person, so their background is not available to you."
+    },
+    {
+      "id": "profile.denied.help",
+      "label": "The server decides this, not this screen. Ask an administrator if you think you should be able to see it."
+    },
+    {
+      "id": "profile.edit",
+      "label": "Edit background"
+    },
+    {
+      "id": "profile.edit-title",
+      "label": "Background for {name}"
+    },
+    {
+      "id": "profile.save",
+      "label": "Save background"
+    },
+    {
+      "id": "profile.cancel",
+      "label": "Cancel"
+    },
+    {
+      "id": "profile.delete",
+      "label": "Delete background"
+    },
+    {
+      "id": "profile.delete-confirm",
+      "label": "Delete the background card for {name}?"
+    },
+    {
+      "id": "profile.delete-scope",
+      "label": "This removes the background card only. {name} stays on the roster, and every observation, verdict and report about them is untouched."
+    },
+    {
+      "id": "profile.delete-go",
+      "label": "Delete the card"
+    },
+    {
+      "id": "profile.export",
+      "label": "Export as JSON"
+    },
+    {
+      "id": "profile.list-help",
+      "label": "One per line."
+    },
+    {
+      "id": "profile.trainings-help",
+      "label": "Trainings taken outside this deployment. Workshops inside it are added automatically. One per line, optionally ending with a year."
+    },
+    {
+      "id": "profile.visibility",
+      "label": "Who can see this"
+    },
+    {
+      "id": "profile.visibility.workshop",
+      "label": "Anyone in their workshop"
+    },
+    {
+      "id": "profile.visibility.admins",
+      "label": "Administrators only"
+    },
+    {
+      "id": "profile.visibility.private",
+      "label": "Private to them and administrators"
+    },
+    {
+      "id": "profile.visibility-help",
+      "label": "Enforced by the database, not by this screen: a profile set to administrators only is not sent to an evaluator's device at all."
+    },
+    {
+      "id": "profile.saved",
+      "label": "Background saved."
+    },
+    {
+      "id": "profile.no-person",
+      "label": "This person has no cross-workshop record yet."
+    },
+    {
+      "id": "profile.link",
+      "label": "Create their record"
+    },
+    {
+      "id": "profile.link-help",
+      "label": "Creates the durable record that lets their trainings in other workshops of this track be found. Matches on email address only, and never on a name."
+    },
+    {
+      "id": "capture.profile-open",
+      "label": "Background"
+    },
+    {
+      "id": "capture.profile-none",
+      "label": "No background on file."
+    },
+    {
+      "id": "setup.people.merge-title",
+      "label": "Possibly the same person"
+    },
+    {
+      "id": "setup.people.merge-help",
+      "label": "One human attending two workshops is two participant records. Matching email addresses are linked automatically; these are the pairs only a person can decide about."
+    },
+    {
+      "id": "setup.people.merge-none",
+      "label": "Nothing to review. Every person on file looks distinct."
+    },
+    {
+      "id": "setup.people.merge-basis.email",
+      "label": "same email address"
+    },
+    {
+      "id": "setup.people.merge-basis.name",
+      "label": "same name"
+    },
+    {
+      "id": "setup.people.merge-basis.name-initial",
+      "label": "same surname and initial"
+    },
+    {
+      "id": "setup.people.merge-certain",
+      "label": "These two hold the same email address, which should not happen. One of them is a duplicate."
+    },
+    {
+      "id": "setup.people.merge-not-same",
+      "label": "Not the same"
+    },
+    {
+      "id": "setup.people.merge-go",
+      "label": "Merge into this one"
+    },
+    {
+      "id": "setup.people.merge-keep",
+      "label": "Keep"
+    },
+    {
+      "id": "setup.people.merge-appears-in",
+      "label": "In {workshops} workshop(s)"
+    },
+    {
+      "id": "setup.people.merge-no-email",
+      "label": "no email on file"
+    },
+    {
+      "id": "setup.people.merged",
+      "label": "Merged {absorbed} into {survivor}. {participants} participant record(s) and {accounts} account(s) now point at one person."
+    },
+    {
+      "id": "setup.people.merge-dismissed",
+      "label": "Left as two people. This pair will not be suggested again on this device."
+    },
+    {
+      "id": "setup.people.merge-offline",
+      "label": "A merge needs a connection. It is one decision made on the server across four tables, so it is not queued for later."
+    },
+    {
+      "id": "setup.people.merge-refused",
+      "label": "That merge was refused: {message}"
+    },
+    {
+      "id": "setup.people.profiles-title",
+      "label": "Backgrounds"
+    },
+    {
+      "id": "setup.people.profiles-help",
+      "label": "A short background card for each person, readable by evaluators before or during an observation."
+    },
+    {
+      "id": "refusal.tl12.merge_needs_both_workshops",
+      "label": "You can only merge two people if you administer a workshop for each of them."
+    },
+    {
+      "id": "refusal.tl12.merge_needs_two",
+      "label": "A merge needs two different people."
+    },
+    {
+      "id": "refusal.tl12.person_not_found",
+      "label": "One of those people no longer exists. Reload and try again."
+    },
+    {
+      "id": "refusal.tl12.no_account",
+      "label": "This session has no account on the server."
+    },
+    {
+      "id": "setup.people.merge-basis.name-typo",
+      "label": "one character apart"
+    },
+    {
+      "id": "setup.people.merge-manual-title",
+      "label": "Merge two people the list did not offer"
+    },
+    {
+      "id": "setup.people.merge-manual-help",
+      "label": "Nothing is matched on a name unless it is nearly identical, so a pair spelled very differently will not appear above. Pick both here. Check you are looking at the same human before you do: there is no undo."
+    },
+    {
+      "id": "setup.people.merge-manual-keep",
+      "label": "Keep this person"
+    },
+    {
+      "id": "setup.people.merge-manual-absorb",
+      "label": "Absorb this person into them"
+    },
+    {
+      "id": "setup.people.merge-manual-go",
+      "label": "Merge"
+    },
+    {
+      "id": "setup.people.merge-manual-pick",
+      "label": "Choose two different people."
     }
   ]
 }

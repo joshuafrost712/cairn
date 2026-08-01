@@ -119,6 +119,15 @@ export async function loadReferenceData(): Promise<void> {
       // previous value. See the header of db/settings.ts for why the mirror
       // exists at all.
       await mirrorActiveWorkshop(getActiveWorkshopId())
+      // People and profiles (tl-12) refresh here so there is one load path, but
+      // NOT inside the transaction above and not with a clear: that block wipes
+      // its tables first, which is right for reference data the backend owns and
+      // wrong for a table whose rows RLS filters. A profile set to `private` comes
+      // back absent rather than forbidden, and a clearing pull would delete this
+      // device's copy of every profile it merely could not read today. Awaited
+      // rather than fired, so a caller that has finished loading really has.
+      const { refreshPeople } = await import('./people')
+      await refreshPeople()
       return
     } catch (err) {
       // Fall through to whatever is cached; capture must not be blocked by a fetch failure.

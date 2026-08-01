@@ -11,6 +11,7 @@ import { resolveSettings, SETTINGS_DEFAULTS } from '../../lib/settings'
 import type { AssignmentKind, Workshop, WorkshopPerson } from '../../lib/types'
 import { useSetupSave } from '../useSetupSave'
 import { PeopleDirectory } from './PeopleDirectory'
+import { PersonMergePanel } from './PersonMergePanel'
 
 /**
  * People and roles: who is in this workshop, and how much each of them carries.
@@ -100,6 +101,8 @@ export function PeopleSection({ workshop }: { workshop: Workshop }) {
   return (
     <>
       <PeopleDirectory workshop={workshop} />
+
+      <PersonMergePanel workshop={workshop} />
 
       <div className="card form-col">
         <p className="small muted">

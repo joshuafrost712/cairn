@@ -7,6 +7,7 @@ import { DataTable } from '../../components/data/DataTable'
 import type { Column } from '../../components/data/DataTable'
 import { MeanWithN } from '../../components/data/DesignationChip'
 import { EmptyState } from '../../components/data/EmptyState'
+import { ProfileButton } from '../../components/ProfileButton'
 import { DistributionBar } from '../../components/viz/DistributionBar'
 import { leniencyPhrase, leniencyValue } from '../../components/admin/leniencyCopy'
 import { MIN_PAIRED_CELLS, UNKNOWN_EVALUATOR } from '../../reports/analytics'
@@ -118,6 +119,18 @@ export function EvaluatorList() {
           {e.verdicts.total}
         </span>
       ),
+    },
+    {
+      key: 'profile',
+      header: '',
+      // UNKNOWN_EVALUATOR is a placeholder for observations whose capture is not
+      // on this device, not a person, so it gets no button: resolving it would
+      // search `person.primary_email` for a label like "unknown", quietly return
+      // nothing, and read as "this evaluator has no background on file".
+      render: (e) =>
+        e.evaluator === UNKNOWN_EVALUATOR ? null : (
+          <ProfileButton email={e.evaluator} name={e.evaluator} />
+        ),
     },
   ]
 

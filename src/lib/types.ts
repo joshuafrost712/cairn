@@ -99,6 +99,14 @@ export interface Participant {
   organization?: string | null
   /** Years in translation work. Context for reading a low designation, not a score. */
   years_of_service?: number | null
+  /**
+   * The human this row is one workshop's appearance of (tl-12). Null until linked.
+   *
+   * A `Participant` is scoped to one workshop, so the same person attending two is
+   * two rows. This is the only thing that relates them, and therefore the only way
+   * "other trainings in the same track" can be answered.
+   */
+  person_id?: string | null
 }
 
 export interface Activity {
@@ -206,6 +214,8 @@ export interface AppUser {
   name: string
   email: string
   role: PlatformRole
+  /** Their durable cross-workshop identity (tl-12). Null until linked. */
+  person_id?: string | null
 }
 
 /**
@@ -559,6 +569,14 @@ export type ReferenceTable =
   | 'activity_ksa'
   | 'workshop_setting'
   | 'report_assignment'
+  // tl-12. Profiles go through the outbox rather than straight to Supabase for
+  // the reason stated in the program file: a direct write works online and
+  // silently loses the edit offline, which is the worst failure a field tool has.
+  // A MERGE is the deliberate exception and is an online-only RPC, because it is
+  // atomic across four tables and is the server's decision rather than this
+  // device's observation — the same exception tl-02's membership RPCs took.
+  | 'person'
+  | 'person_profile'
 
 export interface ReferenceOutboxEntry {
   /** `${table}:${rowKey}` — repeated edits to the same row collapse to one entry. */
@@ -680,4 +698,106 @@ export interface SetupChangeLogEntry {
   at: string
   sync_status: SyncStatus
   sync_error?: string | null
+}
+
+/**
+ * A human, across workshops (tl-12).
+ *
+ * `Participant` and `AppUser` both point here. Deliberately thin: everything a
+ * profile holds is in `PersonProfile`, and this row exists to be pointed at.
+ */
+export interface Person {
+  id: string
+  display_name: string
+  /** Lower-cased. The only key this system will ever auto-link on. */
+  primary_email: string | null
+  created_by?: string | null
+  created_at?: string
+  updated_at?: string
+}
+
+/**
+ * Who may read somebody's background.
+ *
+ * Enforced by RLS on `person_profile`, not by the drawer. A component that
+ * declines to render is a convention; a policy that declines to return the row is
+ * a permission, and these are real people's credentials.
+ */
+export type ProfileVisibility = 'workshop' | 'admins' | 'private'
+
+/** One training, as the profile stores it: self-reported, from outside this deployment. */
+export interface PriorTraining {
+  label: string
+  year?: string | null
+}
+
+/**
+ * Background, not assessment.
+ *
+ * The boundary is worth stating because the card sits next to a capture screen:
+ * what somebody has DONE goes here, what an evaluator SAW goes in an observation.
+ * Evaluators cannot write this table, which is what keeps opinion out of it.
+ *
+ * NOTE ON CONSENT: the spec called for a `consent_given` flag gating visibility.
+ * Joshua dropped it on 2026-08-01 (participants have no accounts, so consent could
+ * only ever be an admin ticking a box for somebody else, and a 26-person imported
+ * roster would show an evaluator nothing until 26 such boxes were ticked).
+ * `visibility` alone governs. See the migration header.
+ */
+export interface PersonProfile {
+  person_id: string
+  headline: string | null
+  certifications: string[]
+  education: string[]
+  experience_areas: string[]
+  languages: string[]
+  /** SELF-REPORTED only. Trainings inside this deployment are derived, never stored. */
+  prior_trainings: PriorTraining[]
+  notes: string | null
+  visibility: ProfileVisibility
+  updated_at?: string
+  updated_by?: string | null
+}
+
+/**
+ * What the server says about one person's card, cached for offline (tl-12).
+ *
+ * Its reason for existing is that RLS FILTERS rather than refuses. An
+ * `admins`-only profile arrives at an evaluator's device as no row at all, which
+ * is indistinguishable from a person nobody has written a background for — so the
+ * drawer said "no background has been recorded" about a profile that plainly had
+ * one. The visibility STATE has to come from somewhere a non-reader can reach, and
+ * `person_card()` is that somewhere.
+ *
+ * It also carries the derived track history, for a second reason of the same
+ * shape: that history spans workshops the reader is not a member of and therefore
+ * cannot pull. Deriving it on the device answers "which of their workshops can I
+ * see", which is not the question.
+ */
+export interface PersonCard {
+  person_id: string
+  /** `none` means no profile written; `not-in-workshop` means no shared workshop. */
+  state: 'workshop' | 'admins' | 'private' | 'none' | 'not-in-workshop'
+  readable: boolean
+  /** Workshops in this deployment they have attended. Names and years only. */
+  trainings: { workshop_id: string; label: string; year: string | null }[]
+  /** When this device last heard from the server. */
+  at: string
+}
+
+/**
+ * A training entry as the drawer shows it, which is not how the table stores it.
+ *
+ * `derived` entries are computed from workshops whose participant rows share this
+ * person; `self_reported` ones are typed by hand. The distinction is rendered
+ * because an evaluator should know which claims the deployment can vouch for, and
+ * it is computed rather than stored because a stored derivation still claims a
+ * workshop somebody has since been removed from.
+ */
+export interface TrackTraining {
+  label: string
+  year?: string | null
+  kind: 'derived' | 'self_reported'
+  /** Set on derived entries: the workshop this came from. */
+  workshopId?: string
 }

@@ -11,6 +11,7 @@ import { composeSourceText } from '../lib/compose'
 import { INPUT_RULES } from '../lib/ruleset'
 import { c } from '../lib/content/chrome'
 import { Copy } from '../components/Copy'
+import { ProfileButton } from '../components/ProfileButton'
 import { QuickRating } from '../components/QuickRating'
 import { Glossary } from '../components/Glossary'
 import type { Participant, ParticipantScopeEntry, QuickRatings } from '../lib/types'
@@ -277,6 +278,34 @@ export function CaptureActivity() {
             )
           })}
         </div>
+        {/* tl-12: background, one tap away and only for the people actually
+            selected. Not a control on every name in the grid — the grid is the
+            thing an evaluator is scanning, and a second affordance on 26 buttons
+            competes with the one that matters. Nested buttons are also invalid,
+            and the coverage cue already lives inside each. */}
+        {(() => {
+          const selectedIds = focusMode
+            ? focusParticipantId
+              ? [focusParticipantId]
+              : []
+            : scope.map((sc) => sc.participant_id)
+          const selected = (participants ?? []).filter((p) => selectedIds.includes(p.id))
+          if (selected.length === 0) return null
+          return (
+            <div className="row" style={{ marginTop: 8, flexWrap: 'wrap' }}>
+              {selected.map((p) => (
+                <ProfileButton
+                  key={p.id}
+                  participantId={p.id}
+                  name={p.name}
+                  workshopId={p.workshop_id}
+                  compact
+                  label={`${c('capture.profile-open')} · ${p.name}`}
+                />
+              ))}
+            </div>
+          )
+        })()}
         <Copy
           id={focusMode ? 'capture.focus-help' : 'capture.tag-help'}
           as="p"

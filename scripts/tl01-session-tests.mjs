@@ -115,6 +115,10 @@ async function teardown(serviceKey) {
   await sql(`
     delete from evaluation where client_id like 'tl01-%';
     delete from app_user where email like 'tl01-session-%';
+    -- tl-12: the app_user_link_person trigger mints a person row for every
+    -- account, so a teardown that removes the account and stops there leaves one
+    -- behind in the live deployment. Deleting a person cascades their profile.
+    delete from person where primary_email like 'tl01-session-%';
     delete from role_allowlist where email like 'tl01-session-%';
     delete from workshop where id = '${FIXTURE_WS}';
     select 1;`)

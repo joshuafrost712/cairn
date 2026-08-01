@@ -21,6 +21,16 @@ export interface Identity {
   platformRole: PlatformRole
   /** `app_user.id`, the key memberships hang off. Null until the row is read. */
   appUserId: string | null
+  /**
+   * `app_user.person_id` (tl-12): this account's durable cross-workshop identity.
+   *
+   * Carried on the identity rather than fetched where it is used, because it
+   * answers exactly one question — "is this profile MINE" — and that question is
+   * asked on the capture screen, in the drawer and in the editor. Null is a real
+   * and common state: an account is linked to a person when somebody links it, and
+   * plenty never are.
+   */
+  personId: string | null
   signedInAt: string // ISO timestamp
 }
 
@@ -90,6 +100,9 @@ function loadLocal(): Identity | null {
       ...parsed,
       platformRole: parsed.platformRole === 'platform_owner' ? 'platform_owner' : 'member',
       appUserId: parsed.appUserId ?? localAppUserId(parsed.email),
+      // Same normalization for tl-12: an identity stored before it has no
+      // personId, which reads as "not linked" rather than as a reason to sign out.
+      personId: parsed.personId ?? null,
     } as Identity
   } catch {
     return null
@@ -135,6 +148,8 @@ interface AppUserRow {
   id: string
   name: string
   role: string
+  /** tl-12. Optional on the row because a pre-tl-12 cache entry does not carry it. */
+  person_id?: string | null
 }
 
 /**
@@ -165,6 +180,7 @@ function identityFromSession(user: User, appUser: AppUserRow | null): Identity {
     email: user.email ?? '',
     platformRole: appUser?.role === 'platform_owner' ? 'platform_owner' : 'member',
     appUserId: appUser?.id ?? null,
+    personId: appUser?.person_id ?? null,
     signedInAt: new Date().toISOString(),
   }
 }
@@ -204,6 +220,11 @@ function cachedAppUser(email: string): AppUserRow | null {
       id: parsed.id,
       name: parsed.name,
       role: parsed.role === 'platform_owner' ? 'platform_owner' : 'member',
+      // Absent on an entry cached before tl-12, which reads as "not linked" — the
+      // same answer the server gives for an account nobody has linked, and the
+      // safe one: `isSelf` false only ever costs the self-edit affordance, and the
+      // next online session re-fetches and fills it in.
+      person_id: parsed.person_id ?? null,
     }
   } catch {
     return null
@@ -219,7 +240,7 @@ async function fetchAppUser(email: string): Promise<AppUserRow | null> {
   try {
     const { data, error } = await supabase
       .from('app_user')
-      .select('id, name, role')
+      .select('id, name, role, person_id')
       .eq('email', email)
       .abortSignal(AbortSignal.timeout(PROFILE_TIMEOUT_MS))
       .maybeSingle()
@@ -523,6 +544,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       email: email.trim().toLowerCase(),
       platformRole: 'member',
       appUserId: id,
+      // Local-only mode has no `app_user` table and therefore no person row to
+      // point at. Their own profile is unreachable in this mode, which is correct:
+      // there is no server to hold it and nobody else to show it to.
+      personId: null,
       signedInAt: new Date().toISOString(),
     }
     // Write the synthesized membership BEFORE the identity lands, or the effect
