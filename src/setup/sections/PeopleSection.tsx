@@ -8,24 +8,26 @@ import { getSettings, saveSetting } from '../../db/settings'
 import { c } from '../../lib/content/chrome'
 import { fairShare, quotaFor } from '../../lib/assignment'
 import { resolveSettings, SETTINGS_DEFAULTS } from '../../lib/settings'
-import type { AssignmentKind, WorkshopPerson } from '../../lib/types'
+import type { AssignmentKind, Workshop, WorkshopPerson } from '../../lib/types'
 import { useSetupSave } from '../useSetupSave'
+import { PeopleDirectory } from './PeopleDirectory'
 
 /**
  * People and roles: who is in this workshop, and how much each of them carries.
  *
- * The workload editor moved here from Settings. Who is a MEMBER is still operator
- * SQL — `workshop_member` has no client write path at all (tl-01), by design, and
- * tl-11 is the spec that gives it security-definer RPCs and an invitation flow. So
- * this section shows the real roster and says plainly that adding somebody is not yet
- * something the app can do, rather than offering a control that silently fails.
+ * The workload editor moved here from Settings. Who is a MEMBER was operator SQL
+ * until tl-11, which put `PeopleDirectory` above this: invitations by email, role
+ * changes and removals through tl-02's RPCs, and chief-admin transfer. This file
+ * keeps the workload half, which is a different question about the same people —
+ * the directory decides who may work, the quotas decide how much.
  *
  * The quota fields save on change, and that is allowed because the classifier calls a
  * quota `safe`: assignments already made stand, and only future auto-assignment reads
  * the number. If a future setting here can invalidate recorded work, it needs its own
  * entity in the classifier and an explicit Save.
  */
-export function PeopleSection({ workshopId }: { workshopId: string }) {
+export function PeopleSection({ workshop }: { workshop: Workshop }) {
+  const workshopId = workshop.id
   const { request } = useSetupSave()
   const { identity } = useAuth()
   const overrideChain = useRef<Promise<void>>(Promise.resolve())
@@ -97,20 +99,9 @@ export function PeopleSection({ workshopId }: { workshopId: string }) {
 
   return (
     <>
+      <PeopleDirectory workshop={workshop} />
+
       <div className="card form-col">
-        <h2>{c('setup.people.title')}</h2>
-        <p className="small muted">{c('setup.people.membership-pending')}</p>
-        {evaluators.length === 0 ? (
-          <p className="small muted">{c('setup.people.none')}</p>
-        ) : (
-          <ul className="small">
-            {evaluators.map((e) => (
-              <li key={e.email}>
-                <strong>{e.name}</strong> · {e.role.replace(/_/g, ' ')} · {e.email}
-              </li>
-            ))}
-          </ul>
-        )}
         <p className="small muted">
           {c('setup.people.board-link-help')}{' '}
           <Link to="/admin/evaluators">{c('setup.people.board-link')}</Link>.

@@ -289,8 +289,43 @@ export interface MembershipChangeLog {
   from_role: WorkshopRole | null
   /** Null when the change was a removal. */
   to_role: WorkshopRole | null
-  operation: 'grant' | 'revoke' | 'transfer' | 'recover'
+  operation: 'grant' | 'revoke' | 'transfer' | 'recover' | 'invite' | 'uninvite'
   at: string
+}
+
+/**
+ * An invitation: somebody an administrator has asked into a workshop, who may not
+ * have an account yet (tl-11).
+ *
+ * Not a `WorkshopMember` and deliberately not modelled as one. A membership needs
+ * an `app_user_id`, and the person an admin most needs to see the night before a
+ * workshop is precisely the one who has not signed up. Keeping them apart is what
+ * makes "invited, has not joined" a state the directory can show.
+ *
+ * `role` cannot be `chief_admin`: that role is reached by transfer only, in the
+ * database's own check constraint as well as here.
+ */
+export interface WorkshopInvitation {
+  id: string
+  workshop_id: string
+  /** Lowercased and trimmed by the RPC, because `auth.users.email` is lowercase. */
+  email: string
+  role: Exclude<WorkshopRole, 'chief_admin'>
+  invited_by: string | null
+  invited_by_email: string | null
+  invited_at: string
+  status: 'pending' | 'accepted' | 'revoked'
+  accepted_at: string | null
+  accepted_app_user_id: string | null
+  /**
+   * When this address may create its account (tl-11 addendum).
+   *
+   * Not decoration and not a courtesy: sign-up sends a confirmation email, and the
+   * project's mailer is capped per hour for the whole deployment. Windows are
+   * assigned across every workshop at once so a cohort is staggered rather than
+   * two people getting in and the rest meeting a rate-limit error.
+   */
+  opens_at: string | null
 }
 
 /**

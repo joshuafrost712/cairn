@@ -1,6 +1,7 @@
 import { db } from '../db/local'
 import { observationsCrossingThreshold, type ImpactCounts } from './impact'
 import { annotateObservations } from '../reports/verification'
+import { isOpenConversation } from '../db/mentoring'
 import { diffScales, isLowTrigger, type Scale, type ScalePoint } from '../lib/scale'
 import type { EvaluationRecord, Ksa, ObservationRecord } from '../lib/types'
 
@@ -171,6 +172,54 @@ export async function countsForWorkshop(workshopId: string): Promise<ImpactCount
     verdicts: await verdictsOn(obs),
     events,
     questions,
+  }
+}
+
+/**
+ * What removing one person from a workshop costs (tl-11).
+ *
+ * Keyed on EMAIL, not on `app_user_id`, because that is what evaluation and
+ * verdict rows carry: `evaluator_email` is the join every evaluator-facing record
+ * in this app uses, and counting by account id would report a confident zero for
+ * somebody with a hundred captures.
+ *
+ * `remainingAdmins` counts the workshop's `admin` holders other than this person,
+ * with the chief admin deliberately excluded — the question the dialog asks is
+ * whether anybody but the chief admin will be left able to administer, and
+ * counting the chief admin would answer it "yes" every time by construction.
+ */
+export async function countsForMembership(
+  workshopId: string,
+  email: string,
+  appUserId: string,
+): Promise<ImpactCounts> {
+  const key = email.trim().toLowerCase()
+  const [captures, verdicts, people, conversations] = await Promise.all([
+    submittedCaptures(workshopId),
+    db.verifications.toArray(),
+    db.workshopPeople.where('workshop_id').equals(workshopId).toArray(),
+    db.mentoringConversations.where('workshop_id').equals(workshopId).toArray(),
+  ])
+  return {
+    captures: captures.filter((e) => e.evaluator_email?.toLowerCase() === key).length,
+    verdicts: verdicts.filter((v) => v.evaluator_email?.toLowerCase() === key).length,
+    // Wired when tl-05 merged, which is what `test/peopleDirectory.test.ts` exists to
+    // force: tl-11 classified this consequence in impact.ts but could not gather it,
+    // because `assigned_to` did not exist on its branch, and a filter on a missing
+    // column would have reported a confident zero — "nobody is holding a follow-up" —
+    // in the one dialog whose whole value is that its numbers are real.
+    //
+    // OPEN conversations only. A completed follow-up is a record of work that
+    // happened and survives the person leaving; the cost being counted is work left
+    // undone, which is a participant nobody is now going to follow up with.
+    //
+    // Keyed on email like the two counts above, because `assigned_to` holds a
+    // normalized email rather than an `app_user_id` (see `assignConversation` in
+    // db/mentoring.ts) — the same reason this function takes an email at all.
+    assignedConversations: conversations.filter(
+      (c) => c.assigned_to?.toLowerCase() === key && isOpenConversation(c),
+    ).length,
+    remainingAdmins: people.filter((p) => p.role === 'admin' && p.app_user_id !== appUserId).length,
   }
 }
 

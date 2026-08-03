@@ -136,6 +136,46 @@ const ENTITIES: SetupChange[] = [
     label: 'the default review quota',
     fields: [{ field: 'value', before: 1, after: 2 }],
   },
+  // tl-11: people. Every branch of classifyMembership has its own row, because the
+  // consequences differ by which role is on which side of the change and a single
+  // representative case would leave three sentences unchecked.
+  {
+    entity: 'membership',
+    operation: 'update',
+    entityId: 'u1',
+    label: 'Viji',
+    fields: [{ field: 'role', before: 'evaluator', after: 'admin' }],
+  },
+  {
+    entity: 'membership',
+    operation: 'update',
+    entityId: 'u1',
+    label: 'Viji',
+    fields: [{ field: 'role', before: 'admin', after: 'evaluator' }],
+  },
+  {
+    entity: 'membership',
+    operation: 'update',
+    entityId: 'u1',
+    label: 'Viji',
+    fields: [{ field: 'role', before: 'consultant', after: 'chief_evaluator' }],
+  },
+  {
+    entity: 'membership',
+    operation: 'create',
+    entityId: 'u2',
+    label: 'Katie',
+    fields: [{ field: 'role', after: 'evaluator' }],
+  },
+  {
+    entity: 'membership',
+    operation: 'delete',
+    entityId: 'u1',
+    label: 'Viji',
+    fields: [{ field: 'role', before: 'admin', after: null }],
+  },
+  { entity: 'invitation', operation: 'create', entityId: null, label: 'nobody@example.org' },
+  { entity: 'invitation', operation: 'delete', entityId: 'i1', label: 'nobody@example.org' },
 ]
 
 const STATES: WorkshopState[] = ['draft', 'in_progress', 'closed']
@@ -160,6 +200,11 @@ const COUNT_SHAPES = [
     events: 5,
     questions: 8,
     regrouped: 6,
+    // tl-11's two, so the removal copy is checked with real numbers in it as well
+    // as without. `remainingAdmins: 0` is the branch that fires the extra line, and
+    // the zero-count shape above is what checks the other one.
+    assignedConversations: 3,
+    remainingAdmins: 0,
   },
 ]
 
@@ -252,6 +297,66 @@ describe('every warning the classifier can emit has words and no blanks', () => 
       'setup.wiring.override-guiding-inherited',
       'setup.wiring.override-save',
       'setup.wiring.override-clear',
+      // tl-11's section copy, by id for the same reason tl-08's is: c() prints the
+      // id when a node is missing, so a typo becomes a heading reading
+      // "people.title" instead of a heading.
+      'people.title',
+      'people.help',
+      'people.not-participants',
+      'people.table-caption',
+      'people.empty',
+      'people.column.person',
+      'people.column.role',
+      'people.column.status',
+      'people.column.actions',
+      'people.status.member',
+      'people.status.invited',
+      'people.role.chief-admin',
+      'people.role.admin',
+      'people.role.chief-evaluator',
+      'people.role.consultant',
+      'people.role.evaluator',
+      'people.role.participant',
+      'people.action.change-role',
+      'people.action.remove',
+      'people.action.remove-confirm',
+      'people.action.transfer',
+      'people.action.transfer-confirm',
+      'people.action.transfer-warning',
+      'people.action.none',
+      'people.action.none-self',
+      'people.action.none-chief',
+      'people.action.message',
+      'people.action.resend',
+      'people.action.revoke',
+      'people.action.revoke-confirm',
+      'people.invite.title',
+      'people.invite.help',
+      'people.invite.email-label',
+      'people.invite.email-placeholder',
+      'people.invite.role-label',
+      'people.invite.submit',
+      'people.invite.no-email-sent',
+      'people.invite.not-permitted',
+      'people.invite.participant-note',
+      'people.notice.invited',
+      'people.notice.added-directly',
+      'people.notice.role-changed',
+      'people.notice.removed',
+      'people.notice.transferred',
+      'people.notice.revoked',
+      'people.notice.resent',
+      'people.message.title',
+      'people.message.help',
+      'people.message.subject',
+      'people.message.body',
+      'people.message.copy',
+      'people.message.copied',
+      'people.message.mailto',
+      'people.message.close',
+      'people.refusal.offline',
+      'signin.invite-only',
+      'signin.email-rate-limit',
     ]
     expect(ids.filter((id) => !findChromeNode(id)?.label)).toEqual([])
   })

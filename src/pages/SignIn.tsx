@@ -4,7 +4,10 @@ import { useAuth } from '../auth/AuthContext'
 import { isSupabaseConfigured } from '../lib/supabase'
 import { Copy } from '../components/Copy'
 import { Mark } from '../components/Mark'
-import type { WorkshopRole } from '../lib/types'
+import { c } from '../lib/content/chrome'
+import { classifySignupError, SIGNUP_ERROR_ID } from '../lib/signupErrors'
+import { describeWindow } from '../lib/admission'
+import { invitationWindow } from '../db/membership'
 
 /**
  * The mark, the one-line claim, and the way back to the tour.
@@ -33,16 +36,17 @@ function TourLink() {
   )
 }
 
-// Workshop roles offered at self-signup. Elevated roles (chief_evaluator, admin,
-// chief_admin) are never self-serve — they are assigned from the server-side
-// allowlist, so they are not listed here. The requested role is honored only if
-// the account's allowlist entry permits it; otherwise the server assigns the
-// account's default role, and it lands on workshop_member rather than on the
-// account itself (tl-01).
-const SIGNUP_ROLES: { value: WorkshopRole; label: string }[] = [
-  { value: 'evaluator', label: 'Evaluator' },
-  { value: 'consultant', label: 'Consultant' },
-]
+/**
+ * The role picker is gone (tl-11).
+ *
+ * It offered evaluator and consultant, wrote the choice into `raw_user_meta_data`,
+ * and the server honored it only where the allowlist already permitted that role —
+ * so for almost everybody it was a control whose selection changed nothing. After
+ * tl-01 moved roles onto `workshop_member` it could not have worked at all: a role
+ * is now a fact about a workshop, and at sign-up the account does not yet have one.
+ * A workshop role comes from the invitation, which is where somebody with the
+ * authority to decide it already decided it.
+ */
 
 // ---------------------------------------------------------------------------
 // Supabase sign-in / create-account form
@@ -56,7 +60,6 @@ function SupabaseSignIn() {
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [role, setRole] = useState<WorkshopRole>('evaluator')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [confirmationPending, setConfirmationPending] = useState(false)
@@ -86,8 +89,32 @@ function SupabaseSignIn() {
     setBusy(true)
     setError(null)
     try {
-      const { error: err, confirmationRequired } = await signUp(name, email, password, role)
-      if (err) { setError(err); return }
+      // Ask before spending a slot. Sign-up sends a confirmation email and this
+      // project's mailer is capped per hour for the whole deployment, so an
+      // invited person arriving before their window would burn somebody else's
+      // slot and be told only that a rate limit was exceeded. This turns that into
+      // a time they can come back at. It fails open, so a check that cannot reach
+      // the server never becomes a door nobody can walk through.
+      const window = await invitationWindow(email)
+      if (window.status === 'waiting') {
+        const described = describeWindow(window.opensAt, new Date())
+        if (!described.open) {
+          setError(
+            c('signin.window-wait', 'label', {
+              clock: described.clock,
+              relative: described.relative,
+            }),
+          )
+          return
+        }
+      }
+
+      const { error: err, confirmationRequired } = await signUp(name, email, password)
+      if (err) {
+        const kind = classifySignupError(err)
+        setError(kind === 'other' ? err : c(SIGNUP_ERROR_ID[kind]))
+        return
+      }
       if (confirmationRequired) { setConfirmationPending(true); return }
       navigate('/', { replace: true })
     } catch (err) {
@@ -182,20 +209,8 @@ function SupabaseSignIn() {
               autoComplete="new-password"
               placeholder="Choose a password"
             />
-            <div style={{ height: 12 }} />
-            <label htmlFor="role">Role</label>
-            <select
-              id="role"
-              value={role}
-              onChange={(e) => setRole(e.target.value as WorkshopRole)}
-            >
-              {SIGNUP_ROLES.map((r) => (
-                <option key={r.value} value={r.value}>{r.label}</option>
-              ))}
-            </select>
-            <p className="muted small" style={{ marginTop: 4 }}>
-              Accounts are by invitation: your email must be pre-authorized. Chief-evaluator and
-              admin roles are assigned by an administrator, not chosen here.
+            <p className="muted small" style={{ marginTop: 12 }}>
+              {c('signin.role-note')}
             </p>
             {error && <p className="banner warn" style={{ marginTop: 12 }}>{error}</p>}
             <div style={{ height: 16 }} />
