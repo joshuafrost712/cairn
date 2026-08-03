@@ -1746,10 +1746,6 @@
       "label": "Today there is one use: drafting a whole scenario from a document you upload, which you then edit. Nothing is scored by a model without an evaluator confirming it."
     },
     {
-      "id": "setup.ai.modes-pending",
-      "label": "Choosing a provider, pointing the app at your own AI subscription, toggling which functions use a model, and seeing the token cost of each mode are all later specs in this wave. Until then the one path is the draft-fill below."
-    },
-    {
       "id": "setup.ai.routing-help",
       "label": "Captures are sent for processing through the private repository set up on"
     },
@@ -3500,6 +3496,418 @@
     {
       "id": "setup.people.merge-manual-pick",
       "label": "Choose two different people."
+    },
+    {
+      "id": "setup.ai.mode-title",
+      "label": "Where the work happens"
+    },
+    {
+      "id": "setup.ai.mode-label",
+      "label": "the AI provider mode"
+    },
+    {
+      "id": "setup.ai.mode-current",
+      "label": "in use"
+    },
+    {
+      "id": "setup.ai.mode-select",
+      "label": "Use this"
+    },
+    {
+      "id": "setup.ai.mode-unavailable",
+      "label": "not available here"
+    },
+    {
+      "id": "setup.ai.mode.github-claude",
+      "label": "A person routes it, using your own Claude subscription"
+    },
+    {
+      "id": "setup.ai.mode.github-claude-detail",
+      "label": "Captures are exchanged as files through a private repository, and somebody works through them in a Claude Max session. No metered API, no key, no per-use cost."
+    },
+    {
+      "id": "setup.ai.mode.github-claude-limit",
+      "label": "Its limit: somebody has to sit down and do the routing step, so it is not unattended."
+    },
+    {
+      "id": "setup.ai.mode.byo-agent",
+      "label": "You point your own AI at a brief we hand you"
+    },
+    {
+      "id": "setup.ai.mode.byo-agent-detail",
+      "label": "The app prepares the material; you take it to whatever subscription your organization already has, and paste the result back. Nothing leaves the app on its own."
+    },
+    {
+      "id": "setup.ai.mode.byo-agent-limit",
+      "label": "Its limit: nothing is automatic, and the app cannot check what your tool did beyond validating the shape of what you paste."
+    },
+    {
+      "id": "setup.ai.mode.hosted-api",
+      "label": "This workshop pays a model per use"
+    },
+    {
+      "id": "setup.ai.mode.hosted-api-detail",
+      "label": "The call happens on the server, which holds the key. No key is ever sent to a phone or a browser."
+    },
+    {
+      "id": "setup.ai.mode.hosted-api-limit",
+      "label": "Its limit: it costs money per use, and today only the scenario draft-fill has a hosted endpoint."
+    },
+    {
+      "id": "setup.ai.mode.hosted-needs-backend",
+      "label": "Hosted AI needs the backend, and this deployment is running with local storage only."
+    },
+    {
+      "id": "setup.ai.mode.hosted-not-enabled-here",
+      "label": "Hosted AI is switched off for this whole deployment. Whoever runs it holds the key and the bill, so turning it on is their decision rather than a workshop setting."
+    },
+    {
+      "id": "setup.ai.estimates-pending",
+      "label": "Token and cost estimates per mode are a later spec. Until they exist this screen shows no cost figure, rather than a made-up one."
+    },
+    {
+      "id": "setup.ai.functions-title",
+      "label": "What a model is allowed to help with"
+    },
+    {
+      "id": "setup.ai.functions-help",
+      "label": "Each one is separate. An organization can let a model draft a document and keep it away from participant evidence, and that is a position this screen can express rather than argue with. A switch here gates the actual call, not just the button."
+    },
+    {
+      "id": "setup.ai.functions-footnote",
+      "label": "Turning something off never deletes anything already recorded."
+    },
+    {
+      "id": "setup.ai.col-function",
+      "label": "Function"
+    },
+    {
+      "id": "setup.ai.col-state",
+      "label": "State"
+    },
+    {
+      "id": "setup.ai.fn.on",
+      "label": "on"
+    },
+    {
+      "id": "setup.ai.fn.off",
+      "label": "off"
+    },
+    {
+      "id": "setup.ai.fn.not-built",
+      "label": "not built yet"
+    },
+    {
+      "id": "setup.ai.fn.turn-on",
+      "label": "Turn on"
+    },
+    {
+      "id": "setup.ai.fn.turn-off",
+      "label": "Turn off"
+    },
+    {
+      "id": "setup.ai.fn.disabled",
+      "label": "AI is switched off for this in this workshop."
+    },
+    {
+      "id": "setup.ai.fn.observation_routing",
+      "label": "Turning captures into observations"
+    },
+    {
+      "id": "setup.ai.fn.observation_routing-help",
+      "label": "The pipeline the app already depends on: a dictated capture becomes one observation per participant per question. With this off, captures are still recorded and never become evidence."
+    },
+    {
+      "id": "setup.ai.fn.scenario_draft",
+      "label": "Drafting a scenario from a document"
+    },
+    {
+      "id": "setup.ai.fn.scenario_draft-help",
+      "label": "Upload a curriculum and get a first draft of the events, questions and rating descriptors, which you then edit. Nothing is saved until you import it."
+    },
+    {
+      "id": "setup.ai.fn.narrative_prose",
+      "label": "Writing report prose"
+    },
+    {
+      "id": "setup.ai.fn.narrative_prose-help",
+      "label": "Turning a participant's rollup into readable paragraphs. Not built: reports are assembled from the numbers, with no model involved."
+    },
+    {
+      "id": "setup.ai.fn.email_drafting",
+      "label": "Drafting the outgoing emails"
+    },
+    {
+      "id": "setup.ai.fn.email_drafting-help",
+      "label": "The day summary and participant emails. Not built: they are generated from templates and the rollup, with no model involved."
+    },
+    {
+      "id": "setup.ai.fn.conversation_guidance",
+      "label": "Suggesting how to open a hard conversation"
+    },
+    {
+      "id": "setup.ai.fn.conversation_guidance-help",
+      "label": "An administrator can ask for a suggested opening, then edit it and own it. An evaluator never sees an unreviewed draft."
+    },
+    {
+      "id": "setup.ai.error.input-too-large",
+      "label": "That is more text than this app will send in one request. Send the relevant section instead."
+    },
+    {
+      "id": "setup.ai.error.routing-not-automated",
+      "label": "This device has no repository token, so it cannot push. Use the copy path, or add a token on the Routing page."
+    },
+    {
+      "id": "setup.ai.error.byo-never-pushes",
+      "label": "This mode never sends anything anywhere on its own. Copy the material and take it to your own AI."
+    },
+    {
+      "id": "setup.ai.error.hosted-fn-not-built",
+      "label": "There is no hosted endpoint for that yet, so it cannot run on the server."
+    },
+    {
+      "id": "setup.ai.op.routing-copy",
+      "label": "Captures are ready. Take them to Claude with the repository's ROUTING.md, then paste the reply back below."
+    },
+    {
+      "id": "setup.ai.op.routing-pushed",
+      "label": "Captures are in the repository's inbox. Route them in Claude, then pull the observations back."
+    },
+    {
+      "id": "setup.ai.op.scenario-prompt",
+      "label": "The prompt is ready. Paste it into your Claude session and bring the JSON reply back."
+    },
+    {
+      "id": "setup.ai.op.guidance-prompt",
+      "label": "The prompt is ready. Paste it into your Claude session and bring the suggestion back."
+    },
+    {
+      "id": "setup.ai.op.byo-routing",
+      "label": "The material is ready for your own AI. Nothing has been sent anywhere."
+    },
+    {
+      "id": "setup.ai.op.byo-scenario",
+      "label": "The prompt is ready for your own AI. Nothing has been sent anywhere."
+    },
+    {
+      "id": "setup.ai.op.byo-guidance",
+      "label": "The prompt is ready for your own AI. Nothing has been sent anywhere."
+    },
+    {
+      "id": "setup.ai.op.fallback-prompt",
+      "label": "This mode has no automatic path for that yet, so here is the prompt to run yourself."
+    },
+    {
+      "id": "setup.ai.draft.title",
+      "label": "Draft from a document"
+    },
+    {
+      "id": "setup.ai.draft.open",
+      "label": "Open"
+    },
+    {
+      "id": "setup.ai.draft.close",
+      "label": "Close"
+    },
+    {
+      "id": "setup.ai.draft.teaser",
+      "label": "Upload or paste a curriculum and get a first draft of the events, questions and boxes, which you then edit."
+    },
+    {
+      "id": "setup.ai.draft.intro",
+      "label": "The draft is a starting point. Nothing is saved until you import it, and everything imported is fully editable."
+    },
+    {
+      "id": "setup.ai.draft.mode-note.github-claude",
+      "label": "In this mode the app hands you a prompt to run in your own Claude session, and you paste the reply back."
+    },
+    {
+      "id": "setup.ai.draft.mode-note.byo-agent",
+      "label": "In this mode the app hands you a prompt for your own AI. Nothing is sent anywhere on its own."
+    },
+    {
+      "id": "setup.ai.draft.mode-note.hosted-api",
+      "label": "In this mode the draft is made on the server, which holds the key. The free tier may use submitted text to improve the provider's products, so avoid pasting confidential material."
+    },
+    {
+      "id": "setup.ai.draft.source",
+      "label": "Source document"
+    },
+    {
+      "id": "setup.ai.draft.paste-placeholder",
+      "label": "…or paste the curriculum text here"
+    },
+    {
+      "id": "setup.ai.draft.run",
+      "label": "Draft this"
+    },
+    {
+      "id": "setup.ai.draft.working",
+      "label": "Working…"
+    },
+    {
+      "id": "setup.ai.draft.ready",
+      "label": "Draft ready. Check the counts below, then import."
+    },
+    {
+      "id": "setup.ai.draft.parsed",
+      "label": "Draft read. Check the counts below, then import."
+    },
+    {
+      "id": "setup.ai.draft.copied",
+      "label": "It is on your clipboard."
+    },
+    {
+      "id": "setup.ai.draft.not-copied",
+      "label": "It is in the box below; select it and copy."
+    },
+    {
+      "id": "setup.ai.draft.paste-back",
+      "label": "Paste the reply"
+    },
+    {
+      "id": "setup.ai.draft.reply-placeholder",
+      "label": "Paste the JSON reply here"
+    },
+    {
+      "id": "setup.ai.draft.use-reply",
+      "label": "Use this reply"
+    },
+    {
+      "id": "setup.ai.draft.counts",
+      "label": "Draft: {activities} event(s), {questions} question(s), {wiring} wiring group(s)."
+    },
+    {
+      "id": "setup.ai.draft.import",
+      "label": "Import into this workshop"
+    },
+    {
+      "id": "setup.ai.draft.imported",
+      "label": "Imported {activities} event(s), {questions} question(s), {wired} wiring link(s). Review and edit them before use."
+    },
+    {
+      "id": "setup.ai.draft.loaded",
+      "label": "Loaded {name} ({chars} characters)."
+    },
+    {
+      "id": "setup.ai.draft.too-long",
+      "label": "That document is {chars} characters and the limit is {limit}. Send the relevant section instead."
+    },
+    {
+      "id": "setup.ai.draft.too-long-pill",
+      "label": "too long"
+    },
+    {
+      "id": "setup.ai.draft.failed",
+      "label": "That did not work: {reason}"
+    },
+    {
+      "id": "setup.ai.draft.bad-reply",
+      "label": "That reply could not be used: {reason}"
+    },
+    {
+      "id": "setup.ai.draft.manual-route",
+      "label": "You can still write the events and questions by hand in the Goals and Calendar sections."
+    },
+    {
+      "id": "setup.ai.trace-title",
+      "label": "What has been asked of a model"
+    },
+    {
+      "id": "setup.ai.trace-help",
+      "label": "Every request this device made, in every mode, including the ones that handed you a prompt to run yourself. Kept so a failure can be traced rather than guessed at."
+    },
+    {
+      "id": "setup.ai.trace-empty",
+      "label": "Nothing yet."
+    },
+    {
+      "id": "setup.ai.trace-local",
+      "label": "on this device only"
+    },
+    {
+      "id": "setup.ai.outcome.result",
+      "label": "answered"
+    },
+    {
+      "id": "setup.ai.outcome.operator-action",
+      "label": "handed over"
+    },
+    {
+      "id": "setup.ai.outcome.refused",
+      "label": "refused"
+    },
+    {
+      "id": "setup.ai.outcome.error",
+      "label": "failed"
+    },
+    {
+      "id": "setup.impact.ai.mode",
+      "label": "Work moves from {from} to {to}. Nothing already recorded changes; every request from here on takes the new route."
+    },
+    {
+      "id": "setup.impact.ai.routing-off",
+      "label": "Captures stop becoming observations. There are {captures} submitted capture(s) in this workshop, and anything captured from now on will be recorded and will never reach a report until this is switched back on."
+    },
+    {
+      "id": "setup.impact.ai.routing-off-clean",
+      "label": "Captures will not become observations while this is off. Nothing has been captured yet, so nothing is stranded."
+    },
+    {
+      "id": "setup.impact.ai.fn-on",
+      "label": "{fn} may use a model from now on."
+    },
+    {
+      "id": "setup.impact.ai.fn-off",
+      "label": "{fn} will no longer use a model. Anything it already produced stands."
+    },
+    {
+      "id": "routing.mode.configured-in",
+      "label": "The mode is chosen in"
+    },
+    {
+      "id": "routing.mode.setup-link",
+      "label": "Setup → AI"
+    },
+    {
+      "id": "routing.mode.off-consequence",
+      "label": "Captures are still being recorded; none of them will become observations until it is switched back on."
+    },
+    {
+      "id": "routing.mode.byo-agent",
+      "label": "Captures are prepared for whatever AI your organization already uses. Nothing is sent anywhere automatically."
+    },
+    {
+      "id": "routing.mode.hosted-api",
+      "label": "This workshop is set to pay a model per use. There is no hosted endpoint for routing yet, so this step still hands you a prompt."
+    },
+    {
+      "id": "admin-conversations.guidance.suggest",
+      "label": "Suggest an opening"
+    },
+    {
+      "id": "admin-conversations.guidance.suggested",
+      "label": "Suggestion is in the box above. Edit it, then save — it becomes your guidance, not the model's."
+    },
+    {
+      "id": "admin-conversations.guidance.prompt-copied",
+      "label": "The prompt is on your clipboard. Run it, then paste the suggestion back below."
+    },
+    {
+      "id": "admin-conversations.guidance.prompt-shown",
+      "label": "The prompt is in the box below. Run it, then paste the suggestion back."
+    },
+    {
+      "id": "admin-conversations.guidance.paste-placeholder",
+      "label": "Paste the suggested opening here"
+    },
+    {
+      "id": "admin-conversations.guidance.use-reply",
+      "label": "Use this suggestion"
+    },
+    {
+      "id": "admin-conversations.guidance.ai-off",
+      "label": "Suggested openings are switched off for this workshop. Write the guidance yourself in the box above."
     }
   ]
 }

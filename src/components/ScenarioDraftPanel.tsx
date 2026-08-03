@@ -1,83 +1,168 @@
 import { useState } from 'react'
+import { useLiveQuery } from 'dexie-react-hooks'
+import { useAuth } from '../auth/AuthContext'
+import { db } from '../db/local'
 import { readDocumentFile } from '../ai/parseDocument'
 import {
-  buildScenarioPrompt,
-  canDraftWithAI,
-  draftScenarioWithAI,
   importScenarioDraft,
   parseDraftReply,
+  MAX_SCENARIO_DOCUMENT_CHARS,
 } from '../ai/scenarioDraft'
+import { runAiJob } from '../ai/providers'
+import { aiEnabled, aiUnavailableReason } from '../ai/aiEnabled'
+import { resolveAiConfig } from '../lib/aiConfig'
+import { buildScale, type ScalePoint } from '../lib/scale'
+import { c } from '../lib/content/chrome'
 import type { ScenarioDraft } from '../ai/scenarioContract'
 
 /**
- * "Upload a document → AI drafts the scenario → you edit it" panel for the Builder.
- * Two paths: a one-click Gemini path via the draft-scenario Edge Function, and a
- * token-free copy/paste path (paste the prompt into any LLM, paste the JSON back).
- * Either way the result is a DRAFT that lands as editable rows for human review.
+ * "Upload a document → AI drafts the scenario → you edit it".
+ *
+ * Three things changed in tl-13, and each was a bug before it was a feature.
+ *
+ * IT GOES THROUGH THE PROVIDER. The panel no longer decides how the work gets done;
+ * it hands a job to `runAiJob`, which checks the toggle, picks the mode, traces the
+ * call, and comes back either with a draft or with a prompt for the operator. That is
+ * why there is no longer a "Draft with Gemini" button beside a separate copy/paste
+ * path: there is one button, and what it does depends on the workshop's mode.
+ *
+ * IT CARRIES THE WORKSHOP'S SCALE. tl-09 made the grading scale configurable and the
+ * drafter went on asking for four descriptors, so a five-point workshop got a draft
+ * that contradicted its own scale with no error anywhere (D2). The scale now travels
+ * with the job, and `importScenarioDraft` reshapes whatever comes back onto the real
+ * points.
+ *
+ * IT SAYS WHEN IT IS OFF. A switched-off function shows the reason rather than a
+ * button that will be refused, and still points at the manual route, because "AI is
+ * off here" must not read as "you cannot author a scenario".
  */
 export function ScenarioDraftPanel({ workshopId }: { workshopId: string }) {
+  const { identity } = useAuth()
   const [open, setOpen] = useState(false)
   const [docText, setDocText] = useState('')
   const [replyText, setReplyText] = useState('')
   const [draft, setDraft] = useState<ScenarioDraft | null>(null)
+  const [prompt, setPrompt] = useState('')
   const [status, setStatus] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+
+  const configRows = useLiveQuery(() => db.aiConfigs.toArray(), [], [])
+  const config = resolveAiConfig(workshopId, configRows ?? [])
+  const enabled = aiEnabled('scenario_draft', config)
+  const offReason = aiUnavailableReason('scenario_draft', config)
+
+  const points = useLiveQuery(
+    () => db.scalePoints.where('workshop_id').equals(workshopId).toArray(),
+    [workshopId],
+    [] as ScalePoint[],
+  )
+  const scale = buildScale(workshopId, points ?? []).points.map((p) => ({
+    value: p.value,
+    label: p.label,
+  }))
+
+  const tooLong = docText.length > MAX_SCENARIO_DOCUMENT_CHARS
 
   const onFile = async (file: File) => {
     setStatus(null)
     const r = await readDocumentFile(file)
-    if (r.ok) {
-      setDocText(r.text)
-      setStatus(`Loaded ${file.name} (${r.text.length.toLocaleString()} chars).`)
-    } else {
+    if (!r.ok) {
       setStatus(r.reason)
+      return
     }
+    if (r.text.length > MAX_SCENARIO_DOCUMENT_CHARS) {
+      // Refused at the boundary rather than truncated: half a curriculum drafts a
+      // scenario that looks complete and is missing whatever was in the other half.
+      setStatus(
+        c('setup.ai.draft.too-long', 'label', {
+          chars: r.text.length.toLocaleString(),
+          limit: MAX_SCENARIO_DOCUMENT_CHARS.toLocaleString(),
+        }),
+      )
+      return
+    }
+    setDocText(r.text)
+    setStatus(
+      c('setup.ai.draft.loaded', 'label', {
+        name: file.name,
+        chars: r.text.length.toLocaleString(),
+      }),
+    )
   }
 
-  const runAI = async () => {
+  /** One button, whatever the mode. The provider decides what happens. */
+  const run = async () => {
     setBusy(true)
-    setStatus('Drafting with Gemini…')
+    setStatus(c('setup.ai.draft.working'))
     setDraft(null)
-    const r = await draftScenarioWithAI(docText)
+    setPrompt('')
+    const outcome = await runAiJob(
+      {
+        fn: 'scenario_draft',
+        workshopId,
+        actorEmail: identity?.email ?? null,
+        document: docText,
+        scale,
+      },
+      { config },
+    )
     setBusy(false)
-    if (r.ok) {
-      setDraft(r.value)
-      setStatus('Draft ready — review the counts below, then import.')
-    } else {
-      setStatus(`AI drafting failed: ${r.reason}. You can use the copy/paste path instead.`)
-    }
-  }
 
-  const copyPrompt = async () => {
-    try {
-      await navigator.clipboard.writeText(buildScenarioPrompt(docText))
-      setStatus('Prompt copied. Paste it into your LLM, then paste the JSON reply below.')
-    } catch {
-      setStatus('Could not access the clipboard; select the prompt text manually.')
+    if (outcome.kind === 'result') {
+      setDraft(outcome.value as ScenarioDraft)
+      setStatus(c('setup.ai.draft.ready'))
+      return
     }
+    if (outcome.kind === 'operator_action') {
+      setPrompt(outcome.prompt ?? '')
+      let copied = false
+      if (outcome.prompt && navigator.clipboard) {
+        try {
+          await navigator.clipboard.writeText(outcome.prompt)
+          copied = true
+        } catch {
+          /* clipboard blocked: the textarea below still holds it */
+        }
+      }
+      setStatus(
+        `${c(outcome.instructionsId ?? 'setup.ai.op.fallback-prompt')} ${
+          copied ? c('setup.ai.draft.copied') : c('setup.ai.draft.not-copied')
+        }`,
+      )
+      return
+    }
+    setStatus(
+      outcome.kind === 'refused'
+        ? c(outcome.reason ?? 'setup.ai.fn.disabled')
+        : c('setup.ai.draft.failed', 'label', { reason: outcome.reason ?? '' }),
+    )
   }
 
   const parseReply = () => {
     const r = parseDraftReply(replyText)
     if (r.ok) {
       setDraft(r.value)
-      setStatus('Draft parsed — review the counts below, then import.')
+      setStatus(c('setup.ai.draft.parsed'))
     } else {
-      setStatus(`Could not use that reply: ${r.reason}`)
+      setStatus(c('setup.ai.draft.bad-reply', 'label', { reason: r.reason }))
     }
   }
 
   const doImport = async () => {
     if (!draft) return
     setBusy(true)
-    const r = await importScenarioDraft(draft, workshopId)
+    const r = await importScenarioDraft(draft, workshopId, scale)
     setBusy(false)
     setDraft(null)
     setDocText('')
     setReplyText('')
+    setPrompt('')
     setStatus(
-      `Imported ${r.activities} event(s), ${r.ksas} question(s), ${r.wired} wiring link(s). ` +
-        'Review and edit them below before use.',
+      c('setup.ai.draft.imported', 'label', {
+        activities: r.activities,
+        questions: r.ksas,
+        wired: r.wired,
+      }),
     )
   }
 
@@ -85,12 +170,19 @@ export function ScenarioDraftPanel({ workshopId }: { workshopId: string }) {
     return (
       <div className="card">
         <div className="row" style={{ justifyContent: 'space-between' }}>
-          <h2 style={{ margin: 0 }}>Draft from a document (AI)</h2>
-          <button className="ghost" onClick={() => setOpen(true)}>Open</button>
+          <h2 style={{ margin: 0 }}>{c('setup.ai.draft.title')}</h2>
+          <button className="ghost" onClick={() => setOpen(true)}>
+            {c('setup.ai.draft.open')}
+          </button>
         </div>
         <p className="small muted" style={{ marginBottom: 0 }}>
-          Upload or paste a curriculum and let AI draft the events, questions, and boxes for you to edit.
+          {c('setup.ai.draft.teaser')}
         </p>
+        {offReason && (
+          <p className="small" style={{ marginBottom: 0 }}>
+            <span className="pill queued">{c('setup.ai.fn.off')}</span> {c(offReason)}
+          </p>
+        )}
       </div>
     )
   }
@@ -98,18 +190,28 @@ export function ScenarioDraftPanel({ workshopId }: { workshopId: string }) {
   return (
     <div className="card">
       <div className="row" style={{ justifyContent: 'space-between' }}>
-        <h2 style={{ margin: 0 }}>Draft from a document (AI)</h2>
-        <button className="ghost" onClick={() => setOpen(false)}>Close</button>
+        <h2 style={{ margin: 0 }}>{c('setup.ai.draft.title')}</h2>
+        <button className="ghost" onClick={() => setOpen(false)}>
+          {c('setup.ai.draft.close')}
+        </button>
       </div>
 
-      <p className="small muted">
-        The AI writes a first draft; nothing is saved until you import, and everything imported is fully editable.
-        Note: the Gemini free tier may use submitted text to improve Google's products — avoid pasting confidential
-        material, or use your own LLM via the copy/paste path.
-      </p>
+      <p className="small muted">{c('setup.ai.draft.intro')}</p>
+      <p className="small muted">{c(`setup.ai.draft.mode-note.${config.mode}`)}</p>
 
-      <label className="small muted">Source document</label>
+      {offReason ? (
+        <div className="banner warn">
+          <p className="small" style={{ marginBottom: 0 }}>
+            {c(offReason)} {c('setup.ai.draft.manual-route')}
+          </p>
+        </div>
+      ) : null}
+
+      <label className="small muted" htmlFor="scenario-doc">
+        {c('setup.ai.draft.source')}
+      </label>
       <input
+        id="scenario-doc"
         type="file"
         accept=".txt,.md,.markdown,.text,.csv,.json,text/*,application/json"
         onChange={(e) => {
@@ -121,49 +223,70 @@ export function ScenarioDraftPanel({ workshopId }: { workshopId: string }) {
         rows={5}
         value={docText}
         onChange={(e) => setDocText(e.target.value)}
-        placeholder="…or paste the curriculum / competency text here"
+        placeholder={c('setup.ai.draft.paste-placeholder')}
         style={{ marginTop: '0.4rem' }}
       />
+      {tooLong && (
+        <p className="small">
+          <span className="pill error">{c('setup.ai.draft.too-long-pill')}</span>{' '}
+          {c('setup.ai.draft.too-long', 'label', {
+            chars: docText.length.toLocaleString(),
+            limit: MAX_SCENARIO_DOCUMENT_CHARS.toLocaleString(),
+          })}
+        </p>
+      )}
 
       <div className="row" style={{ marginTop: '0.4rem', flexWrap: 'wrap' }}>
-        {canDraftWithAI && (
-          <button disabled={busy || !docText.trim()} onClick={runAI}>
-            Draft with Gemini
-          </button>
-        )}
-        <button className="ghost" disabled={!docText.trim()} onClick={copyPrompt}>
-          Copy prompt for my own LLM
+        <button disabled={busy || !enabled || tooLong || !docText.trim()} onClick={() => void run()}>
+          {c('setup.ai.draft.run')}
         </button>
       </div>
 
+      {prompt && (
+        <textarea
+          className="mono"
+          readOnly
+          value={prompt}
+          rows={6}
+          onFocus={(e) => e.currentTarget.select()}
+          style={{ marginTop: '0.5rem' }}
+        />
+      )}
+
       <details style={{ marginTop: '0.5rem' }}>
-        <summary className="small muted">Paste an LLM reply (copy/paste path)</summary>
+        <summary className="small muted">{c('setup.ai.draft.paste-back')}</summary>
         <textarea
           rows={5}
           value={replyText}
           onChange={(e) => setReplyText(e.target.value)}
-          placeholder="Paste the JSON the LLM returned here"
+          placeholder={c('setup.ai.draft.reply-placeholder')}
           className="mono"
         />
         <button className="ghost" disabled={!replyText.trim()} onClick={parseReply}>
-          Use this reply
+          {c('setup.ai.draft.use-reply')}
         </button>
       </details>
 
       {draft && (
         <div className="banner" style={{ marginTop: '0.5rem' }}>
           <div className="small">
-            Draft: <strong>{draft.activities.length}</strong> event(s),{' '}
-            <strong>{draft.ksas.length}</strong> question(s),{' '}
-            <strong>{draft.wiring.length}</strong> wiring group(s).
+            {c('setup.ai.draft.counts', 'label', {
+              activities: draft.activities.length,
+              questions: draft.ksas.length,
+              wiring: draft.wiring.length,
+            })}
           </div>
-          <button disabled={busy} onClick={doImport} style={{ marginTop: '0.4rem' }}>
-            Import into this scenario
+          <button disabled={busy} onClick={() => void doImport()} style={{ marginTop: '0.4rem' }}>
+            {c('setup.ai.draft.import')}
           </button>
         </div>
       )}
 
-      {status && <p className="small muted" style={{ marginTop: '0.5rem' }}>{status}</p>}
+      {status && (
+        <p className="small muted" style={{ marginTop: '0.5rem' }}>
+          {status}
+        </p>
+      )}
     </div>
   )
 }
