@@ -176,8 +176,27 @@ export async function readSetupLog(workshopId: string, limit = 50): Promise<Setu
 /**
  * Append one entry to the git-tracked daily file, in dev. Best-effort by design:
  * a deployed build has no dev server to post to and must not care.
+ *
+ * NOT IN A LOCAL-ONLY BUILD, and this guard discharges the debt tl-13 left in D4.
+ *
+ * Every browser harness in this wave runs with both Supabase variables blank, which
+ * is what makes them runnable with nobody's password. Each run drives real Setup
+ * saves against a fixture workshop, and each one was posting them here, so three
+ * sessions had left `feedback/setup-changes/<date>.md` files on disk that read exactly
+ * like a genuine audit record of edits to Joshua's live database. tl-13 deleted its own
+ * and left the question of whether to scope the writer or ignore the directory; this
+ * spec's own harness reproduced the problem, which settles it.
+ *
+ * Scoping the writer is the right half to fix, because the directory is SUPPOSED to be
+ * git-tracked: the Web App Build Protocol wants applied database edits visible in git.
+ * The condition falls straight out of reason 3 in this module's own header — the file
+ * exists because a committed edit puts the database ahead of `src/data/seed.ts`. With
+ * no backend configured there is no database, the edit reached one machine's Dexie and
+ * nowhere else, and there is therefore no divergence to record. A real dev session
+ * against the real project still logs exactly as before.
  */
 async function exportSetupLogEntry(entry: SetupChangeLogEntry): Promise<boolean> {
+  if (!isSupabaseConfigured) return false
   const date = entry.at.slice(0, 10)
   const counts = Object.entries(entry.counts)
     .map(([key, value]) => `${value} ${key}`)

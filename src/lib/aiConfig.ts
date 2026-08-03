@@ -91,6 +91,21 @@ export interface AiConfig {
   workshop_id: string | null
   mode: AiMode
   functions: Record<AiFunction, AiFunctionConfig>
+  /**
+   * The estimator's assumption overrides (tl-14), SPARSE: only what an administrator
+   * actually changed.
+   *
+   * The one field on this interface that is not fully resolved, and the exception is
+   * argued rather than sloppy. Everything else here has its default applied because a
+   * caller must never have to remember one; assumptions stay sparse because the
+   * defaults are the estimator's and change with it — resolving them into the row
+   * would freeze a workshop on whatever `DEFAULT_ASSUMPTIONS` said the day somebody
+   * last opened the panel, so a corrected default would silently never reach it.
+   * Run `resolveAssumptions()` from ../ai/estimate to get a complete set. It lives
+   * there rather than here because the estimator owns the keys, and importing them
+   * into this module would make the two files circular.
+   */
+  assumptions: Record<string, number>
   updated_by: string | null
   updated_at: string | null
 }
@@ -101,6 +116,8 @@ export interface AiConfigRow {
   mode: string
   /** jsonb: a partial map of function -> { enabled, model }. */
   functions: unknown
+  /** jsonb: a partial map of estimator assumption -> number (tl-14). */
+  assumptions?: unknown
   updated_by?: string | null
   updated_at?: string | null
 }
@@ -117,9 +134,33 @@ export function defaultAiConfig(workshopId: string | null = null): AiConfig {
     workshop_id: workshopId,
     mode: DEFAULT_AI_MODE,
     functions: defaultFunctions(),
+    assumptions: {},
     updated_by: null,
     updated_at: null,
   }
+}
+
+/**
+ * Read the stored assumptions map: known-shaped entries only.
+ *
+ * Shape validation, not defaulting — `resolveAssumptions` in ../ai/estimate does the
+ * defaulting, and this only decides what counts as a stored number at all. Anything
+ * non-finite or negative is dropped rather than carried, because a NaN reaching the
+ * estimator renders as "NaN tokens" on screen and a negative one would subtract from
+ * a total, which would read as a workshop being cheaper than doing nothing.
+ *
+ * The key list is deliberately NOT checked here. The estimator owns the keys and
+ * ignores ones it does not know (the database refuses them outright, per
+ * `ai_assumptions_are_legal`), so duplicating the list in this module would be a
+ * third copy to keep in step for no gain.
+ */
+function readAssumptions(stored: unknown): Record<string, number> {
+  const out: Record<string, number> = {}
+  if (!stored || typeof stored !== 'object' || Array.isArray(stored)) return out
+  for (const [key, raw] of Object.entries(stored as Record<string, unknown>)) {
+    if (typeof raw === 'number' && Number.isFinite(raw) && raw >= 0) out[key] = raw
+  }
+  return out
 }
 
 export const DEFAULT_AI_CONFIG: AiConfig = defaultAiConfig(null)
@@ -173,6 +214,7 @@ export function resolveAiConfig(
     workshop_id: workshopId,
     mode: isMode(row.mode) ? row.mode : DEFAULT_AI_MODE,
     functions,
+    assumptions: readAssumptions(row.assumptions),
     updated_by: row.updated_by ?? null,
     updated_at: row.updated_at ?? null,
   }

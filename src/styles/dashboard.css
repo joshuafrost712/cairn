@@ -997,3 +997,73 @@ button.btn--block-left {
 /* Wide enough to keep the help text readable, narrow enough that the switch can
    sit beside it on a laptop. Below that the row wraps and the button drops. */
 .ai-fn__text { flex: 1 1 22rem; min-width: 0; }
+
+/* ---------------------------------------------------------------------------
+   tl-14: the estimate figures and the assumption inputs.
+
+   THE BAND IS A WRAPPING FLEX ROW, NOT THREE COLUMNS. Low / expected / high side
+   by side reads best, and on a 390px phone three columns of six-digit numbers do
+   not fit. `flex-wrap` plus a min-width that fits the widest realistic figure is
+   what makes one rule serve both: a row on a laptop, a stack on a phone, and no
+   horizontal scroll at either width. Same argument as `.ai-fn` above, which is
+   the shape that survived tl-09's scale editor and tl-13's toggles.
+   --------------------------------------------------------------------------- */
+.est-band {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-1);
+  margin: var(--s-1) 0;
+}
+
+.est-figure {
+  flex: 1 1 9rem;
+  min-width: 0;
+  padding: 0.5rem 0.7rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius, 6px);
+}
+
+/* The expected case is the one an administrator should read first; the band around
+   it is context. A border weight rather than a colour, so it still reads as
+   emphasis in a high-contrast or forced-colours mode. */
+.est-figure[data-emphasis='yes'] {
+  border-width: 2px;
+}
+
+.est-figure__value {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  /* Six-digit token counts sit beside three-digit ones; tabular figures keep the
+     three cards' numbers vertically aligned when they wrap into a stack. */
+}
+
+.est-figure__usd {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+/* Wide enough for "1,000,000", narrow enough to sit beside its label on a laptop
+   and drop beneath it on a phone without stretching to the full width. */
+.est-assume__input {
+  flex: 0 1 8rem;
+  min-width: 5rem;
+  max-width: 10rem;
+  font-variant-numeric: tabular-nums;
+}
+
+/* The figures on the right of an `.ai-fn` row: a price, or a token count.
+
+   LEFT-ALIGNED BY DEFAULT, right-aligned only once the row actually has two
+   columns. The first draft right-aligned these inline at every width, and the
+   390px screenshot showed the consequence: once the row wraps, "$5 / $25" sits
+   hard right while its own caption underneath sits left, which reads as broken
+   alignment rather than as a column. The breakpoint matches `.ai-fn__text`'s
+   22rem flex basis, so the two switch together. */
+.ai-fn__meta {
+  text-align: left;
+  font-variant-numeric: tabular-nums;
+}
+
+@media (min-width: 34rem) {
+  .ai-fn__meta { text-align: right; }
+}
