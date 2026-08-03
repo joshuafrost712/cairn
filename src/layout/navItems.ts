@@ -12,12 +12,27 @@ export interface NavItem {
   count?: (c: NavCounts) => number
   /** Narrower than the group's roles, for the odd item that needs it. */
   roles?: WorkshopRole[]
+  /** See NavGroup.scope. An item may widen its group's question. */
+  scope?: NavScope
 }
+
+/**
+ * Which workshop the role question is asked about (tl-17).
+ *
+ * `active` is the default and the right answer everywhere but one: a link is
+ * offered when you may use it HERE. `/workshops` is the exception, because it is
+ * the page you open when here is the wrong place — asking the active-workshop
+ * question about it would hide the link from the administrator who most needs it,
+ * the one sitting in a workshop where they are only an evaluator.
+ */
+export type NavScope = 'active' | 'anywhere'
 
 export interface NavGroup {
   labelId: string
   /** Undefined means every signed-in user sees it. */
   roles?: WorkshopRole[]
+  /** Defaults to 'active'. */
+  scope?: NavScope
   items: NavItem[]
 }
 
@@ -32,6 +47,16 @@ export interface NavGroup {
  * bounce the user to the catch-all redirect, which reads as a broken app.
  */
 export const NAV_GROUPS: NavGroup[] = [
+  {
+    // tl-17. Its own group, above everything, and asked as an ANYWHERE question:
+    // every other group is gated on the active workshop, which would hide this
+    // one from exactly the person it is for. One item, because the wave's other
+    // cross-workshop surfaces are deliberately out of scope.
+    labelId: 'nav.group.workshops',
+    roles: ADMIN_ROLES,
+    scope: 'anywhere',
+    items: [{ labelId: 'nav.workshops', to: '/workshops', end: true }],
+  },
   {
     labelId: 'nav.group.capture',
     items: [

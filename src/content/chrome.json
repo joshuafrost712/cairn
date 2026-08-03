@@ -1426,14 +1426,6 @@
       "label": "Duplicate"
     },
     {
-      "id": "setup.basics.create",
-      "label": "Create"
-    },
-    {
-      "id": "setup.basics.new-placeholder",
-      "label": "New workshop name"
-    },
-    {
       "id": "setup.basics.delete",
       "label": "Delete {label}"
     },
@@ -1860,6 +1852,174 @@
     {
       "id": "setup.impact.wiring.override",
       "label": "Changes how this event asks the question, on this event only. Evaluators capturing from now on see the new wording; the {captures} capture(s) already recorded keep the answers they gave to the old one."
+    },
+    {
+      "id": "switcher.aria",
+      "label": "Switch workshop"
+    },
+    {
+      "id": "switcher.unnamed",
+      "label": "Workshop not yet on this device"
+    },
+    {
+      "id": "nav.group.workshops",
+      "label": "Workshops"
+    },
+    {
+      "id": "nav.workshops",
+      "label": "All my workshops"
+    },
+    {
+      "id": "workshops.title",
+      "label": "Your workshops"
+    },
+    {
+      "id": "workshops.crumb",
+      "label": "Workshops"
+    },
+    {
+      "id": "workshops.meta",
+      "label": "{count} you belong to"
+    },
+    {
+      "id": "workshops.help",
+      "label": "One card per workshop you are a member of, with the role you hold in it. Every action here switches you into that workshop first, so nothing on this page can write to the wrong one. The numbers are per workshop and never added together: two workshops can ask different questions of different people, so a total across them would not mean anything."
+    },
+    {
+      "id": "workshops.loading",
+      "label": "Reading this device…"
+    },
+    {
+      "id": "workshops.none",
+      "label": "You are not a member of any workshop yet. An administrator has to add you before there is anything here."
+    },
+    {
+      "id": "workshops.unnamed",
+      "label": "Workshop not yet on this device"
+    },
+    {
+      "id": "workshops.current",
+      "label": "you are here"
+    },
+    {
+      "id": "workshops.from",
+      "label": "from"
+    },
+    {
+      "id": "workshops.until",
+      "label": "until"
+    },
+    {
+      "id": "workshops.no-dates",
+      "label": "no dates set"
+    },
+    {
+      "id": "workshops.stat.participants",
+      "label": "On the roster"
+    },
+    {
+      "id": "workshops.stat.coverage",
+      "label": "Have evidence"
+    },
+    {
+      "id": "workshops.stat.coverage-sub",
+      "label": "{n} of {total} have at least one observation that has cleared the bar"
+    },
+    {
+      "id": "workshops.stat.coverage-empty",
+      "label": "nobody on the roster yet"
+    },
+    {
+      "id": "workshops.stat.pending",
+      "label": "Waiting on somebody"
+    },
+    {
+      "id": "workshops.stat.pending-sub",
+      "label": "{unsynced} not sent, {unrouted} sent but not routed, {unverified} routed but not confirmed"
+    },
+    {
+      "id": "workshops.action.switch",
+      "label": "Switch to"
+    },
+    {
+      "id": "workshops.action.here",
+      "label": "Current workshop"
+    },
+    {
+      "id": "workshops.action.setup",
+      "label": "Set up"
+    },
+    {
+      "id": "workshops.action.health",
+      "label": "Health"
+    },
+    {
+      "id": "workshops.create.open",
+      "label": "Create a workshop"
+    },
+    {
+      "id": "workshops.create.title",
+      "label": "Create a workshop"
+    },
+    {
+      "id": "workshops.create.help",
+      "label": "You will be taken straight into guided setup, where the events, the questions and the roster get filled in. You are made its chief administrator automatically."
+    },
+    {
+      "id": "workshops.create.name",
+      "label": "Name"
+    },
+    {
+      "id": "workshops.create.name-placeholder",
+      "label": "OBT Crash Course"
+    },
+    {
+      "id": "workshops.create.start",
+      "label": "Starts"
+    },
+    {
+      "id": "workshops.create.end",
+      "label": "Ends"
+    },
+    {
+      "id": "workshops.create.location",
+      "label": "Location"
+    },
+    {
+      "id": "workshops.create.dates-note",
+      "label": "The dates are worth setting now. The end date is what decides whether the app treats the workshop as still running, and that decides whether later edits warn you about the evidence they would affect."
+    },
+    {
+      "id": "workshops.create.dates-backwards",
+      "label": "The end date is before the start date."
+    },
+    {
+      "id": "workshops.create.submit",
+      "label": "Create and set up"
+    },
+    {
+      "id": "workshops.create.working",
+      "label": "Creating…"
+    },
+    {
+      "id": "workshops.create.cancel",
+      "label": "Cancel"
+    },
+    {
+      "id": "workshops.create.failed",
+      "label": "The workshop could not be created."
+    },
+    {
+      "id": "setup.basics.overview-link",
+      "label": "See all your workshops, or create one"
+    },
+    {
+      "id": "outgoing.no-workshop",
+      "label": "No workshop is selected, so there is nothing to generate a batch for. Pick one from the switcher first."
+    },
+    {
+      "id": "workshops.create.queued",
+      "label": "The workshop is saved on this device and queued to send, but it cannot become your current workshop until the server has it: your administrator role in it is granted server-side when the record arrives. Reconnect and it will appear in the switcher."
     }
   ]
 }

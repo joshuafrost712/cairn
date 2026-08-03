@@ -221,6 +221,41 @@
   line-height: var(--lh-tight);
 }
 
+/* ---- workshop switcher (tl-17) ------------------------------------------ */
+
+.switcher {
+  font-size: var(--t--1);
+  /* A workshop name plus its role is long, and the header is the most
+     width-constrained row in the app. Capping it keeps a verbose name from
+     pushing the sign-out button off a narrow laptop; the full text stays
+     reachable in the open dropdown. */
+  max-width: 15rem;
+}
+
+/*
+ * The header copy is desktop-only, and the drawer copy is what a phone gets.
+ *
+ * Not a duplicate control — it is the same component reading the same state — but
+ * the header at 390px has a hamburger, a brand, a sync bar, a name, a role and a
+ * sign-out button already, and a select box is what tips that row into widening
+ * the page. The drawer has room, is one tap away on every route, and is where a
+ * phone user goes to change where they are anyway.
+ */
+.switcher--header {
+  display: none;
+}
+
+@media (min-width: 900px) {
+  .switcher--header {
+    display: inline-block;
+  }
+}
+
+.switcher--drawer {
+  width: 100%;
+  max-width: none;
+}
+
 /* Hamburger: only below the sidebar breakpoint. */
 .shell__menu-btn {
   display: inline-flex;

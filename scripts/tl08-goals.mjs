@@ -93,6 +93,18 @@ async function serviceRoleKey() {
 
 async function setup() {
   const serviceKey = await serviceRoleKey()
+  // Undo what an ABORTED run leaves behind (tl-17). Only --teardown restored the
+  // renamed goal, so a run that died mid-walk left the rename in place and the next
+  // run found the Save button disabled — the form was not dirty, because the value
+  // it types was already there. A harness that only works after a clean exit is a
+  // harness that reports its own state as a failure.
+  await sql(`
+    update goal set title = 'Psalms Exegesis and Internalization'
+      where workshop_id = '${PILOT_WS}' and title = '${RENAMED_GOAL}';
+    delete from workshop_member where workshop_id in
+      (select id from workshop where name like '%(copy)%');
+    delete from workshop where name like '%(copy)%';
+    select 1;`)
   await sql(`
     insert into role_allowlist (email, allowed_roles, assigned_role, note, default_workshop_id)
     values ('${ADMIN}', array['admin'], 'admin', 'tl-08 goals fixture', '${PILOT_WS}')
@@ -755,41 +767,45 @@ try {
     'remapped',
   )
 
-  // The workshop CREATED IN THE APP is device-local, and the reason is a bug this run
-  // diagnoses rather than one it introduces: the reference outbox upserts, PostgREST
-  // turns that into INSERT ... ON CONFLICT DO UPDATE, and Postgres evaluates the UPDATE
-  // policy too — `is_workshop_member(id)`, which is false for a row that does not exist
-  // yet and so has no members. The push is refused and the copy never reaches anybody
-  // else. Recorded as a check so it is a finding rather than a puzzle, and asserted in
-  // the direction that is true TODAY so a fix (tl-17's, whose create flow needs it)
-  // fails this line and gets read.
+  // FLIPPED by tl-17, which is what this line was written to force.
+  //
+  // It used to assert the opposite: a workshop created in the app was refused by the
+  // backend and stayed device-local. tl-08 diagnosed that as an ON CONFLICT DO UPDATE
+  // evaluating `is_workshop_member(id)` against a row with no members yet; tl-02 found
+  // the real cause was `workshop_select` (a `stable` helper cannot see the membership
+  // its own statement's trigger just wrote, so the row could not be RETURNED to its
+  // creator) and fixed it. The assertion is now the direction that is true, so a
+  // regression re-breaks this line rather than quietly restoring the old behaviour.
   const copyOnServer = await sql(
     `select count(*)::int as n from workshop where id = '${copy.id}';`,
   )
   check(
-    copyOnServer?.[0]?.n === 0,
-    'KNOWN BUG (tl-17): a workshop created in the app is refused by the backend and stays device-local',
+    copyOnServer?.[0]?.n === 1,
+    'a workshop created in the app now reaches the backend (tl-02 fixed workshop_select)',
     `${copyOnServer?.[0]?.n} row(s) on the server`,
+  )
+
+  // And the creator holds chief_admin in it, written by the AFTER INSERT trigger.
+  // That is what lets tl-17's duplicate switch INTO the copy: without a membership
+  // the selection is discarded by resolveActiveWorkshopId.
+  const copyRole = await sql(`
+    select wm.role from workshop_member wm join app_user u on u.id = wm.app_user_id
+    where wm.workshop_id = '${copy.id}' and u.email = '${ADMIN}';`)
+  check(
+    copyRole?.[0]?.role === 'chief_admin',
+    'and its creator is seeded as chief admin, which is what makes the switch stick',
+    JSON.stringify(copyRole),
   )
 
 
   check(errors.length === 0, 'no page errors', errors.slice(0, 3).join(' | ') || 'none')
-  // Excluded BY NAME, not by expectation: the workshop-insert refusal above is a known
-  // pre-existing bug, and every OTHER refused reference write is a regression this line
-  // must still catch.
-  // Every row the duplicate wrote lives under a workshop the backend refused, so those
-  // pushes are refused too. Excluded by the copy's OWN ids rather than by table name: a
-  // refusal for any row outside the copy is still a regression this line catches.
-  const copyOwned = new Set([copy.id])
-  for (const store of ['goals', 'ksas', 'teams', 'participants', 'activities']) {
-    for (const r of (await localRows(admin, store, `row.workshop_id === '${copy.id}'`)) ?? [])
-      copyOwned.add(r.id)
-  }
-  const unexpected = warnings.filter((w) => ![...copyOwned].some((id) => w.includes(id)))
+  // With the workshop insert landing, the copy's children have a parent to hang from
+  // and nothing here should be refused at all. The carve-out for the copy's own ids
+  // is gone with the bug it existed for: any refusal now is a regression.
   check(
-    unexpected.length === 0,
-    'no reference write was refused, except the known workshop-insert bug',
-    unexpected.slice(0, 2).join(' | ') || 'none',
+    warnings.length === 0,
+    'no reference write was refused at all',
+    warnings.slice(0, 2).join(' | ') || 'none',
   )
 } finally {
   await browser.close()

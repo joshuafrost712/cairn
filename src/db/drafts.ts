@@ -5,7 +5,8 @@
 // row a human has touched.
 
 import { db, newId } from './local'
-import { loadResolvedKsas } from './reference'
+import { ksasForWorkshop } from './reference'
+import { observationsForWorkshop } from '../reports/workshopOverview'
 import { buildAllReports } from '../reports/build'
 import { annotateObservations, participantGate, type Gate } from '../reports/verification'
 import {
@@ -88,6 +89,18 @@ export interface GenerateOptions {
   /** The day this batch is for, e.g. '2026-08-26'. Part of the draft id. */
   dateLabel: string
   fromName?: string
+  /**
+   * Which workshop this batch belongs to (tl-17).
+   *
+   * REQUIRED, and the callers pass the validated active id. Both generators used
+   * to take `db.workshops.toArray()[0]`, which is correct in a one-workshop
+   * deployment and silently wrong the moment there are two: Dexie's insertion
+   * order decided whose name went on the email and whose roster it drew from, so
+   * a Crash Course batch could go out stamped "Psalms Workshop (Bali 2026)" with
+   * Bali's participants in it. There is no sane default here, which is why the
+   * parameter is not optional.
+   */
+  workshopId: string
 }
 
 /**
@@ -97,18 +110,24 @@ export interface GenerateOptions {
  * A participant with no registered email still gets a draft: the missing address
  * is an approval blocker the admin can see and fix on the roster, whereas
  * silently omitting them means nobody notices until after the workshop.
+ *
+ * Every read below is scoped to `opts.workshopId` (tl-17): the roster, the teams,
+ * the questions (tl-08's `ksasForWorkshop`, not the whole deployment's library)
+ * and the observations.
  */
 export async function generateParticipantEmails(opts: GenerateOptions): Promise<DraftDoc[]> {
-  const [participants, ksas, teams, observations, verdicts, workshops] = await Promise.all([
-    db.participants.toArray(),
-    loadResolvedKsas(),
-    db.teams.toArray(),
-    db.observations.toArray(),
-    db.verifications.toArray(),
-    db.workshops.toArray(),
-  ])
+  const [participants, ksas, teams, allObservations, evaluations, verdicts, workshop] =
+    await Promise.all([
+      db.participants.where('workshop_id').equals(opts.workshopId).toArray(),
+      ksasForWorkshop(opts.workshopId),
+      db.teams.where('workshop_id').equals(opts.workshopId).toArray(),
+      db.observations.toArray(),
+      db.evaluations.toArray(),
+      db.verifications.toArray(),
+      db.workshops.get(opts.workshopId),
+    ])
 
-  const workshop = workshops[0] ?? null
+  const observations = observationsForWorkshop(allObservations, evaluations, opts.workshopId)
   const workshopName = workshop?.name ?? 'Workshop'
   const sortedKsas = [...ksas].sort((a, b) => a.code.localeCompare(b.code))
   const annotated = annotateObservations(observations, verdicts)
@@ -128,7 +147,7 @@ export async function generateParticipantEmails(opts: GenerateOptions): Promise<
         id: draftId('participant_email', report.participant_id, opts.dateLabel, 1),
         kind: 'participant_email',
         subjectKey: report.participant_id,
-        workshopId: workshop?.id ?? null,
+        workshopId: opts.workshopId,
         title: report.participant_name,
         subject: participantEmailSubject(workshopName, opts.dateLabel),
         dateLabel: opts.dateLabel,
@@ -158,23 +177,33 @@ export interface DigestOptions extends GenerateOptions {
   activityIds?: string[]
 }
 
-/** Generate (or refresh) one facilitator digest per event. */
+/**
+ * Generate (or refresh) one facilitator digest per event.
+ *
+ * Scoped to `opts.workshopId` throughout (tl-17), the events included as well as
+ * the evidence in them: a digest that listed the other workshop's sessions would
+ * be the same defect as a participant email with the wrong roster, one level up.
+ */
 export async function generateEventDigests(opts: DigestOptions): Promise<DraftDoc[]> {
-  const [activities, ksas, observations, verdicts, evaluations, conversations, workshops] =
+  const [activities, ksas, allObservations, verdicts, allEvaluations, conversations] =
     await Promise.all([
-      db.activities.toArray(),
-      loadResolvedKsas(),
+      db.activities.where('workshop_id').equals(opts.workshopId).toArray(),
+      ksasForWorkshop(opts.workshopId),
       db.observations.toArray(),
       db.verifications.toArray(),
       db.evaluations.toArray(),
-      db.mentoringConversations.toArray(),
-      db.workshops.toArray(),
+      db.mentoringConversations.where('workshop_id').equals(opts.workshopId).toArray(),
     ])
 
-  const workshop = workshops[0] ?? null
+  const observations = observationsForWorkshop(allObservations, allEvaluations, opts.workshopId)
+  // Captures stay unscoped for the INDEX (an observation is situated by its own
+  // capture, whichever workshop that capture is in) but the analytics below see
+  // only this workshop's, so a capture from elsewhere cannot contribute a
+  // participation count to an event it has nothing to do with.
+  const evaluations = allEvaluations.filter((e) => e.workshop_id === opts.workshopId)
   const sortedKsas = [...ksas].sort((a, b) => a.code.localeCompare(b.code))
   const annotated = annotateObservations(observations, verdicts)
-  const index = buildCaptureIndex(evaluations)
+  const index = buildCaptureIndex(allEvaluations)
   const situated = situate(annotated, index)
 
   const wanted = opts.activityIds
@@ -196,7 +225,7 @@ export async function generateEventDigests(opts: DigestOptions): Promise<DraftDo
         id: draftId('event_digest', a.activity_id, opts.dateLabel, 1),
         kind: 'event_digest',
         subjectKey: a.activity_id,
-        workshopId: workshop?.id ?? null,
+        workshopId: opts.workshopId,
         title: a.title,
         subject: eventDigestSubject(a),
         dateLabel: opts.dateLabel,

@@ -16,6 +16,12 @@ export function obs(partial: Partial<ObservationRecord> = {}): ObservationRecord
   return {
     id: partial.id ?? uid('obs'),
     capture_client_id: partial.capture_client_id ?? 'cap-1',
+    // Required on ObservationRecord since tl-04 and missing here until tl-17.
+    // Same blind spot as `short_label` below: test/ is outside tsconfig.app's
+    // include, so a fixture can omit a required field and nothing complains
+    // until something actually reads it. `in` rather than `??` so an explicit
+    // null exercises the pre-tl-04 fallback path.
+    workshop_id: 'workshop_id' in partial ? (partial.workshop_id ?? null) : 'w-1',
     participant_id: 'participant_id' in partial ? (partial.participant_id ?? null) : 'p-1',
     participant_name: partial.participant_name ?? 'CIT One',
     ksa_code: partial.ksa_code ?? 'GENRE',
