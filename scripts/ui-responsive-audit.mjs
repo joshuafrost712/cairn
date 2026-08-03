@@ -82,6 +82,11 @@ const ROUTES = [
   { path: 'observations', label: 'observations', auth: true, owned: true },
   { path: 'reports', label: 'reports', auth: true, owned: true },
   { path: 'conversations', label: 'conversations', auth: true, owned: true },
+  // tl-17's cross-workshop overview. Gated on holding an admin role in ANY
+  // membership rather than the active one, so it walks under the same elevation as
+  // the rest of the admin routes. Its own harness (scripts/tl17-multi-workshop.mjs)
+  // measured the page at 390px in isolation; this is what keeps it measured.
+  { path: 'workshops', label: 'workshops', auth: true, owned: true, elevate: true },
   // tl-07 turned /admin/roster and /admin/settings into sections of one Setup hub,
   // so the old single-route entry is replaced by the hub and each of its eight
   // sections. They are separate entries rather than one, because a section is a
