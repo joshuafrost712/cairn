@@ -1,9 +1,20 @@
 import type { AnnotatedObservation } from '../../reports/verification'
 import { EmptyState } from '../data/EmptyState'
 import { DesignationChip } from '../data/DesignationChip'
+import { c } from '../../lib/content/chrome'
 
+/**
+ * Who recorded this, or an honest statement that the record does not say.
+ *
+ * `evaluator_email` is best-effort by design (src/lib/types.ts): it is resolved at
+ * ingest from the originating capture, and a capture that is no longer on this
+ * device leaves it null. tl-06 made the fallback say so, because this list is now
+ * read by an evaluator preparing for a hard conversation about somebody else's
+ * observation, and "an evaluator" reads like an attribution while meaning the
+ * opposite.
+ */
 function evaluatorLabel(email: string | null | undefined): string {
-  if (!email) return 'an evaluator'
+  if (!email) return c('evidence.unknown-evaluator')
   const at = email.indexOf('@')
   return at > 0 ? email.slice(0, at) : email
 }
@@ -44,8 +55,13 @@ export function EvidenceList({
           <div className="card" key={o.id} style={{ marginBottom: 'var(--s-3)' }}>
             <div className="row">
               <DesignationChip value={o.effective_designation} />
+              {/* The effective value is the chip; the raw one is named beside it
+                  rather than silently replaced, which is the honesty rule tl-06
+                  states for this panel and which this component already kept. */}
               {adjusted && (
-                <span className="muted small">adjusted from {o.evidence_designation}</span>
+                <span className="muted small">
+                  {c('evidence.adjusted-from', 'label', { value: o.evidence_designation })}
+                </span>
               )}
               {o.origin === 'group' && <span className="pill">group</span>}
               <span className="spacer" />

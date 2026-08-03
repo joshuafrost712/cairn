@@ -540,6 +540,20 @@ export interface MentoringConversation {
    */
   admin_guidance: string | null
   admin_guidance_updated_at: string | null
+  /**
+   * tl-06. The assignee's answer to "is this finished?", raised when it is not.
+   *
+   * Owned by the evaluator, not the admin: dismissal is deliberately not an
+   * evaluator's power (an assigned conversation is dropped by the person who
+   * assigned it), so this flag and the note beside it are how an evaluator says
+   * a conversation needs more — including that it should be dropped.
+   *
+   * Optional on the type only because rows written before this spec have no such
+   * property in IndexedDB. Read it as `=== true`; the backend column is
+   * `not null default false`.
+   */
+  follow_up_needed?: boolean
+  follow_up_note?: string | null
   created_at: string
   updated_at: string
   sync_status: SyncStatus // reuse existing type

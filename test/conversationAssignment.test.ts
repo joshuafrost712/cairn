@@ -243,12 +243,24 @@ describe('the evaluator outbox patch and the database guard agree', () => {
     expect(sent.filter((k) => frozen.includes(k))).toEqual([])
   })
 
+  // tl-06 grew this list, which is what it is here to make somebody notice. The
+  // two new columns are the assignee's own (did the conversation finish, and what
+  // should the admin know), so they belong on the patch and deliberately are NOT
+  // frozen by the guard. Check (b) above is the one that matters: it still passes,
+  // so the two lists are still disjoint.
   it('(c) the patch still carries everything an outcome is made of', () => {
     const sent = Object.keys(
       mentoringOutcomePatch(derivedLow({ workshop_id: 'ws-obs' }) as MentoringConversation),
     )
-    expect(sent.sort()).toEqual(
-      ['participant_response', 'recorded_by', 'scheduled_for', 'status', 'summary', 'updated_at'],
-    )
+    expect(sent.sort()).toEqual([
+      'follow_up_needed',
+      'follow_up_note',
+      'participant_response',
+      'recorded_by',
+      'scheduled_for',
+      'status',
+      'summary',
+      'updated_at',
+    ])
   })
 })
