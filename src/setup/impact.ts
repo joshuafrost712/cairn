@@ -60,6 +60,15 @@ export type WorkshopState = 'draft' | 'in_progress' | 'closed'
 export type SetupEntity =
   | 'workshop'
   | 'event'
+  /**
+   * A goal: the level above a question (tl-08). Grouping only, so creating or
+   * renaming one changes how reports READ and nothing about what any observation
+   * means. Deleting one is a reorganization rather than a destruction, because its
+   * questions are set ungrouped rather than deleted — which is exactly the
+   * distinction the dialog has to draw, since "delete goal" sounds like the worse
+   * of the two.
+   */
+  | 'goal'
   | 'question'
   | 'wiring'
   | 'participant'
@@ -114,8 +123,19 @@ export interface ImpactCounts {
   crossing?: number
   /** Authored events under a workshop being deleted. */
   events?: number
-  /** Authored questions under a workshop being deleted. */
+  /** Authored questions under a workshop being deleted, or under a goal (tl-08). */
   questions?: number
+  /**
+   * Report groupings that change when a question moves between goals, or a goal is
+   * renamed (tl-08).
+   *
+   * Distinct from `reports`, which counts reports whose NUMBERS change. Nothing is
+   * rescored by a regrouping; the same designations are printed under a different
+   * heading, which is a smaller thing than an invalidation and a bigger thing than
+   * nothing. Keeping them apart is what stops the dialog claiming a rename
+   * invalidates evidence.
+   */
+  regrouped?: number
 }
 
 export interface SetupChange {
@@ -163,21 +183,83 @@ const n = (counts: ImpactCounts | undefined, key: keyof ImpactCounts): number =>
  * under-warning is the failure that matters here. The completeness test below
  * makes the omission fail loudly instead of relying on that default.
  */
-const QUESTION_FIELD_CLASS: Record<string, 'safe' | 'future' | 'evidence' | 'identity'> = {
+const QUESTION_FIELD_CLASS: Record<
+  string,
+  'safe' | 'future' | 'evidence' | 'identity' | 'grouping'
+> = {
   short_label: 'safe',
-  area: 'safe',
   cbc_subpoint_refs: 'safe',
   ai_facing_rubric: 'safe',
   guiding_questions: 'safe',
   id: 'safe',
+  /**
+   * LEGACY (tl-08). `goal_id` replaced it and app code no longer reads or writes
+   * it, so a diff can only carry it when a pre-tl-08 row is round-tripped. Kept
+   * classified rather than removed so that round trip stays silent instead of
+   * falling to the unclassified `future` default and warning about a field nobody
+   * touched.
+   */
+  area: 'safe',
+  /**
+   * Which workshop owns the question (tl-08). Not editable from any form: it is
+   * set once at creation from the active workshop. Classified so the completeness
+   * test passes and so a future "move question to another workshop" feature has to
+   * come here and think about it — that WOULD be an identity change, because the
+   * question's code is only unique within a workshop.
+   */
+  workshop_id: 'safe',
   evaluator_facing_prompt: 'future',
   description: 'future',
   evidence_levels: 'evidence',
   code: 'identity',
+  goal_id: 'grouping',
 }
 
 /** Every field of a question, so a new one cannot be added without a class. */
 export const CLASSIFIED_QUESTION_FIELDS = Object.keys(QUESTION_FIELD_CLASS)
+
+/**
+ * How a wiring row's fields relate to recorded evidence (tl-08).
+ *
+ *  membership — WHICH questions this event asks; changing it changes which answers
+ *               the event's report rollup reads
+ *  future     — the per-event WORDING; changes what evaluators are asked from here on
+ *  safe       — identity and ordering
+ *
+ * The split exists because before tl-08 a wiring row held nothing but membership,
+ * so classifying the whole row as one thing was accurate. Now the same Save can
+ * carry either, and treating a reworded prompt as a rewire would report
+ * `invalidates_evidence` for an edit that invalidates nothing.
+ */
+const WIRING_FIELD_CLASS: Record<string, 'safe' | 'future' | 'membership'> = {
+  activity_id: 'safe',
+  ksa_id: 'safe',
+  sort_order: 'safe',
+  questions: 'membership',
+  prompt_override: 'future',
+  guiding_questions_override: 'future',
+}
+
+/** Every field of a wiring row, so a new one cannot be added without a class. */
+export const CLASSIFIED_WIRING_FIELDS = Object.keys(WIRING_FIELD_CLASS)
+
+/**
+ * A goal's fields. All grouping or presentation: a goal carries no score, so
+ * nothing recorded can be scored against it and no designation can change meaning
+ * when it changes.
+ */
+const GOAL_FIELD_CLASS: Record<string, 'safe' | 'grouping'> = {
+  id: 'safe',
+  workshop_id: 'safe',
+  description: 'safe',
+  sort_order: 'safe',
+  // The heading the reports print. Renaming it reprints them.
+  title: 'grouping',
+  code: 'grouping',
+}
+
+/** Every field of a goal, so a new one cannot be added without a class. */
+export const CLASSIFIED_GOAL_FIELDS = Object.keys(GOAL_FIELD_CLASS)
 
 /**
  * An event's fields are all schedule and presentation: none of them is a value an
@@ -314,6 +396,8 @@ function classify(change: SetupChange): Verdict {
   switch (change.entity) {
     case 'question':
       return classifyQuestion(change)
+    case 'goal':
+      return classifyGoal(change)
     case 'event':
       return classifyEvent(change)
     case 'wiring':
@@ -396,6 +480,33 @@ function classifyQuestion(change: SetupChange): Verdict {
       continue
     }
 
+    if (klass === 'grouping') {
+      // Moving a question to another goal reprints it under a different heading in
+      // every report that already exists. Nothing is rescored: the same
+      // observations keep the same designations, and the KSA table and heatmap
+      // group them somewhere else. That is a real cost on a workshop with recorded
+      // evidence and no cost at all before, so the count decides.
+      const observations = n(c, 'observations')
+      if (observations === 0) {
+        severity = raise(severity, 'affects_future')
+        consequences.push({
+          id: 'setup.impact.question.regroup-clean',
+          tokens: { label: change.label },
+        })
+      } else {
+        severity = raise(severity, 'invalidates_evidence')
+        consequences.push({
+          id: 'setup.impact.question.regroup',
+          tokens: {
+            label: change.label,
+            observations,
+            regrouped: n(c, 'regrouped') || n(c, 'participants'),
+          },
+        })
+      }
+      continue
+    }
+
     if (klass === 'evidence') {
       // The descriptors are what a designation MEANS. Editing them after
       // observations were scored leaves every one of those scores in place while
@@ -446,6 +557,69 @@ function classifyQuestion(change: SetupChange): Verdict {
 
 const raise = (current: SetupSeverity, candidate: SetupSeverity): SetupSeverity =>
   rank(candidate) > rank(current) ? candidate : current
+
+// ---------------------------------------------------------------------------
+// Goals (tl-08) — the level above a question
+// ---------------------------------------------------------------------------
+
+/**
+ * A goal groups questions and holds no score, so nothing here can invalidate
+ * evidence: the same observations keep the same designations under a different
+ * heading.
+ *
+ * DELETING A GOAL IS NOT DESTRUCTIVE, and this is a deliberate departure from the
+ * spec, which called it `destructive` with counts. It would be right if the delete
+ * cascaded to the questions. It does not: `ksa.goal_id` is `on delete set null`
+ * both in Postgres and in the local mirror, so the questions survive as ungrouped
+ * and every observation under them is untouched. Reserving `destructive` — the tier
+ * that makes an admin type the name back — for acts that actually destroy
+ * something is what keeps the whole layer credible when it does fire.
+ */
+function classifyGoal(change: SetupChange): Verdict {
+  const c = change.counts
+  if (change.operation === 'create') {
+    // A goal with no questions under it asks nothing of anybody. The spec's second
+    // canonical `safe` case.
+    return { severity: 'safe', consequences: [] }
+  }
+
+  if (change.operation === 'delete') {
+    const questions = n(c, 'questions')
+    if (questions === 0) {
+      return {
+        severity: 'affects_future',
+        consequences: [{ id: 'setup.impact.goal.delete-empty', tokens: { label: change.label } }],
+      }
+    }
+    return {
+      severity: 'affects_future',
+      consequences: [
+        {
+          id: 'setup.impact.goal.delete',
+          tokens: { label: change.label, questions, regrouped: n(c, 'regrouped') },
+        },
+      ],
+    }
+  }
+
+  const fields = changed(change).filter((f) => (GOAL_FIELD_CLASS[f.field] ?? 'grouping') !== 'safe')
+  if (fields.length === 0) return { severity: 'safe', consequences: [] }
+
+  const regrouped = n(c, 'regrouped')
+  return {
+    severity: 'affects_future',
+    consequences: [
+      {
+        id: regrouped > 0 ? 'setup.impact.goal.rename' : 'setup.impact.goal.rename-clean',
+        tokens: {
+          label: change.label,
+          questions: n(c, 'questions'),
+          regrouped,
+        },
+      },
+    ],
+  }
+}
 
 // ---------------------------------------------------------------------------
 // Events (activities)
@@ -507,6 +681,36 @@ function classifyEvent(change: SetupChange): Verdict {
 function classifyWiring(change: SetupChange): Verdict {
   const c = change.counts
   const captures = n(c, 'captures')
+
+  // tl-08: the same Save can now carry either of two different acts. Rewording one
+  // event's prompt changes what evaluators are ASKED from here on and leaves every
+  // recorded answer meaning exactly what it meant; rewiring changes WHICH answers
+  // the event's rollup reads. Only the second can invalidate anything, so an
+  // override-only change never reaches `invalidates_evidence` however many captures
+  // the event has.
+  // A caller that supplied `fields` has told us what changed, so an empty diff means
+  // nothing did and the save is silent. A caller that supplied NONE has told us
+  // nothing, so the captures-based rule below still applies — over-warning where we
+  // cannot tell is the safe direction, and it is what every pre-tl-08 caller relied
+  // on.
+  const declared = change.fields != null
+  const fields = changed(change)
+  if (declared && fields.length === 0) return { severity: 'safe', consequences: [] }
+
+  const classes = new Set(fields.map((f) => WIRING_FIELD_CLASS[f.field] ?? 'membership'))
+  if (fields.length > 0 && !classes.has('membership')) {
+    if (!classes.has('future')) return { severity: 'safe', consequences: [] }
+    return {
+      severity: 'affects_future',
+      consequences: [
+        {
+          id: 'setup.impact.wiring.override',
+          tokens: { label: change.label, captures },
+        },
+      ],
+    }
+  }
+
   if (captures === 0) {
     return {
       severity: 'affects_future',

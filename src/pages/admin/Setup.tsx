@@ -120,7 +120,10 @@ function useOverview(workshop: Workshop | null): Overview {
       const [events, links, questions, participants, people] = await Promise.all([
         db.activities.where('workshop_id').equals(workshop.id).toArray(),
         db.activityKsas.toArray(),
-        db.ksas.count(),
+        // Scoped (tl-08). An unscoped count read the whole deployment's library, so
+        // a brand-new workshop with no questions of its own would have reported the
+        // Goals section complete on the strength of another workshop's work.
+        db.ksas.where('workshop_id').equals(workshop.id).count(),
         db.participants.where('workshop_id').equals(workshop.id).count(),
         db.workshopPeople.where('workshop_id').equals(workshop.id).toArray(),
       ])
@@ -215,7 +218,7 @@ function SectionBody({ section, workshop }: { section: string; workshop: Worksho
     case 'basics':
       return <BasicsSection workshop={workshop} />
     case 'goals':
-      return <QuestionsSection workshopId={workshop.id} />
+      return <QuestionsSection workshop={workshop} />
     case 'calendar':
       return (
         <>

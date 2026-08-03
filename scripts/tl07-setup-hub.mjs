@@ -144,9 +144,11 @@ async function setup() {
  */
 async function seedFixtureQuestion() {
   await sql(`
-    insert into ksa (id, code, area, short_label, description, evaluator_facing_prompt,
+    insert into ksa (id, workshop_id, code, short_label, description, evaluator_facing_prompt,
                      evidence_levels, cbc_subpoint_refs)
-    values ('${KSA_ID}', '${KSA_CODE}', 'TL07 fixtures', '${KSA_LABEL}',
+    -- workshop_id added by tl-08, which made ksa workshop-scoped and NOT NULL; the
+    -- legacy free-text \`area\` is no longer written by anything.
+    values ('${KSA_ID}', '${PILOT_WS}', '${KSA_CODE}', '${KSA_LABEL}',
             'A question that exists so a delete can be tested.',
             'How did they do the thing?',
             '{"0":"absent","1":"weak","2":"solid","3":"exemplary"}'::jsonb, array[]::text[])

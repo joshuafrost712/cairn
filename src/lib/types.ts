@@ -6,8 +6,16 @@
 import type { SetupEntity, SetupOperation, SetupSeverity, WorkshopState } from '../setup/impact'
 
 // The technical KSA areas of the Psalms Workshop (OBT CDT Workshop 3, Bali 2026).
-// The interpersonal-interaction competency (INTERP, teaching sessions) is authored
-// in the seed data alongside these; this list is not currently referenced elsewhere.
+//
+// SEED DATA ONLY (tl-08). This was the de-facto vocabulary for the level above a
+// question, offered as a datalist suggestion against a free-text `ksa.area`
+// string. It is no longer a source of truth for anything: that level is now the
+// `goal` table, per workshop, populated with whatever the organization running
+// the workshop is actually training toward. These six strings survive because
+// they are what the Psalms workshop's goals are seeded and demo'd with — a
+// starting point somebody edits, not a constraint.
+//
+// Do not read this to group, sort, validate, or label anything. Ask the goal.
 export const KSA_AREAS = [
   'The CLAT Process and Translation of Aesthetic Language',
   'Aesthetic Language, Ethnopoetics, and the Biblical Function of the Psalms',
@@ -26,6 +34,40 @@ export interface Workshop {
   end_date: string | null
   location: string | null
   languages: string[]
+  /**
+   * What THIS workshop calls the level above a question: "KSA area" for the OBT
+   * track, "Competency" or "Outcome" for somebody else. Null means the app
+   * default (see GOAL_LABEL_DEFAULT in lib/goals.ts).
+   *
+   * A label rather than a rename, because the entity is the same everywhere and
+   * only the word differs. Optional on the type so the ~45 seed literals and
+   * every test factory did not have to grow a field none of them care about.
+   */
+  goal_label?: string | null
+}
+
+/**
+ * The level above a question: what the workshop is evaluating FOR (tl-08).
+ *
+ * Joshua's feedback asked for "the highest-level KSAs (or whatever other goals
+ * they have)", and the parenthesis is why this is a table rather than a rename.
+ * Before tl-08 this level was a free-text string on each question, checked
+ * against a hardcoded list of the six Psalms competency areas — load-bearing for
+ * every report grouping while being unvalidated in storage.
+ *
+ * A goal groups questions for display and for the report headings. It carries no
+ * score of its own: inventing an aggregate designation for a goal is a research
+ * question about how competencies compose, not a setup feature.
+ */
+export interface Goal {
+  id: string
+  workshop_id: string
+  /** Short handle, unique inside the workshop (G1, ORAL, …). Not globally unique. */
+  code: string
+  /** What the reports print as the group heading. */
+  title: string
+  description: string | null
+  sort_order: number
 }
 
 export interface Team {
@@ -75,8 +117,25 @@ export type EvidenceLevels = Partial<Record<'0' | '1' | '2' | '3', string>>
 
 export interface Ksa {
   id: string
+  /**
+   * The workshop this question belongs to (tl-08). Before then `ksa` was a global
+   * library: two workshops in one deployment shared one question pool, so a code
+   * collision between organizations was a data corruption rather than a warning.
+   */
+  workshop_id: string
+  /** Unique within the workshop, not across the deployment. Two workshops may both hold a Q1. */
   code: string
-  area: string
+  /** The goal this question sits under. Null means ungrouped, which is legal and visible. */
+  goal_id: string | null
+  /**
+   * @deprecated LEGACY (tl-08). The free-text group string that `goal_id`
+   * replaced. Retained on the type only because the Postgres column is retained
+   * for one release cycle so a pre-tl-08 client keeps working. App code must
+   * neither read nor write it: the group label comes from the goal, through
+   * `withGoalTitles()` in lib/goals.ts. Two writable copies of one fact is how
+   * they come to disagree.
+   */
+  area?: string | null
   /** Short scannable heading for the capture card (e.g. "CLAT facilitation & drafting"). */
   short_label: string
   description: string
@@ -96,6 +155,24 @@ export interface ActivityKsa {
   activity_id: string
   ksa_id: string
   sort_order: number
+  /**
+   * Per-event wording for this question (tl-08). Null means "use the question's
+   * own value", which is the case for almost every row and is why these are
+   * nullable rather than copies.
+   *
+   * The requirement is Joshua's "the KSA prompts for each event": the same
+   * competency is looked for differently during a lecture than during a practice
+   * session. Resolution happens in exactly ONE place, `ksasForActivity()`, so the
+   * capture screen, the Setup preview and the routing capture file cannot show an
+   * evaluator three different questions.
+   *
+   * There is deliberately no override for `ai_facing_rubric`. One question means
+   * one thing to the router; per-event wording is about how a human is prompted
+   * to look, not about what the evidence is.
+   */
+  prompt_override?: string | null
+  /** Null = use the question's own. An EMPTY array means "show none on this event". */
+  guiding_questions_override?: string[] | null
 }
 
 /**
@@ -442,6 +519,7 @@ export type ReferenceTable =
   | 'team'
   | 'participant'
   | 'activity'
+  | 'goal'
   | 'ksa'
   | 'activity_ksa'
   | 'workshop_setting'

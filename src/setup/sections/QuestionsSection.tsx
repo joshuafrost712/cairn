@@ -2,40 +2,341 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db, newId } from '../../db/local'
-import { deleteKsa, upsertKsa } from '../../db/referenceWrite'
+import {
+  deleteGoalRow,
+  deleteKsa,
+  reorderGoals,
+  upsertGoal,
+  upsertKsa,
+  upsertWorkshop,
+} from '../../db/referenceWrite'
 import { c } from '../../lib/content/chrome'
-import { KSA_AREAS, type Ksa } from '../../lib/types'
-import { countsForQuestion } from '../counts'
+import {
+  goalLabel,
+  groupByGoal,
+  nextGoalCode,
+  nextQuestionCode,
+  type GoalGroup,
+} from '../../lib/goals'
+import type { Goal, Ksa, Workshop } from '../../lib/types'
+import { countsForGoal, countsForQuestion } from '../counts'
 import { diffFields } from '../impact'
 import { useSetupSave } from '../useSetupSave'
 
 /**
- * Goals and questions: what each event is evaluated against.
+ * Goals and questions: what this workshop is evaluating for, and what it asks.
  *
- * The editor is the Scenario Builder's, moved rather than copied. Two things it
- * gained here.
+ * tl-08 changed both halves of this section.
  *
- * First, an explicit Save. It always had one — a question is edited into a draft and
- * saved in one go — and that is now load-bearing rather than incidental: editing an
- * evidence-level descriptor can classify `invalidates_evidence`, which needs a
- * dialog in front of it, and a dialog cannot sit behind a blur.
+ * The questions are now the WORKSHOP's rather than the deployment's. The honest
+ * grey-text warning this section carried — "editing a question here edits it in
+ * every workshop it is wired to" — is gone because it has stopped being true, which
+ * is the whole point of the spec. What replaces it is a scoped list: the query is
+ * `where('workshop_id')`, so a second workshop's Q1 is not even visible here, let
+ * alone editable by accident.
  *
- * Second, the honest warning that questions are still a GLOBAL library. `ksa` has no
- * workshop_id until tl-08, so editing a question here edits it in every workshop it
- * is wired to. That was always true and was stated in one line of grey text; it is
- * now also a counted consequence in the dialog, because "changes it everywhere" and
- * "detaches 23 observations across 6 participants" are different sentences.
+ * And there is a level above them. Joshua's feedback asked to edit "the
+ * highest-level KSAs (or whatever other goals they have)", so a goal is a row an
+ * administrator writes rather than a string matched against six hardcoded Psalms
+ * competency areas. Each workshop names the level itself (`goal_label`), so an
+ * organization using KSAs reads "KSA area" and nobody has to rename a schema to
+ * rename a heading.
+ *
+ * Questions are grouped under their goals, reorderable inside one and movable
+ * between them. Moving one after captures exist is a classified change with a
+ * count, because every report already printed regroups under a different heading.
  */
-export function QuestionsSection({ workshopId }: { workshopId: string }) {
+export function QuestionsSection({ workshop }: { workshop: Workshop }) {
+  const workshopId = workshop.id
+  const label = goalLabel(workshop)
+  const goals = useLiveQuery(
+    () => db.goals.where('workshop_id').equals(workshopId).toArray(),
+    [workshopId],
+    [] as Goal[],
+  )
+  const ksas = useLiveQuery(
+    () => db.ksas.where('workshop_id').equals(workshopId).toArray(),
+    [workshopId],
+    [] as Ksa[],
+  )
+  const groups = groupByGoal(ksas ?? [], goals ?? [])
+
+  return (
+    <>
+      <GoalsCard workshop={workshop} goals={goals ?? []} groups={groups} />
+      <div className="card">
+        <div className="row" style={{ justifyContent: 'space-between' }}>
+          <h2>{c('setup.questions.title', 'label', { count: (ksas ?? []).length })}</h2>
+        </div>
+        <p className="small muted">{c('setup.questions.scoped-note', 'label', { workshop: workshop.name })}</p>
+        {(goals ?? []).length === 0 && (
+          <p className="small muted">{c('setup.questions.no-goals', 'label', { label })}</p>
+        )}
+        {groups.map((group) => (
+          <QuestionGroup
+            key={group.goal?.id ?? 'ungrouped'}
+            group={group}
+            goals={goals ?? []}
+            ksas={ksas ?? []}
+            goalWord={label}
+            workshopId={workshopId}
+          />
+        ))}
+      </div>
+      <div className="card">
+        <h2>{c('setup.questions.preview-title')}</h2>
+        <p className="small muted">
+          {c('setup.questions.preview-help')}{' '}
+          <Link to="/admin/setup/calendar">{c('setup.nav.calendar')}</Link>.
+        </p>
+      </div>
+    </>
+  )
+}
+
+/** The goals themselves: add, rename, reorder, delete. */
+function GoalsCard({
+  workshop,
+  goals,
+  groups,
+}: {
+  workshop: Workshop
+  goals: Goal[]
+  groups: GoalGroup[]
+}) {
   const { request, busy } = useSetupSave()
-  const ksas = useLiveQuery(() => db.ksas.orderBy('code').toArray(), [], [] as Ksa[])
+  const label = goalLabel(workshop)
+  const countFor = (goalId: string) => groups.find((g) => g.goal?.id === goalId)?.ksas.length ?? 0
+
+  const add = async () => {
+    const goal: Goal = {
+      id: newId(),
+      workshop_id: workshop.id,
+      code: nextGoalCode(goals),
+      title: '',
+      description: null,
+      sort_order: goals.length,
+    }
+    await request({
+      // Nothing is grouped under it yet, so it changes no report and no capture:
+      // the classifier's canonical `safe` case, saved without a dialog.
+      change: { entity: 'goal', operation: 'create', entityId: goal.id, label: goal.code },
+      commit: () => upsertGoal(goal),
+    })
+  }
+
+  const move = async (index: number, dir: -1 | 1) => {
+    const ordered = [...goals].sort((a, b) => a.sort_order - b.sort_order)
+    const j = index + dir
+    if (j < 0 || j >= ordered.length) return
+    ;[ordered[index], ordered[j]] = [ordered[j], ordered[index]]
+    // Reordering headings is presentation: no question changes goal and no
+    // designation changes meaning, so it saves on the spot like a rename of a team.
+    await reorderGoals(ordered)
+  }
+
+  const ordered = [...goals].sort((a, b) => a.sort_order - b.sort_order)
+
+  return (
+    <div className="card">
+      <div className="row" style={{ justifyContent: 'space-between' }}>
+        <h2>{c('setup.goals.title', 'label', { label, count: goals.length })}</h2>
+        <button disabled={busy} onClick={() => void add()}>
+          {c('setup.goals.add', 'label', { label })}
+        </button>
+      </div>
+      <p className="small muted">{c('setup.goals.help', 'label', { label })}</p>
+      <GoalLabelField workshop={workshop} />
+      {ordered.length === 0 ? (
+        <p className="small muted">{c('setup.goals.empty', 'label', { label })}</p>
+      ) : (
+        ordered.map((goal, i) => (
+          <GoalEditor
+            key={goal.id}
+            goal={goal}
+            questionCount={countFor(goal.id)}
+            first={i === 0}
+            last={i === ordered.length - 1}
+            onMove={(dir) => void move(i, dir)}
+          />
+        ))
+      )}
+    </div>
+  )
+}
+
+/** What this workshop calls the level above a question. */
+function GoalLabelField({ workshop }: { workshop: Workshop }) {
+  const { request, busy } = useSetupSave()
+  const [draft, setDraft] = useState(workshop.goal_label ?? '')
+
+  const save = async () => {
+    const after: Workshop = { ...workshop, goal_label: draft.trim() || null }
+    await request({
+      change: {
+        entity: 'workshop',
+        operation: 'update',
+        entityId: workshop.id,
+        label: workshop.name,
+        fields: diffFields(workshop, after),
+      },
+      commit: () => upsertWorkshop(after),
+    })
+  }
+
+  return (
+    <div className="row" style={{ alignItems: 'flex-end', flexWrap: 'wrap' }}>
+      <span>
+        <label className="small muted">{c('setup.goals.label-field')}</label>
+        <input
+          value={draft}
+          placeholder={c('setup.goals.label-placeholder')}
+          onChange={(e) => setDraft(e.target.value)}
+        />
+      </span>
+      <button
+        className="ghost small"
+        disabled={busy || (workshop.goal_label ?? '') === draft}
+        onClick={() => void save()}
+      >
+        {c('setup.goals.label-save')}
+      </button>
+    </div>
+  )
+}
+
+function GoalEditor({
+  goal,
+  questionCount,
+  first,
+  last,
+  onMove,
+}: {
+  goal: Goal
+  questionCount: number
+  first: boolean
+  last: boolean
+  onMove: (dir: -1 | 1) => void
+}) {
+  const { request, busy } = useSetupSave()
+  const [draft, setDraft] = useState<Goal>(goal)
+  const [confirmArmed, setConfirmArmed] = useState(false)
+  const label = `${goal.code} — ${goal.title || c('setup.goals.untitled')}`
+
+  const save = async () => {
+    const counts = await countsForGoal(goal.id, goal.workshop_id)
+    await request({
+      change: {
+        entity: 'goal',
+        operation: 'update',
+        entityId: goal.id,
+        label,
+        fields: diffFields(goal, draft),
+        counts,
+      },
+      commit: () => upsertGoal(draft),
+    })
+  }
+
+  const remove = async () => {
+    setConfirmArmed(false)
+    const counts = await countsForGoal(goal.id, goal.workshop_id)
+    await request({
+      change: { entity: 'goal', operation: 'delete', entityId: goal.id, label, counts },
+      commit: () => deleteGoalRow(goal.id),
+    })
+  }
+
+  return (
+    <div
+      className="activity-item"
+      // The code is an input value, which no text-based locator can read. Harnesses
+      // (scripts/tl08-goals.mjs) address a goal row by this.
+      data-goal-code={goal.code}
+      style={{ display: 'block', cursor: 'default', marginBottom: '0.4rem' }}
+    >
+      <div className="row" style={{ flexWrap: 'wrap', alignItems: 'flex-end' }}>
+        <span style={{ width: '5rem' }}>
+          <label className="small muted">{c('setup.goals.code')}</label>
+          <input value={draft.code} onChange={(e) => setDraft({ ...draft, code: e.target.value })} />
+        </span>
+        <span style={{ flex: 1, minWidth: '12rem' }}>
+          <label className="small muted">{c('setup.goals.heading')}</label>
+          <input
+            value={draft.title}
+            onChange={(e) => setDraft({ ...draft, title: e.target.value })}
+            style={{ width: '100%' }}
+          />
+        </span>
+        <button className="ghost small" onClick={() => onMove(-1)} disabled={busy || first}>
+          ↑
+        </button>
+        <button className="ghost small" onClick={() => onMove(1)} disabled={busy || last}>
+          ↓
+        </button>
+      </div>
+      <label className="small muted">{c('setup.goals.description')}</label>
+      <textarea
+        rows={2}
+        value={draft.description ?? ''}
+        onChange={(e) => setDraft({ ...draft, description: e.target.value || null })}
+      />
+      <div className="row" style={{ justifyContent: 'space-between' }}>
+        <span className="small muted">
+          {c('setup.goals.holds', 'label', { count: questionCount })}
+        </span>
+        <span className="row">
+          <button
+            className="small"
+            disabled={busy || !draft.code.trim() || diffFields(goal, draft).length === 0}
+            onClick={() => void save()}
+          >
+            {c('setup.goals.save')}
+          </button>
+          {!confirmArmed ? (
+            <button className="ghost small" disabled={busy} onClick={() => setConfirmArmed(true)}>
+              {c('setup.action.delete')}
+            </button>
+          ) : (
+            <>
+              <button className="small" disabled={busy} onClick={() => void remove()}>
+                {c('setup.action.delete-continue')}
+              </button>
+              <button className="ghost small" onClick={() => setConfirmArmed(false)}>
+                {c('setup.action.cancel')}
+              </button>
+            </>
+          )}
+        </span>
+      </div>
+    </div>
+  )
+}
+
+/** One goal's questions, plus the Add that creates a question already inside it. */
+function QuestionGroup({
+  group,
+  goals,
+  ksas,
+  goalWord,
+  workshopId,
+}: {
+  group: GoalGroup
+  goals: Goal[]
+  ksas: Ksa[]
+  goalWord: string
+  workshopId: string
+}) {
+  const { request, busy } = useSetupSave()
 
   const addQuestion = async () => {
-    const next = (ksas ?? []).length + 1
     const ksa: Ksa = {
       id: newId(),
-      code: `Q${next}`,
-      area: KSA_AREAS[0],
+      workshop_id: workshopId,
+      // Scoped to the workshop, so this is the next free code HERE. Two workshops
+      // may both hold a Q1 and neither knows about the other's.
+      code: nextQuestionCode(ksas),
+      goal_id: group.goal?.id ?? null,
       short_label: 'New question',
       description: '',
       evaluator_facing_prompt: '',
@@ -45,39 +346,45 @@ export function QuestionsSection({ workshopId }: { workshopId: string }) {
       guiding_questions: [],
     }
     await request({
-      // Not wired to any event, so nobody is asked it and no report reads it: the
-      // classifier's canonical `safe` case, and it saves without a dialog.
       change: { entity: 'question', operation: 'create', entityId: ksa.id, label: ksa.code },
       commit: () => upsertKsa(ksa),
     })
   }
 
   return (
-    <>
-      <div className="card">
-        <div className="row" style={{ justifyContent: 'space-between' }}>
-          <h2>{c('setup.questions.title', 'label', { count: (ksas ?? []).length })}</h2>
-          <button disabled={busy} onClick={() => void addQuestion()}>
-            {c('setup.questions.add')}
-          </button>
-        </div>
-        <p className="small muted">{c('setup.questions.global-warning')}</p>
-        <p className="small muted">{c('setup.questions.goals-pending')}</p>
-        {(ksas ?? []).map((k) => (
-          <QuestionEditor key={k.id} ksa={k} workshopId={workshopId} />
-        ))}
+    <div style={{ marginTop: '0.75rem' }}>
+      <div className="row" style={{ justifyContent: 'space-between', alignItems: 'baseline' }}>
+        <h3 style={{ margin: 0 }}>
+          {group.goal
+            ? `${group.goal.code} — ${group.goal.title || c('setup.goals.untitled')}`
+            : c('setup.questions.ungrouped', 'label', { label: goalWord })}
+        </h3>
+        <button className="ghost small" disabled={busy} onClick={() => void addQuestion()}>
+          {c('setup.questions.add')}
+        </button>
       </div>
-      <div className="card">
-        <h2>{c('setup.questions.preview-title')}</h2>
-        <p className="small muted">
-          {c('setup.questions.preview-help')} <Link to="/admin/setup/calendar">{c('setup.nav.calendar')}</Link>.
-        </p>
-      </div>
-    </>
+      {group.ksas.length === 0 ? (
+        <p className="small muted">{c('setup.questions.group-empty')}</p>
+      ) : (
+        group.ksas.map((k) => (
+          <QuestionEditor key={k.id} ksa={k} goals={goals} goalWord={goalWord} workshopId={workshopId} />
+        ))
+      )}
+    </div>
   )
 }
 
-function QuestionEditor({ ksa, workshopId }: { ksa: Ksa; workshopId: string }) {
+function QuestionEditor({
+  ksa,
+  goals,
+  goalWord,
+  workshopId,
+}: {
+  ksa: Ksa
+  goals: Goal[]
+  goalWord: string
+  workshopId: string
+}) {
   const { request, busy } = useSetupSave()
   const [open, setOpen] = useState(false)
   const [draft, setDraft] = useState<Ksa>(ksa)
@@ -121,6 +428,7 @@ function QuestionEditor({ ksa, workshopId }: { ksa: Ksa; workshopId: string }) {
   return (
     <div
       className="activity-item"
+      data-question-code={ksa.code}
       style={{ display: 'block', cursor: 'default', marginBottom: '0.5rem' }}
     >
       <div className="row" style={{ justifyContent: 'space-between' }}>
@@ -147,47 +455,52 @@ function QuestionEditor({ ksa, workshopId }: { ksa: Ksa; workshopId: string }) {
         <div style={{ marginTop: '0.4rem' }}>
           <div className="row" style={{ flexWrap: 'wrap' }}>
             <span>
-              <label className="small muted">Code (unique)</label>
+              <label className="small muted">{c('setup.questions.code')}</label>
               <input
                 value={draft.code}
                 onChange={(e) => setDraft({ ...draft, code: e.target.value })}
               />
             </span>
             <span style={{ flex: 1 }}>
-              <label className="small muted">Area</label>
-              <input
-                list="ksa-areas"
-                value={draft.area}
-                onChange={(e) => setDraft({ ...draft, area: e.target.value })}
+              <label className="small muted">{goalWord}</label>
+              <select
+                value={draft.goal_id ?? ''}
+                onChange={(e) => setDraft({ ...draft, goal_id: e.target.value || null })}
                 style={{ width: '100%' }}
-              />
-              <datalist id="ksa-areas">
-                {KSA_AREAS.map((a) => (
-                  <option key={a} value={a} />
-                ))}
-              </datalist>
+              >
+                <option value="">{c('setup.questions.no-goal')}</option>
+                {[...goals]
+                  .sort((a, b) => a.sort_order - b.sort_order)
+                  .map((g) => (
+                    <option key={g.id} value={g.id}>
+                      {g.code} — {g.title || c('setup.goals.untitled')}
+                    </option>
+                  ))}
+              </select>
             </span>
           </div>
           <p className="small muted">{c('setup.questions.code-warning')}</p>
-          <label className="small muted">Short label (card heading)</label>
+          <p className="small muted">{c('setup.questions.regroup-warning', 'label', { label: goalWord })}</p>
+          <label className="small muted">{c('setup.questions.short-label')}</label>
           <input
             value={draft.short_label}
             onChange={(e) => setDraft({ ...draft, short_label: e.target.value })}
           />
-          <label className="small muted">Description</label>
+          <label className="small muted">{c('setup.questions.description')}</label>
           <textarea
             rows={2}
             value={draft.description}
             onChange={(e) => setDraft({ ...draft, description: e.target.value })}
           />
-          <label className="small muted">Evaluator-facing prompt (shown while capturing)</label>
+          <label className="small muted">{c('setup.questions.prompt')}</label>
           <textarea
             rows={2}
             value={draft.evaluator_facing_prompt}
             onChange={(e) => setDraft({ ...draft, evaluator_facing_prompt: e.target.value })}
           />
+          <p className="small muted">{c('setup.questions.prompt-override-note')}</p>
 
-          <label className="small muted">Evidence levels — what earns each 0–3</label>
+          <label className="small muted">{c('setup.questions.levels')}</label>
           {(['0', '1', '2', '3'] as const).map((n) => (
             <div key={n} className="row" style={{ alignItems: 'flex-start' }}>
               <strong style={{ width: '1.5rem', paddingTop: '0.5rem' }}>{n}</strong>
@@ -200,7 +513,7 @@ function QuestionEditor({ ksa, workshopId }: { ksa: Ksa; workshopId: string }) {
             </div>
           ))}
 
-          <label className="small muted">Guiding questions (look/listen for)</label>
+          <label className="small muted">{c('setup.questions.guiding')}</label>
           {guiding.map((g, i) => (
             <div key={i} className="row">
               <input
@@ -212,23 +525,23 @@ function QuestionEditor({ ksa, workshopId }: { ksa: Ksa; workshopId: string }) {
                 className="ghost small"
                 onClick={() => setGuiding(guiding.filter((_, j) => j !== i))}
               >
-                remove
+                {c('setup.questions.guiding-remove')}
               </button>
             </div>
           ))}
           <button className="ghost small" onClick={() => setGuiding([...guiding, ''])}>
-            + add guiding question
+            {c('setup.questions.guiding-add')}
           </button>
 
           <label className="small muted" style={{ marginTop: '0.4rem' }}>
-            AI-facing rubric (optional)
+            {c('setup.questions.rubric')}
           </label>
           <textarea
             rows={2}
             value={draft.ai_facing_rubric ?? ''}
             onChange={(e) => setDraft({ ...draft, ai_facing_rubric: e.target.value || null })}
           />
-          <label className="small muted">CBC sub-point refs (comma-separated)</label>
+          <label className="small muted">{c('setup.questions.cbc')}</label>
           <input
             value={(draft.cbc_subpoint_refs ?? []).join(', ')}
             onChange={(e) =>

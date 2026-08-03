@@ -5,7 +5,9 @@ import { useIsChief, useScopedWorkshopId } from '../layout/roles'
 import { buildAllReports } from '../reports/build'
 import { annotateObservations, getRequiredConfirmations } from '../reports/verification'
 import { buildCaptureTimeMap, discrepancyId, findDiscrepancies } from '../reports/discrepancy'
+import { withGoalTitles } from '../lib/goals'
 import type {
+  Goal,
   DiscrepancyResolution,
   EvaluationRecord,
   Ksa,
@@ -103,6 +105,13 @@ export function useNavCounts(): NavCounts {
     [isChief],
     [] as Ksa[],
   )
+  // Goals too, because the discrepancy rollup below runs through buildAllReports,
+  // which prints a group heading per question (tl-08).
+  const goals = useLiveQuery(
+    () => (isChief ? db.goals.toArray() : Promise.resolve([] as Goal[])),
+    [isChief],
+    [] as Goal[],
+  )
   const teams = useLiveQuery(
     () => (isChief ? db.teams.toArray() : Promise.resolve([] as Team[])),
     [isChief],
@@ -134,7 +143,10 @@ export function useNavCounts(): NavCounts {
 
   const openDiscrepancies = useMemo(() => {
     if (!isChief) return 0
-    const sortedKsas = [...(ksas ?? [])].sort((a, b) => a.code.localeCompare(b.code))
+    const sortedKsas = withGoalTitles(
+      [...(ksas ?? [])].sort((a, b) => a.code.localeCompare(b.code)),
+      goals ?? [],
+    )
     const annotated = annotateObservations(observations ?? [], verdicts ?? [])
     const reports = buildAllReports(participants ?? [], sortedKsas, annotated, teams ?? [])
     const captureTimes = buildCaptureTimeMap(evaluations ?? [])
@@ -142,7 +154,7 @@ export function useNavCounts(): NavCounts {
     return findDiscrepancies(reports, captureTimes).filter(
       (d) => !resolvedIds.has(discrepancyId(d.participant_id, d.ksa_code)),
     ).length
-  }, [isChief, participants, ksas, teams, observations, verdicts, evaluations, resolutions])
+  }, [isChief, participants, ksas, goals, teams, observations, verdicts, evaluations, resolutions])
 
   const underAssigned = useMemo(() => {
     if (!isChief || !workshopId) return 0

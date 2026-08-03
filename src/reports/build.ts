@@ -12,7 +12,8 @@
 //  - A spread of 2+ across counting designations is flagged as conflicting evidence
 //    for a human to resolve (e.g. strong personal skill but weak facilitation).
 
-import type { Ksa, ObservationRecord, Participant, Team } from '../lib/types'
+import type { ResolvedKsa } from '../lib/goals'
+import type { ObservationRecord, Participant, Team } from '../lib/types'
 
 // The rollup reads two optional fields that the verification layer attaches
 // (src/reports/verification.ts → AnnotatedObservation). When absent (the draft,
@@ -45,7 +46,7 @@ export function designationOf(o: ObservationRecord): number {
 
 export interface KsaRollup<T extends ObservationRecord = ObservationRecord> {
   ksa_code: string
-  area: string
+  goal_title: string
   representative: number | null // null = no counting evidence yet
   designations: number[] // counting designations, ascending
   conflict: boolean
@@ -71,7 +72,7 @@ export interface ParticipantReport<T extends ObservationRecord = ObservationReco
 /** Build one participant's report across all workshop KSAs. */
 export function buildParticipantReport<T extends ObservationRecord>(
   participant: Participant,
-  ksas: Ksa[],
+  ksas: ResolvedKsa[],
   observations: T[],
   teams: Team[],
 ): ParticipantReport<T> {
@@ -92,7 +93,7 @@ export function buildParticipantReport<T extends ObservationRecord>(
     const conflict = designations.length > 1 && designations[designations.length - 1] - designations[0] >= 2
     return {
       ksa_code: k.code,
-      area: k.area,
+      goal_title: k.goal_title,
       representative,
       designations,
       conflict,
@@ -133,7 +134,7 @@ export function buildParticipantReport<T extends ObservationRecord>(
 /** Reports for every participant who has at least one observation, plus the roster order. */
 export function buildAllReports<T extends ObservationRecord>(
   participants: Participant[],
-  ksas: Ksa[],
+  ksas: ResolvedKsa[],
   observations: T[],
   teams: Team[],
 ): ParticipantReport<T>[] {

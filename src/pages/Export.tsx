@@ -1,4 +1,6 @@
 import { useMemo, useState } from 'react'
+
+import { useResolvedKsas } from '../hooks/useResolvedKsas'
 import { Link } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '../db/local'
@@ -6,14 +8,14 @@ import { buildAllReports } from '../reports/build'
 import { annotateObservations, participantGate, getRequiredConfirmations, type Gate } from '../reports/verification'
 import { buildCbcExport, cbcKsaCsv, cbcSubpointCsv } from '../reports/cbcExport'
 import { downloadText } from '../lib/download'
-import type { Ksa, ObservationRecord, Participant, Team, VerificationVerdict } from '../lib/types'
+import type { ObservationRecord, Participant, Team, VerificationVerdict } from '../lib/types'
 
 // CBC export: the interchange artifact for the (deferred) platform submission adapter.
 // Only verified evidence drives designations; "only finalized" limits to reports whose
 // gate is ready. JSON is canonical; the two CSVs are for pivoting / spreadsheet import.
 export function Export() {
   const participants = useLiveQuery(() => db.participants.toArray(), [], [] as Participant[])
-  const ksas = useLiveQuery(() => db.ksas.toArray(), [], [] as Ksa[])
+  const ksas = useResolvedKsas()
   const teams = useLiveQuery(() => db.teams.toArray(), [], [] as Team[])
   const observations = useLiveQuery(() => db.observations.toArray(), [], [] as ObservationRecord[])
   const verdicts = useLiveQuery(() => db.verifications.toArray(), [], [] as VerificationVerdict[])

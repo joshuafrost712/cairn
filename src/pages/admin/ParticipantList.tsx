@@ -63,7 +63,7 @@ export function ParticipantList() {
     },
     ...ksas.map<Column<Row>>((k) => ({
       key: k.code,
-      header: <span title={`${k.short_label} — ${k.area}`}>{k.code}</span>,
+      header: <span title={`${k.short_label} — ${k.goal_title}`}>{k.code}</span>,
       sortValue: (r) => r.ksaRollups.find((x) => x.ksa_code === k.code)?.representative ?? null,
       render: (r) => {
         const roll = r.ksaRollups.find((x) => x.ksa_code === k.code)

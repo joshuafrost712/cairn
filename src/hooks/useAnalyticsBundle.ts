@@ -30,7 +30,8 @@ import type {
   WorkbenchSummary,
 } from '../reports/analytics'
 import type { ParticipantReport } from '../reports/build'
-import type { Activity, Ksa, Participant, Team, Workshop } from '../lib/types'
+import { withGoalTitles, type ResolvedKsa } from '../lib/goals'
+import type { Activity, Goal, Ksa, Participant, Team, Workshop } from '../lib/types'
 
 export interface DashboardFilters {
   /** Activity.day, or null for all days. */
@@ -45,7 +46,15 @@ export interface AnalyticsBundle {
   workshop: Workshop | null
   participants: Participant[]
   teams: Team[]
-  ksas: Ksa[]
+  /**
+   * The workshop's questions, with their goal titles resolved (tl-08).
+   *
+   * `ResolvedKsa` rather than `Ksa` on purpose: every rollup below prints a group
+   * heading, and that heading now comes from the goal. Taking the resolved shape
+   * makes it a compile error to hand the analytics layer questions whose group is
+   * unknown, which is what the old free-text `area` field allowed.
+   */
+  ksas: ResolvedKsa[]
   activities: Activity[]
   annotated: AnnotatedObservation[]
   situated: SituatedObservation[]
@@ -88,6 +97,7 @@ export function useAnalyticsBundle(filters: DashboardFilters = {}): AnalyticsBun
   const participants = useLiveQuery(() => db.participants.toArray(), [], [] as Participant[])
   const teams = useLiveQuery(() => db.teams.toArray(), [], [] as Team[])
   const ksas = useLiveQuery(() => db.ksas.toArray(), [], [] as Ksa[])
+  const goals = useLiveQuery(() => db.goals.toArray(), [], [] as Goal[])
   const activities = useLiveQuery(() => db.activities.toArray(), [], [] as Activity[])
   const observations = useLiveQuery(() => db.observations.toArray(), [], [])
   const verdicts = useLiveQuery(() => db.verifications.toArray(), [], [])
@@ -109,7 +119,16 @@ export function useAnalyticsBundle(filters: DashboardFilters = {}): AnalyticsBun
       ? myParticipantsAll.filter((p) => p.team_id === teamId)
       : myParticipantsAll
     // Stable KSA order everywhere: code-sorted, matching what the rest of the app does.
-    const sortedKsas = [...(ksas ?? [])].sort((a, b) => a.code.localeCompare(b.code))
+    // Scoped to the workshop as of tl-08, the same way activities and participants
+    // already were: questions belong to a workshop now, and a report that enumerated
+    // the whole deployment's library would list another organization's questions as
+    // "no evidence recorded" on every participant.
+    const sortedKsas = withGoalTitles(
+      [...(ksas ?? [])]
+        .filter((k) => !wsId || k.workshop_id === wsId)
+        .sort((a, b) => a.code.localeCompare(b.code)),
+      (goals ?? []).filter((g) => !wsId || g.workshop_id === wsId),
+    )
 
     const annotatedAll = annotateObservations(observations ?? [], verdicts ?? [])
     const situatedAll = situate(annotatedAll, buildCaptureIndex(evaluations ?? []))
@@ -183,6 +202,7 @@ export function useAnalyticsBundle(filters: DashboardFilters = {}): AnalyticsBun
     participants,
     teams,
     ksas,
+    goals,
     activities,
     observations,
     verdicts,

@@ -5,6 +5,7 @@ import {
   matchFromRowKey,
   MAX_PUSH_ATTEMPTS,
   referenceKeyFields,
+  toKsaRow,
 } from '../src/db/referenceWrite'
 import { activityKsaPk, assignmentPk, workshopSettingPk } from '../src/db/local'
 
@@ -164,5 +165,65 @@ describe('matchFromRowKey', () => {
       expect(Object.keys(match)).toEqual(fields)
       expect(Object.values(match).every((v) => v !== undefined)).toBe(true)
     }
+  })
+})
+
+describe('toKsaRow (tl-08)', () => {
+  /**
+   * The bug this pins was found by the browser harness, not by a type, and could not
+   * have been found by one: `ResolvedKsa extends Ksa`, so a resolved question satisfies
+   * every signature in referenceWrite.ts while carrying two fields that are not
+   * columns. PostgREST refused the whole write ("could not find the 'goal_sort' column
+   * of 'ksa'"), the outbox retried five times and set it aside, and the edit looked
+   * saved on the device while reaching nobody.
+   */
+  it('drops the computed goal fields the editors now carry', () => {
+    const resolved = {
+      id: 'k1',
+      workshop_id: 'w1',
+      goal_id: 'g1',
+      code: 'Q1',
+      short_label: 'Q1',
+      description: '',
+      evaluator_facing_prompt: 'how?',
+      ai_facing_rubric: null,
+      evidence_levels: null,
+      cbc_subpoint_refs: [],
+      guiding_questions: [],
+      goal_title: 'Exegesis',
+      goal_sort: 3,
+    }
+    const row = toKsaRow(resolved as never) as unknown as Record<string, unknown>
+    expect('goal_title' in row).toBe(false)
+    expect('goal_sort' in row).toBe(false)
+    expect(row.goal_id).toBe('g1')
+    expect(row.workshop_id).toBe('w1')
+  })
+
+  it('drops the legacy area column rather than writing it back', () => {
+    const row = toKsaRow({
+      id: 'k1',
+      workshop_id: 'w1',
+      goal_id: null,
+      code: 'Q1',
+      area: 'the old free-text area',
+      short_label: 'Q1',
+      description: '',
+      evaluator_facing_prompt: 'how?',
+      ai_facing_rubric: null,
+      evidence_levels: null,
+      cbc_subpoint_refs: [],
+      guiding_questions: [],
+    }) as unknown as Record<string, unknown>
+    expect('area' in row).toBe(false)
+  })
+
+  it('is an allow-list, so a field nobody added here cannot leak to Postgres', () => {
+    const row = toKsaRow({ id: 'k1', invented_later: true } as never) as unknown as Record<
+      string,
+      unknown
+    >
+    expect('invented_later' in row).toBe(false)
+    expect(Object.keys(row)).toEqual(['id'])
   })
 })

@@ -25,15 +25,8 @@
 //     leaves most cells with one or two observations. designationStats therefore
 //     separates the arithmetic mean from the mean it is honest to print.
 
-import type {
-  Activity,
-  DiscrepancyResolution,
-  EvaluationRecord,
-  Ksa,
-  MentoringConversation,
-  Participant,
-  VerificationVerdict,
-} from '../lib/types'
+import type { Activity, DiscrepancyResolution, EvaluationRecord, MentoringConversation, Participant, VerificationVerdict } from '../lib/types'
+import type { ResolvedKsa } from '../lib/goals'
 import { designationOf, isSetAside } from './build'
 import type { ParticipantReport } from './build'
 import type { AnnotatedObservation, Gate } from './verification'
@@ -270,7 +263,7 @@ export interface ParticipantValue {
 
 export interface ActivityKsaCell {
   ksa_code: string
-  area: string
+  goal_title: string
   short_label: string
   /** over raw observations in this event, not over participant representatives */
   stats: DesignationStats
@@ -319,7 +312,7 @@ export interface ActivityAnalytics {
 
 export function activityAnalytics(
   activity: Activity,
-  ksas: Ksa[],
+  ksas: ResolvedKsa[],
   situated: SituatedObservation[],
   evaluations: EvaluationRecord[],
   opts?: { policy?: CountingPolicy; atRiskMax?: number },
@@ -369,7 +362,7 @@ export function activityAnalytics(
 
     return {
       ksa_code: k.code,
-      area: k.area,
+      goal_title: k.goal_title,
       short_label: k.short_label || k.code,
       stats: designationStats(obs.map((o) => valueOf(o, policy))),
       byParticipant,
@@ -431,7 +424,7 @@ export function activityAnalytics(
 
 export function allActivityAnalytics(
   activities: Activity[],
-  ksas: Ksa[],
+  ksas: ResolvedKsa[],
   situated: SituatedObservation[],
   evaluations: EvaluationRecord[],
   opts?: { policy?: CountingPolicy; atRiskMax?: number },
@@ -752,7 +745,7 @@ export interface KsaDayPoint {
 
 export interface KsaAnalytics {
   ksa_code: string
-  area: string
+  goal_title: string
   short_label: string
   /** one value per participant (the max rule from build.ts). The reported view. */
   representative: DesignationStats
@@ -770,7 +763,7 @@ export interface KsaAnalytics {
 }
 
 export function ksaAnalytics(
-  ksas: Ksa[],
+  ksas: ResolvedKsa[],
   participants: Participant[],
   reports: ParticipantReport<AnnotatedObservation>[],
   situated: SituatedObservation[],
@@ -819,7 +812,7 @@ export function ksaAnalytics(
 
     return {
       ksa_code: k.code,
-      area: k.area,
+      goal_title: k.goal_title,
       short_label: k.short_label || k.code,
       representative: designationStats(reps),
       observed: designationStats(obs.map((o) => valueOf(o, policy))),
@@ -857,14 +850,14 @@ export interface HeatmapMatrix {
     team_name: string | null
     rowStats: DesignationStats
   }[]
-  cols: { ksa_code: string; short_label: string; area: string; colStats: DesignationStats }[]
+  cols: { ksa_code: string; short_label: string; goal_title: string; colStats: DesignationStats }[]
   /** [rowIdx][colIdx] */
   cells: HeatCell[][]
 }
 
 export function buildHeatmap(
   reports: ParticipantReport<AnnotatedObservation>[],
-  ksas: Ksa[],
+  ksas: ResolvedKsa[],
   opts?: { sort?: HeatSort },
 ): HeatmapMatrix {
   const sort = opts?.sort ?? 'roster'
@@ -916,7 +909,7 @@ export function buildHeatmap(
   const cols = ksas.map((k, i) => ({
     ksa_code: k.code,
     short_label: k.short_label || k.code,
-    area: k.area,
+    goal_title: k.goal_title,
     colStats: designationStats(
       ordered.map((r) => r.cells[i].value).filter((v): v is number => v !== null),
     ),

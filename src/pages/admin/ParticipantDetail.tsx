@@ -67,7 +67,7 @@ export function ParticipantDetail() {
         <>
           <strong>{k.ksa_code}</strong>
           <br />
-          <span className="muted small">{ksas.find((x) => x.code === k.ksa_code)?.short_label ?? k.area}</span>
+          <span className="muted small">{ksas.find((x) => x.code === k.ksa_code)?.short_label ?? k.goal_title}</span>
         </>
       ),
     },

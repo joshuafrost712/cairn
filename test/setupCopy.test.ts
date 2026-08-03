@@ -57,6 +57,34 @@ const ENTITIES: SetupChange[] = [
     label: 'Day 1',
     fields: [{ field: 'questions', before: [], after: ['k'] }],
   },
+  // tl-08: the per-event wording branch, which is a different sentence from a rewire.
+  {
+    entity: 'wiring',
+    operation: 'update',
+    entityId: 'a::k',
+    label: 'Day 1 · Q3',
+    fields: [
+      { field: 'prompt_override', before: null, after: 'asked this way here' },
+      { field: 'guiding_questions_override', before: null, after: [] },
+    ],
+  },
+  // tl-08: goals, and moving a question between them.
+  { entity: 'goal', operation: 'create', entityId: 'g', label: 'G9' },
+  {
+    entity: 'goal',
+    operation: 'update',
+    entityId: 'g',
+    label: 'G1 — Exegesis',
+    fields: [{ field: 'title', before: 'Exegesis', after: 'Psalms Exegesis' }],
+  },
+  { entity: 'goal', operation: 'delete', entityId: 'g', label: 'G1 — Exegesis' },
+  {
+    entity: 'question',
+    operation: 'update',
+    entityId: 'k',
+    label: 'Q3',
+    fields: [{ field: 'goal_id', before: 'g1', after: 'g2' }],
+  },
   { entity: 'participant', operation: 'create', entityId: null, label: 'Amos' },
   {
     entity: 'participant',
@@ -131,6 +159,7 @@ const COUNT_SHAPES = [
     crossing: 17,
     events: 5,
     questions: 8,
+    regrouped: 6,
   },
 ]
 
@@ -181,6 +210,48 @@ describe('every warning the classifier can emit has words and no blanks', () => 
       'setup.dialog.commit',
       'setup.dialog.commit-destructive',
       'setup.dialog.local-scope',
+      // tl-08's section copy, checked by id here rather than only being rendered:
+      // c() prints the id when a node is missing, so a typo in a section becomes a
+      // heading that reads "setup.goals.title" instead of a heading.
+      'setup.goals.title',
+      'setup.goals.add',
+      'setup.goals.help',
+      'setup.goals.empty',
+      'setup.goals.label-field',
+      'setup.goals.label-save',
+      'setup.goals.code',
+      'setup.goals.heading',
+      'setup.goals.description',
+      'setup.goals.holds',
+      'setup.goals.save',
+      'setup.goals.untitled',
+      'setup.questions.scoped-note',
+      'setup.questions.no-goals',
+      'setup.questions.ungrouped',
+      'setup.questions.group-empty',
+      'setup.questions.no-goal',
+      'setup.questions.code',
+      'setup.questions.short-label',
+      'setup.questions.description',
+      'setup.questions.prompt',
+      'setup.questions.prompt-override-note',
+      'setup.questions.levels',
+      'setup.questions.guiding',
+      'setup.questions.guiding-add',
+      'setup.questions.guiding-remove',
+      'setup.questions.rubric',
+      'setup.questions.cbc',
+      'setup.questions.regroup-warning',
+      'setup.wiring.wording',
+      'setup.wiring.remove',
+      'setup.wiring.overridden',
+      'setup.wiring.override-help',
+      'setup.wiring.override-prompt',
+      'setup.wiring.override-blank',
+      'setup.wiring.override-guiding',
+      'setup.wiring.override-guiding-inherited',
+      'setup.wiring.override-save',
+      'setup.wiring.override-clear',
     ]
     expect(ids.filter((id) => !findChromeNode(id)?.label)).toEqual([])
   })

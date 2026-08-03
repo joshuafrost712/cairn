@@ -1,4 +1,5 @@
-import type { Ksa, QuickRatings } from './types'
+import type { ResolvedKsa } from './goals'
+import type { QuickRatings } from './types'
 
 /**
  * Compose the readable free-form `source_text` from per-question answers.
@@ -10,7 +11,7 @@ import type { Ksa, QuickRatings } from './types'
  */
 export function composeSourceText(
   answers: Record<string, string>,
-  ksas: Ksa[],
+  ksas: ResolvedKsa[],
   quickRatings: QuickRatings = {},
 ): string {
   return ksas

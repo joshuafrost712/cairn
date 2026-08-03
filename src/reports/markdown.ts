@@ -106,7 +106,7 @@ export function buildParticipantReportSegments(
       id: segId(kRoot, 'h'),
       kind: 'heading',
       level: 3,
-      text: `### ${r.ksa_code}: ${r.area}`,
+      text: `### ${r.ksa_code}: ${r.goal_title}`,
       participantId: pid,
       ksaCode: r.ksa_code,
     })
@@ -145,7 +145,7 @@ export function buildParticipantReportSegments(
     push(out, {
       id: segId(root, 'gap', 'list'),
       kind: 'paragraph',
-      text: `No observations have been recorded for: ${unevidenced.map((r) => `${r.ksa_code} (${r.area})`).join('; ')}.`,
+      text: `No observations have been recorded for: ${unevidenced.map((r) => `${r.ksa_code} (${r.goal_title})`).join('; ')}.`,
       participantId: pid,
     })
     endBlock(out)

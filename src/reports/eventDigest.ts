@@ -50,7 +50,7 @@ export interface EventDigestOptions {
 
 export interface PatternLine {
   ksa_code: string
-  area: string
+  goal_title: string
   below: number
   observed: number
   mean: number | null
@@ -78,7 +78,7 @@ export function findPatterns(a: ActivityAnalytics): PatternLine[] {
     if (low.length / observed < PATTERN_SHARE) continue
     out.push({
       ksa_code: cell.ksa_code,
-      area: cell.area,
+      goal_title: cell.goal_title,
       below: low.length,
       observed,
       mean: cell.stats.mean,
@@ -157,7 +157,7 @@ export function buildEventDigestSegments(
     push(out, {
       id: segId(root, 'grp', `k:${slug(p.ksa_code)}`),
       kind: 'bullet',
-      text: `- ${p.area}: ${p.below} of ${p.observed} observed scored below competent (average ${fmt(p.mean)}/3).`,
+      text: `- ${p.goal_title}: ${p.below} of ${p.observed} observed scored below competent (average ${fmt(p.mean)}/3).`,
       ksaCode: p.ksa_code,
       evidence: p.observationIds,
       note: `A pattern line appears when at least ${Math.round(PATTERN_SHARE * 100)}% of the participants observed on this area scored below ${PATTERN_BELOW}/3.`,

@@ -17,7 +17,7 @@ export interface Discrepancy {
   participant_id: string
   participant_name: string
   ksa_code: string
-  area: string
+  goal_title: string
   /** Lowest designation among the conflicting counting observations. */
   lo: number
   /** Highest designation among the conflicting counting observations. */
@@ -85,7 +85,7 @@ export function findDiscrepancies(
         participant_id: report.participant_id,
         participant_name: report.participant_name,
         ksa_code: rollup.ksa_code,
-        area: rollup.area,
+        goal_title: rollup.goal_title,
         lo,
         hi,
         observations: rollup.contributing,

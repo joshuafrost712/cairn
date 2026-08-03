@@ -54,7 +54,7 @@ export function Heatmap({
           <tr>
             <th scope="col" />
             {matrix.cols.map((col) => (
-              <th key={col.ksa_code} scope="col" title={`${col.short_label} — ${col.area}`}>
+              <th key={col.ksa_code} scope="col" title={`${col.short_label} — ${col.goal_title}`}>
                 {onCol ? (
                   <button
                     className="ghost btn--sm"

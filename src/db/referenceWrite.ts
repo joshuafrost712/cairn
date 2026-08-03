@@ -2,6 +2,7 @@ import { db, activityKsaPk, newId } from './local'
 import { supabase, isSupabaseConfigured } from '../lib/supabase'
 import type {
   Activity,
+  Goal,
   Ksa,
   Participant,
   ReferenceOutboxEntry,
@@ -47,11 +48,15 @@ const TABLE_SPEC: Record<ReferenceTable, { order: number; keyFields: string[] }>
   team: { order: 1, keyFields: ['id'] },
   participant: { order: 2, keyFields: ['id'] },
   activity: { order: 3, keyFields: ['id'] },
-  ksa: { order: 4, keyFields: ['id'] },
-  activity_ksa: { order: 5, keyFields: ['activity_id', 'ksa_id'] },
-  workshop_setting: { order: 6, keyFields: ['workshop_id', 'key'] },
+  // `goal` sits above `ksa` because `ksa.goal_id` references it. Get this order
+  // wrong and a replayed offline queue fails its foreign key on the first push of
+  // a new goal and its questions together.
+  goal: { order: 4, keyFields: ['id'] },
+  ksa: { order: 5, keyFields: ['id'] },
+  activity_ksa: { order: 6, keyFields: ['activity_id', 'ksa_id'] },
+  workshop_setting: { order: 7, keyFields: ['workshop_id', 'key'] },
   report_assignment: {
-    order: 7,
+    order: 8,
     keyFields: ['workshop_id', 'participant_id', 'evaluator_email', 'kind'],
   },
 }
@@ -251,11 +256,18 @@ export async function createWorkshop(name: string): Promise<Workshop> {
 
 /**
  * Duplicate a scenario as an editable starting template: clones the workshop, its
- * events (fresh activity ids) and their wiring, and the roster (fresh team +
- * participant ids). KSAs are a shared global library (the `ksa` table has no
- * workshop_id and `code` is globally unique), so wiring reuses the same KSA ids
- * rather than cloning questions — edit a question and note it changes everywhere
- * it is used.
+ * goals and questions, its events and their wiring, and the roster, all with
+ * fresh ids.
+ *
+ * GOALS AND QUESTIONS ARE DEEP-COPIED (tl-08), and the spec is emphatic about why:
+ * sharing them would undo per-workshop scoping at birth. Before tl-08 they could
+ * not be copied — `ksa` was a global library keyed on a globally unique `code`, so
+ * a duplicate reused the same question rows and editing the copy's question edited
+ * the original's. Now the copy is independent, verified by editing it and
+ * confirming the original is unchanged.
+ *
+ * Per-event overrides come along with the wiring, because the wording an admin
+ * wrote for "Day 2 drafting" is part of what they are duplicating.
  */
 export async function duplicateWorkshop(sourceId: string, newName: string): Promise<Workshop> {
   const src = await db.workshops.get(sourceId)
@@ -263,12 +275,49 @@ export async function duplicateWorkshop(sourceId: string, newName: string): Prom
   const w: Workshop = { ...src, id: newId(), name: newName.trim() || `${src.name} (copy)` }
   await upsertWorkshop(w)
 
+  const goals = await db.goals.where('workshop_id').equals(sourceId).toArray()
+  const goalIdMap = new Map<string, string>()
+  for (const g of goals.sort((a, b) => a.sort_order - b.sort_order)) {
+    const ng: Goal = { ...g, id: newId(), workshop_id: w.id }
+    goalIdMap.set(g.id, ng.id)
+    await upsertGoal(ng)
+  }
+
+  const ksas = await db.ksas.where('workshop_id').equals(sourceId).toArray()
+  const ksaIdMap = new Map<string, string>()
+  for (const k of ksas) {
+    const nk: Ksa = {
+      ...k,
+      id: newId(),
+      workshop_id: w.id,
+      goal_id: k.goal_id ? goalIdMap.get(k.goal_id) ?? null : null,
+    }
+    ksaIdMap.set(k.id, nk.id)
+    await upsertKsa(nk)
+  }
+
   const acts = await db.activities.where('workshop_id').equals(sourceId).sortBy('sort_order')
   for (const a of acts) {
     const newAct: Activity = { ...a, id: newId(), workshop_id: w.id }
     await upsertActivity(newAct)
     const links = await db.activityKsas.where('activity_id').equals(a.id).sortBy('sort_order')
-    if (links.length) await setActivityKsas(newAct.id, links.map((l) => l.ksa_id))
+    // A link whose question did not come along (it belonged to another workshop,
+    // which tl-08's migration should have made impossible) is dropped rather than
+    // pointed at the original's question, which would re-share what we just copied.
+    const mapped = links
+      .map((l) => ({ link: l, id: ksaIdMap.get(l.ksa_id) }))
+      .filter((p): p is { link: (typeof links)[number]; id: string } => Boolean(p.id))
+    if (mapped.length) {
+      await setActivityKsas(newAct.id, mapped.map((p) => p.id))
+      for (const p of mapped) {
+        if (p.link.prompt_override != null || p.link.guiding_questions_override != null) {
+          await setWiringOverride(newAct.id, p.id, {
+            prompt_override: p.link.prompt_override ?? null,
+            guiding_questions_override: p.link.guiding_questions_override ?? null,
+          })
+        }
+      }
+    }
   }
 
   const teams = await db.teams.where('workshop_id').equals(sourceId).toArray()
@@ -292,22 +341,29 @@ export async function duplicateWorkshop(sourceId: string, newName: string): Prom
 
 /** Delete a workshop and everything under it (server cascades; mirror locally). */
 export async function deleteWorkshop(id: string): Promise<void> {
-  const [acts, ksaLinks, teams, participants] = await Promise.all([
+  const [acts, ksaLinks, teams, participants, goals, ksas] = await Promise.all([
     db.activities.where('workshop_id').equals(id).toArray(),
     db.activityKsas.toArray(),
     db.teams.where('workshop_id').equals(id).toArray(),
     db.participants.where('workshop_id').equals(id).toArray(),
+    db.goals.where('workshop_id').equals(id).toArray(),
+    db.ksas.where('workshop_id').equals(id).toArray(),
   ])
   const actIds = new Set(acts.map((a) => a.id))
-  const links = ksaLinks.filter((l) => actIds.has(l.activity_id))
+  const ksaIds = new Set(ksas.map((k) => k.id))
+  // Wiring dies with either end: the event, or (new in tl-08) the question, which
+  // now belongs to this workshop rather than to a shared library.
+  const links = ksaLinks.filter((l) => actIds.has(l.activity_id) || ksaIds.has(l.ksa_id))
   await db.transaction(
     'rw',
-    [db.workshops, db.activities, db.activityKsas, db.teams, db.participants],
+    [db.workshops, db.activities, db.activityKsas, db.teams, db.participants, db.goals, db.ksas],
     async () => {
       await db.activityKsas.bulkDelete(links.map((l) => l.pk))
       await db.activities.bulkDelete([...actIds])
       await db.teams.bulkDelete(teams.map((t) => t.id))
       await db.participants.bulkDelete(participants.map((p) => p.id))
+      await db.ksas.bulkDelete([...ksaIds])
+      await db.goals.bulkDelete(goals.map((g) => g.id))
       await db.workshops.delete(id)
     },
   )
@@ -339,12 +395,114 @@ export async function deleteActivity(id: string): Promise<void> {
 }
 
 // ---------------------------------------------------------------------------
+// Goals (tl-08) — the level above a question
+// ---------------------------------------------------------------------------
+
+export async function upsertGoal(g: Goal): Promise<void> {
+  await db.goals.put(g)
+  await enqueue({ id: `goal:${g.id}`, table: 'goal', op: 'upsert', rowKey: g.id, payload: g })
+  void pushReferenceOutbox()
+}
+
+/**
+ * Delete a goal. Its questions are NOT deleted: `ksa.goal_id` is
+ * `on delete set null` server-side, and the local mirror does the same, so the
+ * questions become ungrouped and visible rather than disappearing with the
+ * heading they happened to sit under.
+ *
+ * That asymmetry is deliberate. Deleting a heading is a reorganization; deleting
+ * the questions under it destroys evidence. The change dialog says which one is
+ * about to happen, with the count.
+ */
+export async function deleteGoalRow(id: string): Promise<void> {
+  const orphaned = await db.ksas.where('goal_id').equals(id).toArray()
+  await db.transaction('rw', [db.goals, db.ksas], async () => {
+    await db.ksas.bulkPut(orphaned.map((k) => ({ ...k, goal_id: null })))
+    await db.goals.delete(id)
+  })
+  for (const k of orphaned) {
+    await enqueue({
+      id: `ksa:${k.id}`,
+      table: 'ksa',
+      op: 'upsert',
+      rowKey: k.id,
+      payload: toKsaRow({ ...k, goal_id: null }),
+    })
+  }
+  await enqueue({ id: `goal:${id}`, table: 'goal', op: 'delete', rowKey: id, payload: null })
+  void pushReferenceOutbox()
+}
+
+/** Set the exact order of a workshop's goals. */
+export async function reorderGoals(goals: Goal[]): Promise<void> {
+  const renumbered = goals.map((g, i) => ({ ...g, sort_order: i }))
+  await db.goals.bulkPut(renumbered)
+  for (const g of renumbered) {
+    await enqueue({ id: `goal:${g.id}`, table: 'goal', op: 'upsert', rowKey: g.id, payload: g })
+  }
+  void pushReferenceOutbox()
+}
+
+// ---------------------------------------------------------------------------
 // KSAs (questions)
 // ---------------------------------------------------------------------------
 
+/**
+ * Every column of `ksa`, and nothing else.
+ *
+ * An ALLOW-LIST rather than a deny-list, and that choice is load-bearing. tl-08's
+ * editors work on a RESOLVED question (`ResolvedKsa`, which carries `goal_title`
+ * and `goal_sort` computed from the goal), so the object handed to `upsertKsa` now
+ * has fields that are not columns. PostgREST refuses the whole write with "could
+ * not find the 'goal_sort' column", which is a refusal the outbox retries five
+ * times and then sets aside — an edit that looks saved on the device and never
+ * reaches anybody. It was found by the browser harness, not by a type, because
+ * `ResolvedKsa extends Ksa` and so satisfies every signature here.
+ *
+ * A deny-list would have fixed that one field and left the next computed field to
+ * reintroduce it. This way a field is sent only if somebody added it here, which is
+ * also where they would notice it needs a migration.
+ *
+ * `area` is deliberately absent: the legacy column survives one release cycle so a
+ * pre-tl-08 client keeps working, but writing it would make it a second writable
+ * copy of the group label, going stale the first time a goal was renamed.
+ */
+const KSA_COLUMNS = [
+  'id',
+  'workshop_id',
+  'goal_id',
+  'code',
+  'short_label',
+  'description',
+  'evaluator_facing_prompt',
+  'ai_facing_rubric',
+  'evidence_levels',
+  'cbc_subpoint_refs',
+  'guiding_questions',
+] as const
+
+/** A question reduced to its real columns. Exported so a test can pin the shape. */
+export function toKsaRow(k: Ksa): Ksa {
+  const source = k as unknown as Record<string, unknown>
+  const out: Record<string, unknown> = {}
+  for (const col of KSA_COLUMNS) {
+    if (col in source) out[col] = source[col]
+  }
+  return out as unknown as Ksa
+}
+
 export async function upsertKsa(k: Ksa): Promise<void> {
-  await db.ksas.put(k)
-  await enqueue({ id: `ksa:${k.id}`, table: 'ksa', op: 'upsert', rowKey: k.id, payload: k })
+  // The cache gets the reduced row too, so a resolved object never becomes the
+  // stored one and `goal_title` cannot go stale against a renamed goal.
+  const row = toKsaRow(k)
+  await db.ksas.put(row)
+  await enqueue({
+    id: `ksa:${row.id}`,
+    table: 'ksa',
+    op: 'upsert',
+    rowKey: row.id,
+    payload: row,
+  })
   void pushReferenceOutbox()
 }
 
@@ -363,21 +521,36 @@ export async function deleteKsa(id: string): Promise<void> {
 // Wiring (which questions appear on which event, and in what order)
 // ---------------------------------------------------------------------------
 
-/** Set the exact ordered list of KSAs wired to an activity. Diffs against current. */
+/**
+ * Set the exact ordered list of KSAs wired to an activity. Diffs against current.
+ *
+ * PRESERVES PER-EVENT OVERRIDES (tl-08). This function rebuilt each wiring row
+ * from scratch, which was correct while a row was only (activity, ksa, order) and
+ * became a silent data loss the moment it carried wording: moving a question up
+ * one place would have erased the prompt an administrator wrote for that event.
+ * Overrides are re-attached from the existing row by ksa id.
+ */
 export async function setActivityKsas(activityId: string, ksaIds: string[]): Promise<void> {
   const existing = await db.activityKsas.where('activity_id').equals(activityId).toArray()
   const desiredSet = new Set(ksaIds)
   const toDelete = existing.filter((l) => !desiredSet.has(l.ksa_id))
+  const priorByKsa = new Map(existing.map((l) => [l.ksa_id, l]))
+
+  const rowFor = (ksa_id: string, i: number) => {
+    const prior = priorByKsa.get(ksa_id)
+    return {
+      activity_id: activityId,
+      ksa_id,
+      sort_order: i,
+      prompt_override: prior?.prompt_override ?? null,
+      guiding_questions_override: prior?.guiding_questions_override ?? null,
+    }
+  }
 
   await db.transaction('rw', [db.activityKsas], async () => {
     await db.activityKsas.bulkDelete(toDelete.map((l) => l.pk))
     await db.activityKsas.bulkPut(
-      ksaIds.map((ksa_id, i) => ({
-        activity_id: activityId,
-        ksa_id,
-        sort_order: i,
-        pk: activityKsaPk(activityId, ksa_id),
-      })),
+      ksaIds.map((ksa_id, i) => ({ ...rowFor(ksa_id, i), pk: activityKsaPk(activityId, ksa_id) })),
     )
   })
 
@@ -397,9 +570,40 @@ export async function setActivityKsas(activityId: string, ksaIds: string[]): Pro
       table: 'activity_ksa',
       op: 'upsert',
       rowKey: pk,
-      payload: { activity_id: activityId, ksa_id: ksaIds[i], sort_order: i },
+      payload: rowFor(ksaIds[i], i),
     })
   }
+  void pushReferenceOutbox()
+}
+
+/**
+ * Set (or clear) one event's wording for one question.
+ *
+ * Null clears, and clearing must leave no residue: the next resolution falls back
+ * to the question's own prompt, which is the spec's acceptance criterion. That is
+ * why an empty string is normalized to null by the caller (lib/goals.ts) rather
+ * than stored — a stored empty prompt renders as a question with nothing asked.
+ */
+export async function setWiringOverride(
+  activityId: string,
+  ksaId: string,
+  override: { prompt_override?: string | null; guiding_questions_override?: string[] | null },
+): Promise<void> {
+  const pk = activityKsaPk(activityId, ksaId)
+  const existing = await db.activityKsas.get(pk)
+  if (!existing) throw new Error('this question is not wired to that event')
+  const row = { ...existing, ...override }
+  await db.activityKsas.put(row)
+  const payload: Record<string, unknown> = { ...row }
+  // `pk` is the flattened Dexie key, not a Postgres column.
+  delete payload.pk
+  await enqueue({
+    id: `activity_ksa:${pk}`,
+    table: 'activity_ksa',
+    op: 'upsert',
+    rowKey: pk,
+    payload,
+  })
   void pushReferenceOutbox()
 }
 

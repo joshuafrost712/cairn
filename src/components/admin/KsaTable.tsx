@@ -38,8 +38,8 @@ export function KsaTable({
     {
       key: 'area',
       header: 'area',
-      sortValue: (k) => k.area,
-      render: (k) => <span title={k.area}>{k.short_label}</span>,
+      sortValue: (k) => k.goal_title,
+      render: (k) => <span title={k.goal_title}>{k.short_label}</span>,
     },
     {
       key: 'dist',

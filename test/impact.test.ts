@@ -1,6 +1,8 @@
 import { describe, it, expect } from 'vitest'
 import {
+  CLASSIFIED_GOAL_FIELDS,
   CLASSIFIED_QUESTION_FIELDS,
+  CLASSIFIED_WIRING_FIELDS,
   classifySetupChange,
   diffFields,
   observationsCrossingThreshold,
@@ -10,7 +12,7 @@ import {
   type WorkshopState,
 } from '../src/setup/impact'
 import { deriveWorkshopState } from '../src/setup/state'
-import { KSA_AREAS, type Ksa } from '../src/lib/types'
+import { KSA_AREAS, type ActivityKsa, type Goal, type Ksa } from '../src/lib/types'
 
 /**
  * The change-impact classifier.
@@ -35,7 +37,9 @@ const classify = (change: SetupChange, state: WorkshopState = IN_PROGRESS) =>
 /** A question as the seed data holds one, for the field-completeness check. */
 const question: Ksa = {
   id: 'k1',
+  workshop_id: 'w1',
   code: 'Q3',
+  goal_id: 'g1',
   area: KSA_AREAS[0],
   short_label: 'CLAT facilitation',
   description: 'How the participant runs the CLAT process.',
@@ -65,6 +69,194 @@ describe('every field of every entity is classified', () => {
       (field) => !CLASSIFIED_QUESTION_FIELDS.includes(field),
     )
     expect(unclassified).toEqual([])
+  })
+
+  // The same guard for the two entities tl-08 added fields to. A wiring row used to
+  // carry nothing but membership, so classifying the whole row as one thing was
+  // accurate; now it can carry wording, and an unclassified field would make a
+  // reworded prompt report as a rewire.
+  it('a wiring row has no field the classifier has never heard of', () => {
+    const link: ActivityKsa = {
+      activity_id: 'a1',
+      ksa_id: 'k1',
+      sort_order: 0,
+      prompt_override: null,
+      guiding_questions_override: null,
+    }
+    // `questions` is the synthetic field the wiring editor diffs membership under,
+    // and is not a column, so it is checked separately.
+    expect(CLASSIFIED_WIRING_FIELDS).toContain('questions')
+    expect(Object.keys(link).filter((f) => !CLASSIFIED_WIRING_FIELDS.includes(f))).toEqual([])
+  })
+
+  it('a goal has no field the classifier has never heard of', () => {
+    const goal: Goal = {
+      id: 'g1',
+      workshop_id: 'w1',
+      code: 'G1',
+      title: 'Exegesis',
+      description: null,
+      sort_order: 0,
+    }
+    expect(Object.keys(goal).filter((f) => !CLASSIFIED_GOAL_FIELDS.includes(f))).toEqual([])
+  })
+})
+
+describe('goals (tl-08)', () => {
+  it('adding a goal is safe; nothing is grouped under it yet', () => {
+    const add = classify({ entity: 'goal', operation: 'create', entityId: 'g9', label: 'G9' })
+    expect(add.severity).toBe('safe')
+    expect(add.silent).toBe(true)
+  })
+
+  it('deleting a goal is NOT destructive, because its questions survive', () => {
+    // The deliberate departure from the spec, pinned so a later editor who "fixes" it
+    // to `destructive` has to read why. `ksa.goal_id` is `on delete set null`: the
+    // questions become ungrouped and every observation is untouched. Reserving the
+    // type-the-name-back tier for acts that actually destroy something is what keeps
+    // the warning layer credible when it does fire.
+    const remove = classify({
+      entity: 'goal',
+      operation: 'delete',
+      entityId: 'g1',
+      label: 'G1 — Exegesis',
+      counts: { questions: 4, observations: 23, participants: 6, regrouped: 6 },
+    })
+    expect(remove.severity).toBe('affects_future')
+    expect(remove.requiresTypedName).toBe(false)
+    const line = remove.consequences.find((c) => c.id === 'setup.impact.goal.delete')
+    expect(line?.tokens).toMatchObject({ questions: 4, regrouped: 6 })
+  })
+
+  it('deleting an empty goal says so instead of quoting zeros', () => {
+    const remove = classify({
+      entity: 'goal',
+      operation: 'delete',
+      entityId: 'g1',
+      label: 'G1 — Exegesis',
+      counts: { questions: 0 },
+    })
+    expect(remove.consequences.map((c) => c.id)).toContain('setup.impact.goal.delete-empty')
+  })
+
+  it('renaming a goal reprints reports and rescores nothing', () => {
+    const rename = classify({
+      entity: 'goal',
+      operation: 'update',
+      entityId: 'g1',
+      label: 'G1 — Exegesis',
+      fields: [{ field: 'title', before: 'Exegesis', after: 'Psalms Exegesis' }],
+      counts: { questions: 4, regrouped: 6 },
+    })
+    // Never `invalidates_evidence`: a goal holds no score, so no designation can
+    // change meaning when its heading does.
+    expect(rename.severity).toBe('affects_future')
+    const line = rename.consequences.find((c) => c.id === 'setup.impact.goal.rename')
+    expect(line?.tokens).toMatchObject({ questions: 4, regrouped: 6 })
+  })
+
+  it('reordering a goal or editing its description is silent', () => {
+    const reorder = classify({
+      entity: 'goal',
+      operation: 'update',
+      entityId: 'g1',
+      label: 'G1',
+      fields: [
+        { field: 'sort_order', before: 0, after: 2 },
+        { field: 'description', before: null, after: 'why this matters' },
+      ],
+      counts: { questions: 4, regrouped: 6 },
+    })
+    expect(reorder.severity).toBe('safe')
+    expect(reorder.silent).toBe(true)
+  })
+
+  it('moving a question between goals regroups reports without rescoring', () => {
+    const move = classify({
+      entity: 'question',
+      operation: 'update',
+      entityId: 'k1',
+      label: 'Q3 — CLAT facilitation',
+      fields: [{ field: 'goal_id', before: 'g1', after: 'g2' }],
+      counts: HEAVY,
+    })
+    expect(move.severity).toBe('invalidates_evidence')
+    const line = move.consequences.find((c) => c.id === 'setup.impact.question.regroup')
+    expect(line?.tokens).toMatchObject({ observations: 23 })
+
+    // Before anything is recorded, the same gesture costs nothing to reverse.
+    const clean = classify({
+      entity: 'question',
+      operation: 'update',
+      entityId: 'k1',
+      label: 'Q3 — CLAT facilitation',
+      fields: [{ field: 'goal_id', before: null, after: 'g2' }],
+      counts: {},
+    })
+    expect(clean.severity).toBe('affects_future')
+    expect(clean.consequences.map((c) => c.id)).toContain('setup.impact.question.regroup-clean')
+  })
+})
+
+describe('per-event wording versus rewiring (tl-08)', () => {
+  it('rewording one event never invalidates evidence, however much was captured', () => {
+    // The boundary pair this spec adds. Both save through the same wiring entity on
+    // the same screen; only one of them changes which answers a rollup reads.
+    const reword = classify({
+      entity: 'wiring',
+      operation: 'update',
+      entityId: 'a1::k1',
+      label: 'Day 2 drafting · Q3',
+      fields: [
+        { field: 'prompt_override', before: null, after: 'how did they do it here?' },
+        { field: 'guiding_questions_override', before: null, after: null },
+      ],
+      counts: HEAVY,
+    })
+    expect(reword.severity).toBe('affects_future')
+    const line = reword.consequences.find((c) => c.id === 'setup.impact.wiring.override')
+    expect(line?.tokens).toMatchObject({ captures: 9 })
+
+    const rewire = classify({
+      entity: 'wiring',
+      operation: 'update',
+      entityId: 'a1',
+      label: 'Day 2 drafting',
+      fields: [{ field: 'questions', before: ['k1'], after: ['k1', 'k2'] }],
+      counts: HEAVY,
+    })
+    expect(rewire.severity).toBe('invalidates_evidence')
+  })
+
+  it('clearing an override back to nothing is still only a future change', () => {
+    const clear = classify({
+      entity: 'wiring',
+      operation: 'update',
+      entityId: 'a1::k1',
+      label: 'Day 2 drafting · Q3',
+      fields: [
+        { field: 'prompt_override', before: 'asked this way', after: null },
+        { field: 'guiding_questions_override', before: null, after: null },
+      ],
+      counts: HEAVY,
+    })
+    expect(clear.severity).toBe('affects_future')
+  })
+
+  it('an override save that changed nothing is silent', () => {
+    const noop = classify({
+      entity: 'wiring',
+      operation: 'update',
+      entityId: 'a1::k1',
+      label: 'Day 2 drafting · Q3',
+      fields: [
+        { field: 'prompt_override', before: 'same', after: 'same' },
+        { field: 'guiding_questions_override', before: null, after: null },
+      ],
+      counts: HEAVY,
+    })
+    expect(noop.severity).toBe('safe')
+    expect(noop.silent).toBe(true)
   })
 })
 

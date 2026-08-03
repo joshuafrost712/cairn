@@ -1,8 +1,8 @@
 // Tiny builders for test fixtures. Keep the required-field noise out of the tests.
+import type { ResolvedKsa } from '../src/lib/goals'
 import type {
   Activity,
   EvaluationRecord,
-  Ksa,
   ObservationRecord,
   Participant,
   Team,
@@ -46,11 +46,23 @@ export function verdict(partial: Partial<VerificationVerdict> & { observation_id
   }
 }
 
-export function ksa(code: string, partial: Partial<Ksa> = {}): Ksa {
+/**
+ * A question in its RESOLVED shape (tl-08).
+ *
+ * `ResolvedKsa` rather than `Ksa` because that is what the reports and AI layers
+ * take now: the group heading comes from the question's goal, not from a free-text
+ * field on the question itself. `goal_title` is what the old `area` argument meant
+ * all along — the heading a report prints — so the frozen-output snapshots below
+ * stayed frozen through the change, which is exactly what they are for.
+ */
+export function ksa(code: string, partial: Partial<ResolvedKsa> = {}): ResolvedKsa {
   return {
     id: partial.id ?? uid('ksa'),
+    workshop_id: partial.workshop_id ?? 'w-1',
     code,
-    area: partial.area ?? `${code} area`,
+    goal_id: partial.goal_id ?? `goal-${code}`,
+    goal_title: partial.goal_title ?? `${code} area`,
+    goal_sort: partial.goal_sort ?? 0,
     // Required on Ksa and previously missing here. test/ is outside tsconfig.app's
     // include, so tsc never caught it; the dashboard reads it for column headers.
     short_label: partial.short_label ?? code,

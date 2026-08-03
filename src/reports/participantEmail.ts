@@ -120,7 +120,7 @@ export function buildParticipantEmailSegments(
       push(out, {
         id: segId(kRoot, 'claim'),
         kind: 'bullet',
-        text: `- ${k.area}: ${word} (${k.representative}/3).`,
+        text: `- ${k.goal_title}: ${word} (${k.representative}/3).`,
         participantId: pid,
         ksaCode: k.ksa_code,
         evidence: claimEvidence(k),
@@ -160,7 +160,7 @@ export function buildParticipantEmailSegments(
       push(out, {
         id: segId(kRoot, 'claim'),
         kind: 'bullet',
-        text: `- ${k.area}: ${word} (${k.representative}/3).`,
+        text: `- ${k.goal_title}: ${word} (${k.representative}/3).`,
         participantId: pid,
         ksaCode: k.ksa_code,
         evidence: claimEvidence(k),
