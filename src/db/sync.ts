@@ -88,33 +88,124 @@ function toMentoringRow(m: MentoringConversation) {
     summary: m.summary,
     participant_response: m.participant_response,
     recorded_by: m.recorded_by,
+    assigned_to: m.assigned_to,
+    assigned_by: m.assigned_by,
+    assigned_at: m.assigned_at,
+    admin_guidance: m.admin_guidance,
+    admin_guidance_updated_at: m.admin_guidance_updated_at,
     created_at: m.created_at,
     updated_at: m.updated_at,
   }
 }
 
+/**
+ * The columns an assigned evaluator owns: what happened, when, and who logged it.
+ *
+ * Sent as a narrow `update` rather than as part of the whole-row upsert, and that
+ * is the point rather than an optimization. tl-05's guard trigger refuses an
+ * update from a non-admin that CHANGES `admin_guidance`, and an upsert re-sends
+ * every column — so an evaluator whose device is holding a guidance string the
+ * admin has since reworded would send the old one, the trigger would read that as
+ * an edit, and their perfectly legitimate outcome would be refused for a field
+ * they never touched. Sending only what they own means a stale copy of an
+ * admin-owned column cannot cost an evaluator their write.
+ */
+export function mentoringOutcomePatch(m: MentoringConversation) {
+  return {
+    status: m.status,
+    scheduled_for: m.scheduled_for,
+    summary: m.summary,
+    participant_response: m.participant_response,
+    recorded_by: m.recorded_by,
+    updated_at: m.updated_at,
+  }
+}
+
+const NO_WORKSHOP_CONVERSATION =
+  'No workshop on this conversation, so it cannot be shared. Reconcile from the conversations page to repair it.'
+
+/**
+ * Whether the signed-in user administers this workshop, per the cached
+ * memberships.
+ *
+ * Not a security boundary and not treated as one: it chooses which SHAPE of write
+ * to send, and the backend decides whether that write is allowed. Getting it
+ * wrong costs a refusal recorded on the row, never an unauthorized write.
+ */
+async function administersWorkshop(workshopId: string | null): Promise<boolean> {
+  if (!workshopId) return false
+  const mine = await db.workshopMembers.where('workshop_id').equals(workshopId).toArray()
+  return mine.some((m) => m.role === 'admin' || m.role === 'chief_admin')
+}
+
 let mentoringRunning = false
 
 /**
- * Push all local mentoring_conversation rows (sync_status === 'local' or 'error')
- * to Supabase. Upserts on id so re-sending is harmless.
+ * Push this device's unsynced mentoring conversations.
+ *
+ * Two shapes, because two roles write to this table for different reasons. An
+ * administrator owns the queue: they upsert the whole row, which is also how a
+ * derived conversation first reaches the backend at all (tl-05 made insert an
+ * administrator's act, since every device derives the same deterministic ids from
+ * the same observations and twenty devices racing to create identical rows is not
+ * a design). An assigned evaluator owns only the outcome, and sends only that.
+ *
+ * A row nobody on this device may write is skipped rather than sent and refused.
+ * That matters more than it sounds: reconcile runs on every visit to the
+ * conversations page, so an evaluator's device derives the whole workshop's
+ * conversations locally, and sending them would put one guaranteed RLS refusal
+ * per participant into the sync log every cycle.
  */
-export async function pushMentoringOutbox(): Promise<{ pushed: number; failed: number }> {
+export async function pushMentoringOutbox(): Promise<{
+  pushed: number
+  failed: number
+  skipped: number
+}> {
   if (!isSupabaseConfigured || !supabase || !navigator.onLine || mentoringRunning) {
-    return { pushed: 0, failed: 0 }
+    return { pushed: 0, failed: 0, skipped: 0 }
   }
   mentoringRunning = true
   let pushed = 0
   let failed = 0
+  let skipped = 0
   try {
+    const mine = await sessionEmail()
     const pending = await db.mentoringConversations
       .where('sync_status')
       .anyOf('local', 'queued', 'error')
       .toArray()
+
+    const adminCache = new Map<string, boolean>()
     for (const m of pending) {
-      const { error } = await supabase
-        .from('mentoring_conversation')
-        .upsert(toMentoringRow(m), { onConflict: 'id' })
+      if (!m.workshop_id) {
+        failed++
+        await db.mentoringConversations.update(m.id, {
+          sync_status: 'error',
+          sync_error: NO_WORKSHOP_CONVERSATION,
+        })
+        continue
+      }
+
+      let isAdmin = adminCache.get(m.workshop_id)
+      if (isAdmin === undefined) {
+        isAdmin = await administersWorkshop(m.workshop_id)
+        adminCache.set(m.workshop_id, isAdmin)
+      }
+      const isAssignee =
+        mine !== null && m.assigned_to !== null && m.assigned_to.trim().toLowerCase() === mine
+
+      if (!isAdmin && !isAssignee) {
+        skipped++
+        continue
+      }
+
+      const { error } = isAdmin
+        ? await supabase.from('mentoring_conversation').upsert(toMentoringRow(m), { onConflict: 'id' })
+        : await supabase
+            .from('mentoring_conversation')
+            .update(mentoringOutcomePatch(m))
+            .eq('id', m.id)
+
       if (error) {
         failed++
         await db.mentoringConversations.update(m.id, {
@@ -132,7 +223,50 @@ export async function pushMentoringOutbox(): Promise<{ pushed: number; failed: n
   } finally {
     mentoringRunning = false
   }
-  return { pushed, failed }
+  return { pushed, failed, skipped }
+}
+
+/**
+ * Pull the conversations the backend will show this account, and adopt them.
+ *
+ * This did not exist before tl-05, and without it the whole spec is decorative:
+ * an admin assigns a conversation on a laptop and the evaluator's phone, which
+ * only ever pushed, would never learn about it. RLS decides what comes back — the
+ * workshop's queue for an admin, exactly their own rows for everybody else — so
+ * the filter is the server's, not a `.eq()` the client could be talked out of.
+ *
+ * Non-destructive in the same way tl-04's observation pull is: a local row that
+ * has not reached the backend yet is left alone, because the copy upstream is by
+ * definition older than the edit sitting in the outbox.
+ */
+export async function pullMentoringConversations(
+  workshopId: string,
+): Promise<{ pulled: number; adopted: number }> {
+  if (!canReachBackend()) return { pulled: 0, adopted: 0 }
+  const { data, error } = await supabase!
+    .from('mentoring_conversation')
+    .select('*')
+    .eq('workshop_id', workshopId)
+  if (error) {
+    console.warn('[cairn] mentoring conversation pull failed', error)
+    return { pulled: 0, adopted: 0 }
+  }
+  const remote = (data ?? []) as unknown as MentoringConversation[]
+  if (remote.length === 0) return { pulled: 0, adopted: 0 }
+
+  const localStatus = new Map<string, string | undefined>()
+  for (const c of await db.mentoringConversations.toArray()) {
+    localStatus.set(c.id, c.sync_status)
+  }
+  const adopt = remote
+    .filter((r) => {
+      const local = localStatus.get(r.id)
+      return local === undefined || local === 'synced'
+    })
+    .map((r) => ({ ...r, sync_status: 'synced' as const, sync_error: null }))
+
+  if (adopt.length > 0) await db.mentoringConversations.bulkPut(adopt)
+  return { pulled: remote.length, adopted: adopt.length }
 }
 
 // ---------------------------------------------------------------------------
@@ -664,7 +798,25 @@ async function syncObservationsAndVerdicts(): Promise<void> {
 export async function syncNow(): Promise<void> {
   await pushOutbox()
   await pushMentoringOutbox()
+  await syncMentoringConversations()
   await syncObservationsAndVerdicts()
+}
+
+/**
+ * The conversation table's pull half (tl-05), after its push, per workshop.
+ *
+ * Push first for the same reason tl-04's cycle does: the pull refuses to
+ * overwrite an unsynced local row, so a device with a queued outcome would
+ * otherwise hold that row back from every subsequent pull and never see the
+ * guidance the admin attached to it. Sending first clears the row to 'synced' and
+ * lets the pull bring the whole thing up to date in the same cycle.
+ */
+async function syncMentoringConversations(): Promise<void> {
+  if (!canReachBackend()) return
+  const workshops = await db.workshops.toArray()
+  for (const w of workshops) {
+    await pullMentoringConversations(w.id)
+  }
 }
 
 /**
@@ -715,7 +867,7 @@ export function subscribeObservations(workshopId: string): () => void {
  * Wire automatic sync: on reconnect, on a gentle interval, and live for
  * observations. Returns a cleanup fn.
  *
- * One loop for every synced table, which is the point. Four tables now reach the
+ * One loop for every synced table, which is the point. Five tables now reach the
  * backend from here and there is a single place to reason about their ordering;
  * a second timer would make "which cycle am I in" unanswerable.
  */

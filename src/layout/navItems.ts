@@ -65,7 +65,7 @@ export const NAV_GROUPS: NavGroup[] = [
       {
         labelId: 'nav.conversations',
         to: '/conversations',
-        count: (c) => c.conversationsNeeded,
+        count: (c) => c.conversationsMine,
       },
     ],
   },
@@ -127,6 +127,15 @@ export const NAV_GROUPS: NavGroup[] = [
       // the link to the page that does it.
       { labelId: 'nav.assignments', to: '/admin/assignments', count: (c) => c.underAssigned },
       { labelId: 'nav.records', to: '/admin/records', roles: ADMIN_ROLES },
+      // tl-05. ADMIN_ROLES rather than the group's CHIEF_ROLES, matching the
+      // table's own policies: the queue names every participant who scored a
+      // confirmed low and holds the admin's private guidance on each.
+      {
+        labelId: 'nav.admin-conversations',
+        to: '/admin/conversations',
+        roles: ADMIN_ROLES,
+        count: (c) => c.conversationsUnassigned,
+      },
       // tl-03: moved out of the capture group, where it was visible to every
       // signed-in user. ADMIN_ROLES, not the group's CHIEF_ROLES, because the page
       // carries a credential field and a chief evaluator has no business holding

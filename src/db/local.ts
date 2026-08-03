@@ -185,6 +185,34 @@ class CairnDB extends Dexie {
     this.version(12).stores({
       setupChangeLog: 'id, workshop_id, sync_status, at',
     })
+    // v13 (tl-05): a conversation gets an owner and the guidance that came with
+    // it. The index is on assigned_to, because both new views the admin queue
+    // draws (the unassigned pool, and how much each evaluator is carrying) and
+    // the evaluator's own filtered page all read on that one column.
+    //
+    // The upgrade fills the five fields on rows that predate them. Dexie leaves
+    // absent properties absent rather than undefined-ing them into existence, and
+    // `toMentoringRow` would then send no key at all for `assigned_to`, which
+    // PostgREST reads as "leave it alone" on an upsert — harmless here, and
+    // exactly the kind of difference between "null" and "missing" that is worth
+    // not relying on.
+    this.version(13)
+      .stores({
+        mentoringConversations:
+          'id, participant_id, workshop_id, status, trigger_observation_id, sync_status, assigned_to',
+      })
+      .upgrade(async (tx) => {
+        await tx
+          .table('mentoringConversations')
+          .toCollection()
+          .modify((c: Record<string, unknown>) => {
+            c.assigned_to = c.assigned_to ?? null
+            c.assigned_by = c.assigned_by ?? null
+            c.assigned_at = c.assigned_at ?? null
+            c.admin_guidance = c.admin_guidance ?? null
+            c.admin_guidance_updated_at = c.admin_guidance_updated_at ?? null
+          })
+      })
     // v14 (tl-08): the goals layer, and questions that belong to a workshop.
     //
     // VERSION CLAIM: **v13 is tl-05's** and is deliberately skipped here. The

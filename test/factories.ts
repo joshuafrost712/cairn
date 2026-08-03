@@ -21,6 +21,13 @@ export function obs(partial: Partial<ObservationRecord> = {}): ObservationRecord
     // include, so a fixture can omit a required field and nothing complains
     // until something actually reads it. `in` rather than `??` so an explicit
     // null exercises the pre-tl-04 fallback path.
+    //
+    // The merge kept tl-17's 'w-1' over tl-05's null. tl-05 wanted the default to
+    // be the pre-tl-04 state its derivation has to cope with, but every one of its
+    // tests that cares passes `workshop_id` explicitly — including the null cases —
+    // so the fallback path stays covered while the default matches what the type
+    // has actually required since tl-04. A default of null would instead let a new
+    // fixture omit a required field and read as the fallback case by accident.
     workshop_id: 'workshop_id' in partial ? (partial.workshop_id ?? null) : 'w-1',
     participant_id: 'participant_id' in partial ? (partial.participant_id ?? null) : 'p-1',
     participant_name: partial.participant_name ?? 'CIT One',

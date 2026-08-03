@@ -523,6 +523,23 @@ export interface MentoringConversation {
   summary: string | null // "we talked about X, Y, Z"
   participant_response: string | null // how they handled it
   recorded_by: string | null // evaluator email
+  /**
+   * tl-05. Who owns this conversation, lowercased; null while it is still in the
+   * pool. Deliberately NOT a `status` value: the lifecycle says what has happened
+   * with the participant, and this says who is doing it, so a conversation can be
+   * assigned and scheduled at once.
+   */
+  assigned_to: string | null
+  assigned_by: string | null
+  assigned_at: string | null
+  /**
+   * How the admin wants this conversation opened. Admin-written and frozen to
+   * everybody else by a database trigger, because an assignee editing the
+   * guidance they were given is the one edit that would look like agreement.
+   * Survives reassignment: the guidance is about the conversation, not the person.
+   */
+  admin_guidance: string | null
+  admin_guidance_updated_at: string | null
   created_at: string
   updated_at: string
   sync_status: SyncStatus // reuse existing type
