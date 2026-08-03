@@ -109,6 +109,10 @@ async function teardown(serviceKey) {
     delete from workshop_invitation where email like 'tl11-session-%';
     delete from workshop_member where workshop_id in ('${WS}', '${WS2}');
     delete from app_user where email like 'tl11-session-%';
+    -- tl-12: the app_user_link_person trigger mints a person row for every
+    -- account, so a teardown that removes the account and stops there leaves one
+    -- behind in the live deployment. Deleting a person cascades their profile.
+    delete from person where primary_email like 'tl11-session-%';
     delete from role_allowlist where email like 'tl11-session-%';
     delete from workshop where id in ('${WS}', '${WS2}');
     delete from auth.identities where identity_data->>'email' like 'tl11-session-%';

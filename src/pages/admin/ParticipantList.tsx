@@ -7,6 +7,7 @@ import { DataTable } from '../../components/data/DataTable'
 import type { Column } from '../../components/data/DataTable'
 import { DesignationChip, MeanWithN } from '../../components/data/DesignationChip'
 import { EmptyState } from '../../components/data/EmptyState'
+import { ProfileButton } from '../../components/ProfileButton'
 import { Legend } from '../../components/viz/Legend'
 import { designationStats } from '../../reports/analytics'
 import type { ParticipantReport } from '../../reports/build'
@@ -109,6 +110,14 @@ export function ParticipantList() {
           </span>
         )
       },
+    },
+    {
+      // Last, and a button rather than a link, because the row already navigates
+      // to this person's page: this is the shortcut for reading their background
+      // WITHOUT leaving the list you are working down.
+      key: 'profile',
+      header: '',
+      render: (r) => <ProfileButton participantId={r.participant_id} name={r.participant_name} />,
     },
   ]
 

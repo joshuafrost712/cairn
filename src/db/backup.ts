@@ -6,6 +6,8 @@ import type {
   Ksa,
   ObservationRecord,
   Participant,
+  Person,
+  PersonProfile,
   Team,
   VerificationVerdict,
   Workshop,
@@ -16,7 +18,17 @@ import type { DraftDoc } from '../drafts/types'
 // loss before a backend exists. Restore is an upsert (bulkPut by key): it merges
 // into the current store rather than wiping it, so importing a backup is safe.
 
-export const BACKUP_SCHEMA_ID = 'cairn.backup/v1'
+/**
+ * v2 as of tl-12, which added `persons` and `personProfiles`.
+ *
+ * The id is bumped because `importAll` refuses a file whose schema it does not
+ * recognize, and a v1 file restored into a v2 build would silently arrive without
+ * anybody's background. Restore stays upsert-only, so a v2 file carrying no
+ * profiles is indistinguishable from a v1 one in effect, which is why the
+ * acceptance check for this is "export then import then read a profile" rather
+ * than "the string changed".
+ */
+export const BACKUP_SCHEMA_ID = 'cairn.backup/v2'
 
 interface BackupData {
   workshops: Workshop[]
@@ -31,6 +43,10 @@ interface BackupData {
   // Included so a device move does not lose an evening's review work: a draft
   // holds human edits and an approval record that cannot be regenerated.
   docDrafts?: DraftDoc[]
+  // tl-12. Background, not evidence — but it is hand-typed and unrecoverable, which
+  // is the same argument docDrafts is here on.
+  persons?: Person[]
+  personProfiles?: PersonProfile[]
 }
 
 export interface Backup {
@@ -40,7 +56,7 @@ export interface Backup {
 }
 
 export async function exportAll(): Promise<Backup> {
-  const [workshops, teams, participants, activities, ksas, activityKsas, evaluations, observations, verifications, docDrafts] =
+  const [workshops, teams, participants, activities, ksas, activityKsas, evaluations, observations, verifications, docDrafts, persons, personProfiles] =
     await Promise.all([
       db.workshops.toArray(),
       db.teams.toArray(),
@@ -52,11 +68,13 @@ export async function exportAll(): Promise<Backup> {
       db.observations.toArray(),
       db.verifications.toArray(),
       db.docDrafts.toArray(),
+      db.persons.toArray(),
+      db.personProfiles.toArray(),
     ])
   return {
     schema: BACKUP_SCHEMA_ID,
     exported_at: new Date().toISOString(),
-    data: { workshops, teams, participants, activities, ksas, activityKsas, evaluations, observations, verifications, docDrafts },
+    data: { workshops, teams, participants, activities, ksas, activityKsas, evaluations, observations, verifications, docDrafts, persons, personProfiles },
   }
 }
 
@@ -74,7 +92,7 @@ export async function importAll(text: string): Promise<{ tables: number; rows: n
   let rows = 0
   await db.transaction(
     'rw',
-    [db.workshops, db.teams, db.participants, db.activities, db.ksas, db.activityKsas, db.evaluations, db.observations, db.verifications, db.docDrafts],
+    [db.workshops, db.teams, db.participants, db.activities, db.ksas, db.activityKsas, db.evaluations, db.observations, db.verifications, db.docDrafts, db.persons, db.personProfiles],
     async () => {
       const put = async <T>(table: { bulkPut: (rows: T[]) => Promise<unknown> }, list: T[] | undefined) => {
         if (!Array.isArray(list) || list.length === 0) return
@@ -92,6 +110,11 @@ export async function importAll(text: string): Promise<{ tables: number; rows: n
       await put(db.observations, d.observations)
       await put(db.verifications, d.verifications)
       await put(db.docDrafts, d.docDrafts)
+      // Persons before profiles: `person_profile.person_id` references them, and a
+      // reader catching the restore mid-write should never see a profile whose
+      // person is not there yet. Same reason loadReferenceData puts goals first.
+      await put(db.persons, d.persons)
+      await put(db.personProfiles, d.personProfiles)
     },
   )
   return { tables, rows }

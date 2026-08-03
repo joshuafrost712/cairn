@@ -8,6 +8,7 @@ import { StatTile } from '../../components/data/StatTile'
 import { MeanWithN } from '../../components/data/DesignationChip'
 import { EmptyState } from '../../components/data/EmptyState'
 import { DistributionBar } from '../../components/viz/DistributionBar'
+import { ProfileButton } from '../../components/ProfileButton'
 
 /** One evaluator: how much they have done, and how their readings sit against peers. */
 export function EvaluatorDetail() {
@@ -43,6 +44,7 @@ export function EvaluatorDetail() {
           { label: e.evaluator },
         ]}
         meta={`${e.captureCount} captures · ${e.observationCount} observations · ${e.participantsCovered} people`}
+        actions={<ProfileButton email={e.evaluator} name={e.evaluator} />}
       />
 
       <div className="grid grid--tiles" style={{ marginBottom: 'var(--s-4)' }}>

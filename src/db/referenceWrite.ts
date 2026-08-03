@@ -78,6 +78,18 @@ const TABLE_SPEC: Record<ReferenceTable, { order: number; keyFields: string[] }>
   // resolves in the direction both specs intended rather than by a coin toss between
   // two entries sharing a sort key.
   roster_import_batch: { order: 10, keyFields: ['id'] },
+  // tl-12. `person` sits at order -1, ABOVE workshop, because `participant.person_id`
+  // and `app_user.person_id` reference it: a queue that creates a person and links a
+  // participant in the same drain must push the person first or the link fails its
+  // foreign key. A negative order rather than renumbering the eight above it, which
+  // would be a diff across every line of this table for no behavioural gain.
+  person: { order: -1, keyFields: ['id'] },
+  // order 11, not the 9 this branch was written against — `scale_point` took 9 in a
+  // concurrent session. The tie was harmless, because a profile depends only on
+  // `person` and the two tables are unrelated, so no drain could have ordered them
+  // wrongly. It is renumbered anyway: two independent tables sharing a sort key is
+  // an invitation for a later reader to infer a dependency that is not there.
+  person_profile: { order: 11, keyFields: ['person_id'] },
 }
 
 /** The columns forming a table's primary key, in the order `rowKey` joins them. */

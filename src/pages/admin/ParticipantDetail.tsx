@@ -9,6 +9,7 @@ import type { Column } from '../../components/data/DataTable'
 import { DesignationChip, MeanWithN } from '../../components/data/DesignationChip'
 import { StatTile } from '../../components/data/StatTile'
 import { EmptyState } from '../../components/data/EmptyState'
+import { ProfileButton } from '../../components/ProfileButton'
 import { Legend } from '../../components/viz/Legend'
 import { designationStats } from '../../reports/analytics'
 import type { KsaRollup } from '../../reports/build'
@@ -128,7 +129,16 @@ export function ParticipantDetail() {
             {flag ? ` · ${flag.reasons.length} flag${flag.reasons.length === 1 ? '' : 's'}` : ''}
           </>
         }
-        actions={<Link to="/reports">Open report →</Link>}
+        actions={
+          <>
+            <ProfileButton
+              participantId={participantId}
+              name={report.participant_name}
+              workshopId={person?.workshop_id}
+            />
+            <Link to="/reports">Open report →</Link>
+          </>
+        }
       />
 
       <div className="grid grid--tiles" style={{ marginBottom: 'var(--s-5)' }}>

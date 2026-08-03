@@ -235,7 +235,7 @@ describe('every refusal slug has words in chrome.json', () => {
       'utf8',
     )
     const slugs = new Set(
-      [...`${MIGRATION}\n${chief}`.matchAll(/raise_refusal\('([a-z0-9.\_]+)'/g)].map((m) => m[1]),
+      [...`${MIGRATION}\n${chief}`.matchAll(/raise_refusal\('([a-z0-9._]+)'/g)].map((m) => m[1]),
     )
     expect(slugs.size).toBeGreaterThan(10)
     const missing = [...slugs].filter((slug) => !findChromeNode(`people.refusal.${slug}`)?.label)

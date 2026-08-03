@@ -113,6 +113,39 @@ export type SetupEntity =
    * dialog", not "no log".
    */
   | 'invitation'
+  /**
+   * Somebody's background card (tl-12): certifications, education, work areas,
+   * trainings elsewhere.
+   *
+   * `safe` in both directions, and the reasoning is the one that decides every
+   * tier here: a profile is BACKGROUND, and no observation, designation, report or
+   * assignment reads it. Deleting one removes a card and leaves the person, their
+   * participant rows and their evidence exactly as they were.
+   *
+   * That is also why a delete still routes through the hook. The severity is
+   * `safe`, so no dialog fires from the classifier — but the section raises its own
+   * confirm, because the thing an admin clicking Delete is most likely to be wrong
+   * about is what it deletes, and "wrong about the scope" is not a severity the
+   * tiers can express.
+   */
+  | 'profile'
+  /**
+   * Combining two person records into one (tl-12).
+   *
+   * The one entity in this spec that is `destructive`, and the only one whose
+   * cost is not the evidence itself but the READING of it. A merge moves no
+   * observation: participant rows are repointed, nothing is deleted. What it does
+   * is join two evaluation histories into one person's track record, which is the
+   * fact every future evaluator will read that person's performance against. Merge
+   * two humans by mistake and every subsequent judgment about either is made
+   * against a history that is partly somebody else's, with nothing on screen
+   * looking wrong.
+   *
+   * `requiresTypedName` follows from `destructive` and is wanted here: unpicking a
+   * merge is worse than never having made one, so it earns the same friction as
+   * deleting a workshop.
+   */
+  | 'person_merge'
 
 export type SetupOperation = 'create' | 'update' | 'delete'
 
@@ -475,8 +508,9 @@ function applyState(
   // argument does not reach. Making somebody an admin of a workshop that has not
   // started yet is exactly as consequential as making them one mid-workshop —
   // more so, since they will be an admin for the whole of it — and the cost is
-  // authority rather than data. So these two keep the severity they earned.
-  if (change.entity === 'membership' || change.entity === 'invitation') return severity
+  // authority rather than data. So these keep the severity they earned; the check
+  // itself is below, folded together with tl-12's `person_merge`, which is exempt
+  // on the same reasoning.
   /**
    * A ROSTER IMPORT IS EXEMPT FROM THE DRAFT BLANKET (tl-10), and the exemption is
    * argued rather than assumed, because this rule is tl-07's and worth respecting.
@@ -490,6 +524,20 @@ function applyState(
    * exactly the workshops that are built by importing one.
    */
   if (change.entity === 'roster_import') return lower(severity, 'affects_future')
+  //
+  // tl-12's `person_merge` is exempt for the same reason and it is the sharper
+  // case: a merge is `update`, not `delete`, so without this line the discount
+  // would not merely soften it, it would return `safe` and the dialog would not
+  // appear at all. What a merge costs is not evidence — it is that two people's
+  // track records become one person's, and a workshop having captured nothing yet
+  // says nothing about whether the two humans are the same.
+  if (
+    change.entity === 'membership' ||
+    change.entity === 'invitation' ||
+    change.entity === 'person_merge'
+  ) {
+    return severity
+  }
   // Nothing has been captured, so by the definition of the tiers nothing already
   // recorded can be affected: editing a draft workshop is free, and a warning
   // layer that fires anyway is one admins learn to click through.
@@ -528,6 +576,10 @@ function classify(change: SetupChange): Verdict {
       return classifyMembership(change)
     case 'invitation':
       return classifyInvitation()
+    case 'profile':
+      return classifyProfile()
+    case 'person_merge':
+      return classifyPersonMerge(change)
   }
 }
 
@@ -641,6 +693,53 @@ function classifyMembership(change: SetupChange): Verdict {
  */
 function classifyInvitation(): Verdict {
   return { severity: 'safe', consequences: [] }
+}
+
+/**
+ * A profile edit or deletion (tl-12). `safe`, in every direction, deliberately.
+ *
+ * No observation, designation, report, assignment or conversation reads a profile.
+ * Deleting one removes a background card; the person, their participant rows and
+ * every piece of evidence about them are untouched. Firing a dialog on an act with
+ * no consequence is how the warning layer loses the credibility it needs for the
+ * acts that have one, which is the argument tl-11 made for `invitation`.
+ *
+ * The delete still gets a confirm, raised by the section rather than by this
+ * classifier. What that confirm exists to correct is a MISREADING — "Delete
+ * profile" next to somebody's name looks like it deletes the person — and a
+ * misreading is not a severity.
+ */
+function classifyProfile(): Verdict {
+  return { severity: 'safe', consequences: [] }
+}
+
+/**
+ * Combining two people (tl-12). The one destructive act in this spec.
+ *
+ * Note what the consequences do NOT say. They do not say evidence is deleted,
+ * because none is: the RPC repoints participant rows and leaves every observation
+ * where it was. They say the two histories become one person's, which is the true
+ * and worse thing, and they quote the real counts so an administrator can see the
+ * size of what they are joining.
+ */
+function classifyPersonMerge(change: SetupChange): Verdict {
+  const c = change.counts
+  const consequences: Consequence[] = [
+    { id: 'setup.impact.merge.combines', tokens: { label: change.label } },
+  ]
+  const observations = n(c, 'observations')
+  const participants = n(c, 'participants')
+  if (participants > 0) {
+    consequences.push({ id: 'setup.impact.merge.participants', tokens: { participants } })
+  }
+  if (observations > 0) {
+    consequences.push({
+      id: 'setup.impact.merge.evidence-stays',
+      tokens: { observations, reports: n(c, 'reports') },
+    })
+  }
+  consequences.push({ id: 'setup.impact.merge.irreversible' })
+  return { severity: 'destructive', consequences }
 }
 
 // ---------------------------------------------------------------------------
