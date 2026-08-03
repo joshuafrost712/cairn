@@ -210,81 +210,92 @@ function ScaleEditor({
       <h2>{c('setup.scale.scale-title')}</h2>
       <p className="small muted">{c('setup.scale.scale-intro')}</p>
 
-      <table className="dt scale-table">
-        <thead>
-          <tr>
-            <th scope="col">{c('setup.scale.col-value')}</th>
-            <th scope="col">{c('setup.scale.col-label')}</th>
-            <th scope="col">{c('setup.scale.col-description')}</th>
-            <th scope="col">{c('setup.scale.col-trigger')}</th>
-            <th scope="col">{c('setup.scale.col-recorded')}</th>
-            <th scope="col" />
-          </tr>
-        </thead>
-        <tbody>
-          {ordered.map((p, i) => (
-            <tr key={p.value}>
-              <th scope="row">
-                <span
-                  className="chip-d"
-                  data-d={p.value}
-                  data-trigger={p.is_low_trigger || undefined}
-                  style={
-                    {
-                      '--fill': designationFill(
-                        p.value,
-                        buildScale(workshopId, normalizeScalePoints(workshopId, ordered)),
-                      ),
-                      '--ink-on': designationInk(
-                        p.value,
-                        buildScale(workshopId, normalizeScalePoints(workshopId, ordered)),
-                      ),
-                    } as React.CSSProperties
-                  }
-                >
-                  {p.value}
-                </span>
-              </th>
-              <td>
-                <input
-                  aria-label={c('setup.scale.col-label')}
-                  value={p.label}
-                  onChange={(e) => setPoint(p.value, { label: e.target.value })}
-                  style={{ margin: 0, width: '100%' }}
-                />
-              </td>
-              <td>
-                <input
-                  aria-label={c('setup.scale.col-description')}
-                  value={p.description ?? ''}
-                  onChange={(e) => setPoint(p.value, { description: e.target.value })}
-                  style={{ margin: 0, width: '100%' }}
-                />
-              </td>
-              <td>
-                <label className="small">
-                  <input
-                    type="checkbox"
-                    checked={p.is_low_trigger}
-                    onChange={(e) => setPoint(p.value, { is_low_trigger: e.target.checked })}
-                  />{' '}
-                  {c('setup.scale.trigger-yes')}
-                </label>
-              </td>
-              <td className="small muted">{onEachPoint?.get(p.value) ?? 0}</td>
-              <td>
-                {/* Only the ends may go. Removing from the middle would leave a
-                    gap the ramp can render and a reader cannot explain. */}
-                {ordered.length > MIN_SCALE_POINTS && (i === 0 || i === ordered.length - 1) && (
-                  <button className="ghost small" onClick={() => removePoint(p.value)}>
-                    {c('setup.scale.remove-point')}
-                  </button>
-                )}
-              </td>
+      {/*
+        The scale editor is six columns of inline inputs, so it does not fit a phone
+        and must scroll inside itself rather than widening the page. tl-09 built it as
+        a bare `.dt` in a card, which the two-viewport audit caught on merge at 730px
+        on a 390px viewport: tl-20's harness does not exist on tl-09's branch, so this
+        section was the one dense table nobody had measured. `.dt-wrap` is the same
+        container DataTable and the roster importer already use, and it brings the
+        there-is-more-that-way gradient with it.
+      */}
+      <div className="dt-wrap">
+        <table className="dt scale-table">
+          <thead>
+            <tr>
+              <th scope="col">{c('setup.scale.col-value')}</th>
+              <th scope="col">{c('setup.scale.col-label')}</th>
+              <th scope="col">{c('setup.scale.col-description')}</th>
+              <th scope="col">{c('setup.scale.col-trigger')}</th>
+              <th scope="col">{c('setup.scale.col-recorded')}</th>
+              <th scope="col" />
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {ordered.map((p, i) => (
+              <tr key={p.value}>
+                <th scope="row">
+                  <span
+                    className="chip-d"
+                    data-d={p.value}
+                    data-trigger={p.is_low_trigger || undefined}
+                    style={
+                      {
+                        '--fill': designationFill(
+                          p.value,
+                          buildScale(workshopId, normalizeScalePoints(workshopId, ordered)),
+                        ),
+                        '--ink-on': designationInk(
+                          p.value,
+                          buildScale(workshopId, normalizeScalePoints(workshopId, ordered)),
+                        ),
+                      } as React.CSSProperties
+                    }
+                  >
+                    {p.value}
+                  </span>
+                </th>
+                <td>
+                  <input
+                    aria-label={c('setup.scale.col-label')}
+                    value={p.label}
+                    onChange={(e) => setPoint(p.value, { label: e.target.value })}
+                    style={{ margin: 0, width: '100%' }}
+                  />
+                </td>
+                <td>
+                  <input
+                    aria-label={c('setup.scale.col-description')}
+                    value={p.description ?? ''}
+                    onChange={(e) => setPoint(p.value, { description: e.target.value })}
+                    style={{ margin: 0, width: '100%' }}
+                  />
+                </td>
+                <td>
+                  <label className="small">
+                    <input
+                      type="checkbox"
+                      checked={p.is_low_trigger}
+                      onChange={(e) => setPoint(p.value, { is_low_trigger: e.target.checked })}
+                    />{' '}
+                    {c('setup.scale.trigger-yes')}
+                  </label>
+                </td>
+                <td className="small muted">{onEachPoint?.get(p.value) ?? 0}</td>
+                <td>
+                  {/* Only the ends may go. Removing from the middle would leave a
+                      gap the ramp can render and a reader cannot explain. */}
+                  {ordered.length > MIN_SCALE_POINTS && (i === 0 || i === ordered.length - 1) && (
+                    <button className="ghost small" onClick={() => removePoint(p.value)}>
+                      {c('setup.scale.remove-point')}
+                    </button>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
 
       <div className="row" style={{ gap: '0.5rem' }}>
         <button
