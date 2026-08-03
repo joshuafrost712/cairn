@@ -35,43 +35,74 @@
 -- cannot be a browser.
 
 -- ---------------------------------------------------------------------------
--- 1. Deployment-level switches.
+-- 1. The deployment-level switch, in the table that ALREADY EXISTS.
 --
---    Read by any signed-in user, because the client has to be able to say WHY a
---    mode is unselectable rather than showing a dead control. Written by a
---    platform owner only.
+--    `platform_setting` is tl-11's (20260801000600_signup_admission.sql), and
+--    this section is deliberately a tenant rather than an owner. The first draft
+--    of this migration re-declared the table with `create table if not exists`,
+--    recreated its select policy, and added `grant insert, update, delete ... to
+--    authenticated` behind a platform-owner policy. On a fresh database that
+--    would have been fine. On the live one the create was skipped and the GRANT
+--    was not: it opened a direct client write path to a table tl-11 had
+--    deliberately left with none ("writable by nobody directly"), which is the
+--    same shape tl-01 used for workshop_member and tl-09 for scale_point. The
+--    lesson is worth keeping: `if not exists` protects the SHAPE of an object and
+--    says nothing about the permissions declared around it, so a second migration
+--    touching another's table can be a no-op and a regression in the same breath.
+--
+--    So writes still go through `set_platform_setting()`, which is extended below
+--    to know this key. There is no UI that turns hosted AI on, by design — it is
+--    the person who holds the key and the bill who decides, and that is an
+--    operator act rather than a screen.
 -- ---------------------------------------------------------------------------
 
-create table if not exists platform_setting (
-  key        text primary key,
-  value      jsonb not null,
-  updated_by text,
-  updated_at timestamptz not null default now()
-);
+-- Undo the first draft's widening, on the deployment where it was applied. A
+-- no-op anywhere it never was.
+drop policy if exists platform_setting_write on platform_setting;
+revoke insert, update, delete on platform_setting from authenticated;
 
 comment on table platform_setting is
-  'Deployment-wide switches (tl-13), as distinct from workshop_setting which is per workshop. Readable by any member so the UI can state why a control is unavailable; writable by a platform owner only.';
-
-alter table platform_setting enable row level security;
-
-drop policy if exists platform_setting_select on platform_setting;
-create policy platform_setting_select on platform_setting for select to authenticated
-  using (true);
-
-drop policy if exists platform_setting_write on platform_setting;
-create policy platform_setting_write on platform_setting for all to authenticated
-  using (is_platform_owner())
-  with check (is_platform_owner());
-
-grant select on platform_setting to authenticated;
-grant insert, update, delete on platform_setting to authenticated;
+  'Deployment-wide settings, as distinct from workshop_setting which is per workshop (tl-11, extended by tl-13). signup_budget_per_hour mirrors the project''s auth rate_limit_email_sent. hosted_ai_enabled decides whether a workshop may select the metered hosted-api AI mode at all. Readable by any signed-in session so the UI can say WHY a control is unavailable; writable only through set_platform_setting(), by a platform owner.';
 
 -- Off, deliberately, and this row is the one Joshua's deployment keeps. The mode
 -- is built and tested; it is not selectable here until somebody who owns the bill
 -- says so.
 insert into platform_setting (key, value)
-values ('hosted_ai_enabled', 'false'::jsonb)
+values ('hosted_ai_enabled', to_jsonb(false))
 on conflict (key) do nothing;
+
+-- tl-11's writer refused every key but its own, which was right when it was the
+-- only one. Replaced rather than duplicated: two functions writing one table would
+-- be two places for the platform-owner check to drift.
+create or replace function set_platform_setting(_key text, _value jsonb)
+returns void
+language plpgsql security definer set search_path = public
+as $$
+declare
+  _actor uuid := current_app_user_id();
+begin
+  if _actor is null then
+    perform raise_refusal('tl02.no_account', 'You are not signed in to an account this deployment knows.');
+  end if;
+  -- A deployment-wide setting is a platform power, not a workshop one. An admin of
+  -- one workshop must not be able to widen a budget, or turn on a metered model,
+  -- that every other workshop draws on.
+  if not is_platform_owner() then
+    perform raise_refusal('tl11.platform_owner_only',
+      'Only this deployment''s owner can change a deployment-wide setting.');
+  end if;
+  if _key not in ('signup_budget_per_hour', 'hosted_ai_enabled') then
+    perform raise_refusal('tl11.unknown_setting', 'That is not a setting this deployment has.');
+  end if;
+  if _key = 'hosted_ai_enabled' and jsonb_typeof(_value) <> 'boolean' then
+    perform raise_refusal('tl13.hosted_ai_needs_a_boolean',
+      'Hosted AI is either on or off.');
+  end if;
+
+  insert into platform_setting (key, value, updated_at, updated_by)
+  values (_key, _value, now(), _actor)
+  on conflict (key) do update set value = excluded.value, updated_at = now(), updated_by = excluded.updated_by;
+end $$;
 
 -- ---------------------------------------------------------------------------
 -- 2. What a legal function map looks like.
