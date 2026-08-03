@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { lazy, Suspense, useState } from 'react'
 import type { MouseEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
@@ -21,6 +21,10 @@ import { diffFields } from '../../setup/impact'
 import { useSetupSave } from '../../setup/useSetupSave'
 import { formatBreakdown, membersOf, teamBreakdown } from '../../lib/teams'
 import type { Participant, Team, Workshop } from '../../lib/types'
+
+const RosterImport = lazy(() =>
+  import('./RosterImport').then((m) => ({ default: m.RosterImport })),
+)
 
 /**
  * Workshop meta, teams, and the participant roster.
@@ -511,6 +515,20 @@ export function Roster({ embedded = false }: { embedded?: boolean }) {
             </div>
           </div>
         </div>
+      )}
+
+      {/* tl-10. Below the roster rather than beside it: importing is something you
+          do to the list you are looking at, and it is the second thing you reach
+          for, after seeing that the list is empty or wrong.
+
+          Lazy, and measured rather than assumed: eagerly imported it put 24.4 kB
+          (7.0 kB gzipped) of parser, planner and preview into the shell every
+          evaluator downloads, to serve a control only an administrator can reach.
+          The spreadsheet reader is a second, nested split inside it. */}
+      {workshop && (
+        <Suspense fallback={null}>
+          <RosterImport workshopId={workshop.id} />
+        </Suspense>
       )}
     </>
   )

@@ -2952,6 +2952,242 @@
     {
       "id": "signin.role-note",
       "label": "Your role comes from the workshop you were invited to, so there is nothing to choose here."
+    },
+    {
+      "id": "roster.import.title",
+      "label": "Import from a spreadsheet"
+    },
+    {
+      "id": "roster.import.help",
+      "label": "Bring the roster in from the registration sheet you already keep. Nothing is written until you have seen a verdict for every row."
+    },
+    {
+      "id": "roster.import.show",
+      "label": "import a file"
+    },
+    {
+      "id": "roster.import.hide",
+      "label": "close"
+    },
+    {
+      "id": "roster.import.choose-file",
+      "label": "Choose a CSV, TSV, or Excel file"
+    },
+    {
+      "id": "roster.import.template",
+      "label": "Download a template"
+    },
+    {
+      "id": "roster.import.template-note",
+      "label": "A good file has one row per person and a header row naming the columns. In Google Sheets: File, then Download, then Comma-separated values. In Excel: File, then Save As, and choose CSV or leave it as .xlsx."
+    },
+    {
+      "id": "roster.import.parse-error",
+      "label": "That file could not be read: {reason}"
+    },
+    {
+      "id": "roster.import.no-xlsx",
+      "label": "This browser cannot open .xlsx files. Export the sheet as CSV and try again."
+    },
+    {
+      "id": "roster.import.no-rows",
+      "label": "That file has no rows in it."
+    },
+    {
+      "id": "roster.import.mapping-title",
+      "label": "What is in each column"
+    },
+    {
+      "id": "roster.import.mapping-help",
+      "label": "Guessed from the header row. Check it: everything below follows from these four choices, and a name column read as a team is the one mistake a preview cannot make obvious."
+    },
+    {
+      "id": "roster.import.field.name",
+      "label": "Name (required)"
+    },
+    {
+      "id": "roster.import.field.registered_email",
+      "label": "Email"
+    },
+    {
+      "id": "roster.import.field.team",
+      "label": "Team"
+    },
+    {
+      "id": "roster.import.field.preferred_language",
+      "label": "Language"
+    },
+    {
+      "id": "roster.import.unmapped",
+      "label": "not in this file"
+    },
+    {
+      "id": "roster.import.ignored",
+      "label": "Columns this import will not read: {columns}"
+    },
+    {
+      "id": "roster.import.preview-title",
+      "label": "What this would do"
+    },
+    {
+      "id": "roster.import.summary",
+      "label": "{create} new, {update} updated, {unchanged} already correct, {duplicate} duplicate, {error} with errors."
+    },
+    {
+      "id": "roster.import.blank-note",
+      "label": "A blank cell leaves that field as it is. An import never empties something you already have."
+    },
+    {
+      "id": "roster.import.col.row",
+      "label": "row"
+    },
+    {
+      "id": "roster.import.col.verdict",
+      "label": "verdict"
+    },
+    {
+      "id": "roster.import.col.person",
+      "label": "person"
+    },
+    {
+      "id": "roster.import.col.detail",
+      "label": "what changes"
+    },
+    {
+      "id": "roster.import.verdict.create",
+      "label": "new"
+    },
+    {
+      "id": "roster.import.verdict.update",
+      "label": "updates"
+    },
+    {
+      "id": "roster.import.verdict.unchanged",
+      "label": "already correct"
+    },
+    {
+      "id": "roster.import.verdict.duplicate",
+      "label": "duplicate"
+    },
+    {
+      "id": "roster.import.verdict.error",
+      "label": "error"
+    },
+    {
+      "id": "roster.import.change.name",
+      "label": "name: {before} → {after}"
+    },
+    {
+      "id": "roster.import.change.registered_email",
+      "label": "email: {before} → {after}"
+    },
+    {
+      "id": "roster.import.change.team_id",
+      "label": "team: {before} → {after}"
+    },
+    {
+      "id": "roster.import.change.preferred_language",
+      "label": "language: {before} → {after}"
+    },
+    {
+      "id": "roster.import.blank",
+      "label": "none"
+    },
+    {
+      "id": "roster.import.issue.missing-name",
+      "label": "No name, so this row cannot be imported."
+    },
+    {
+      "id": "roster.import.issue.malformed-email",
+      "label": "That does not look like an email address."
+    },
+    {
+      "id": "roster.import.issue.duplicate-email",
+      "label": "This email is already earlier in the file. Imported once."
+    },
+    {
+      "id": "roster.import.issue.duplicate-target",
+      "label": "An earlier row already matched this person. Imported once."
+    },
+    {
+      "id": "roster.import.issue.duplicate-name",
+      "label": "Somebody with this name is already on the roster. Two people can share a name, so this is allowed; check it is not the same person."
+    },
+    {
+      "id": "roster.import.issue.new-team",
+      "label": "Team \"{team}\" does not exist yet and will be created."
+    },
+    {
+      "id": "roster.import.commit",
+      "label": "Import {rows} row(s)"
+    },
+    {
+      "id": "roster.import.cancel",
+      "label": "Discard this file"
+    },
+    {
+      "id": "roster.import.committed",
+      "label": "Imported: {created} added, {updated} updated, {unchanged} already correct, {teams} team(s) created."
+    },
+    {
+      "id": "roster.import.batches-title",
+      "label": "Imports"
+    },
+    {
+      "id": "roster.import.batches-empty",
+      "label": "No spreadsheet has been imported into this workshop."
+    },
+    {
+      "id": "roster.import.batch-detail",
+      "label": "{rows} row(s): {created} added, {updated} updated"
+    },
+    {
+      "id": "roster.import.undo",
+      "label": "undo"
+    },
+    {
+      "id": "roster.import.undone-pill",
+      "label": "undone"
+    },
+    {
+      "id": "roster.import.undone",
+      "label": "Undone: {deleted} removed, {reverted} put back, {teams} team(s) removed."
+    },
+    {
+      "id": "roster.import.undo-refused",
+      "label": "Kept, because they have been observed since the import: {names}. Remove them from the roster if you really mean to, and the dialog will tell you what that costs."
+    },
+    {
+      "id": "roster.import.undo-error.already-undone",
+      "label": "That import has already been undone."
+    },
+    {
+      "id": "roster.import.undo-error.not-found",
+      "label": "That import is not on this device."
+    },
+    {
+      "id": "setup.impact.import.summary",
+      "label": "Importing {label} adds {created} participant(s), updates {updated}, and leaves {unchanged} unchanged."
+    },
+    {
+      "id": "setup.impact.import.new-teams",
+      "label": "{teams} team(s) named in the file do not exist yet and will be created."
+    },
+    {
+      "id": "setup.impact.import.contact",
+      "label": "{contactChanges} of the people this updates have an email or team change, and {reports} of them already have recorded evidence ({observations} observation(s)). Emails already sent and reports already generated used the old values."
+    },
+    {
+      "id": "setup.impact.import.contact-clean",
+      "label": "{contactChanges} of the people this updates have an email or team change. Nothing is recorded against them yet, so nothing already sent is affected."
+    },
+    {
+      "id": "setup.impact.import.undo",
+      "label": "Undoing {label} removes {created} participant(s) it added, puts back the fields it changed on {updated}, and removes {teams} team(s) it created if nobody is on them."
+    },
+    {
+      "id": "setup.impact.import.undo-refused",
+      "label": "{refused} of the people this import added have been observed since, so they are kept rather than deleted. Removing somebody who holds evidence is a separate decision, with its own warning."
     }
   ]
 }

@@ -76,6 +76,13 @@ export type SetupEntity =
   | 'threshold'
   | 'scale'
   /**
+   * A whole roster import, or the undo of one (tl-10). One entity for many rows,
+   * because the administrator is deciding about the FILE: twenty-eight separate
+   * participant dialogs is not a warning layer, it is a reason to stop using the
+   * importer. The counts carry the per-row detail the dialog quotes.
+   */
+  | 'roster_import'
+  /**
    * A workshop setting that changes only what happens next: the review and
    * observation quotas, which decide who is asked to carry whom from here on.
    * Assignments already made stand and no recorded designation moves, so by the
@@ -197,6 +204,26 @@ export interface ImpactCounts {
    * admin removing a colleague usually intends.
    */
   remainingAdmins?: number
+  /** Participants a roster import would add (tl-10). */
+  created?: number
+  /** Existing participants a roster import would change. */
+  updated?: number
+  /**
+   * Of those, how many have an email or a team change.
+   *
+   * Kept apart from `updated` because they are the only updates that can be wrong
+   * in a way anybody notices: a corrected spelling changes a label, while a changed
+   * address changes where a report is sent and a changed team changes which
+   * breakdown a person is counted in. An import that only fixes spellings should not
+   * claim to invalidate anything.
+   */
+  contactChanges?: number
+  /** People an undo could not remove because they have since been observed. */
+  refused?: number
+  /** Teams a roster import would bring into existence. */
+  teams?: number
+  /** Rows that matched somebody and would change nothing. The idempotence number. */
+  unchanged?: number
 }
 
 export interface SetupChange {
@@ -450,6 +477,19 @@ function applyState(
   // more so, since they will be an admin for the whole of it — and the cost is
   // authority rather than data. So these two keep the severity they earned.
   if (change.entity === 'membership' || change.entity === 'invitation') return severity
+  /**
+   * A ROSTER IMPORT IS EXEMPT FROM THE DRAFT BLANKET (tl-10), and the exemption is
+   * argued rather than assumed, because this rule is tl-07's and worth respecting.
+   *
+   * The blanket exists for save-on-blur field edits: nothing is recorded, so
+   * renaming an event costs nothing and a dialog would be noise. An import is not
+   * that. It is a bulk write of twenty-eight rows from a file somebody was sent, it
+   * can create people and teams in one act, and `safe` here would have a second
+   * consequence beyond the missing dialog: setup/log.ts does not log `safe`
+   * changes, so the record of WHICH FILE built the roster would not exist for
+   * exactly the workshops that are built by importing one.
+   */
+  if (change.entity === 'roster_import') return lower(severity, 'affects_future')
   // Nothing has been captured, so by the definition of the tiers nothing already
   // recorded can be affected: editing a draft workshop is free, and a warning
   // layer that fires anyway is one admins learn to click through.
@@ -480,6 +520,8 @@ function classify(change: SetupChange): Verdict {
       return classifyThreshold(change)
     case 'scale':
       return classifyScale(change)
+    case 'roster_import':
+      return classifyRosterImport(change)
     case 'setting':
       return { severity: 'safe', consequences: [] }
     case 'membership':
@@ -1098,6 +1140,76 @@ function classifyThreshold(change: SetupChange): Verdict {
       },
     ],
   }
+}
+
+// ---------------------------------------------------------------------------
+// Roster import (tl-10)
+// ---------------------------------------------------------------------------
+
+/**
+ * An import, and the undo of one.
+ *
+ * The spec's rule, and the two places it is easy to get wrong.
+ *
+ * An import into a workshop in progress reaches `invalidates_evidence` only when it
+ * changes an EMAIL OR A TEAM on somebody who already has recorded evidence. Both
+ * halves are load-bearing. Without the field test, re-importing a corrected
+ * spreadsheet to fix three misspellings would announce that it invalidates
+ * evidence, which is false and is how a warning layer becomes wallpaper. Without
+ * the evidence test, the same change in a workshop nobody has captured in yet would
+ * claim a cost that does not exist.
+ *
+ * An UNDO never reaches that tier, and that is a property of undo rather than an
+ * exemption: it refuses to delete anybody who has been observed (see
+ * db/rosterImport.ts), so the destructive case it would be warning about cannot
+ * happen. What it does do is remove people and put values back, so it stays at
+ * `affects_future` and names the refusals.
+ */
+function classifyRosterImport(change: SetupChange): Verdict {
+  const c = change.counts
+  const created = n(c, 'created')
+  const updated = n(c, 'updated')
+  const teams = n(c, 'teams')
+
+  if (change.operation === 'delete') {
+    const consequences: Consequence[] = [
+      {
+        id: 'setup.impact.import.undo',
+        tokens: { label: change.label, created, updated, teams },
+      },
+    ]
+    if (n(c, 'refused') > 0) {
+      consequences.push({
+        id: 'setup.impact.import.undo-refused',
+        tokens: { refused: n(c, 'refused') },
+      })
+    }
+    return { severity: 'affects_future', consequences }
+  }
+
+  const consequences: Consequence[] = [
+    {
+      id: 'setup.impact.import.summary',
+      tokens: { label: change.label, created, updated, unchanged: n(c, 'unchanged') },
+    },
+  ]
+  if (teams > 0) {
+    consequences.push({ id: 'setup.impact.import.new-teams', tokens: { teams } })
+  }
+
+  const contactChanges = n(c, 'contactChanges')
+  const withEvidence = n(c, 'reports')
+  if (contactChanges > 0 && withEvidence > 0) {
+    consequences.push({
+      id: 'setup.impact.import.contact',
+      tokens: { contactChanges, reports: withEvidence, observations: n(c, 'observations') },
+    })
+    return { severity: 'invalidates_evidence', consequences }
+  }
+  if (contactChanges > 0) {
+    consequences.push({ id: 'setup.impact.import.contact-clean', tokens: { contactChanges } })
+  }
+  return { severity: 'affects_future', consequences }
 }
 
 /**

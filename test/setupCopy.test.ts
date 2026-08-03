@@ -176,6 +176,20 @@ const ENTITIES: SetupChange[] = [
   },
   { entity: 'invitation', operation: 'create', entityId: null, label: 'nobody@example.org' },
   { entity: 'invitation', operation: 'delete', entityId: 'i1', label: 'nobody@example.org' },
+  // tl-10: a whole spreadsheet, and the undo of one. Both directions, because the
+  // undo's copy is the one nobody reads until the day it matters.
+  {
+    entity: 'roster_import',
+    operation: 'create',
+    entityId: null,
+    label: 'bali-roster.csv',
+  },
+  {
+    entity: 'roster_import',
+    operation: 'delete',
+    entityId: 'rosterimport_1',
+    label: 'bali-roster.csv',
+  },
 ]
 
 const STATES: WorkshopState[] = ['draft', 'in_progress', 'closed']
@@ -205,6 +219,14 @@ const COUNT_SHAPES = [
     // the zero-count shape above is what checks the other one.
     assignedConversations: 3,
     remainingAdmins: 0,
+    // tl-10's counts. Every one of them appears as a token in an import sentence,
+    // so a renamed key surfaces here as a literal `{created}` in a dialog.
+    created: 28,
+    updated: 11,
+    unchanged: 3,
+    contactChanges: 4,
+    refused: 2,
+    teams: 3,
   },
 ]
 
