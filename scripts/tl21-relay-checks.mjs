@@ -11,7 +11,9 @@
  *   node scripts/tl21-relay-checks.mjs --real    # one extra job through the real CLI
  *
  * The `--real` pass is what proves the measured findings still hold: that a subscription
- * with no API key answers, that the answer is fenced, that the overhead is ~3,500 tokens,
+ * with no API key answers, that the answer is extractable, that a call costs hundreds of
+ * tokens rather than the harness default ~14,000 (this check FAILED at merge time and is
+ * why `--tools ''` is in the arg vector),
  * and that `permission_denials` is present — the field that shows the tools were REFUSED
  * rather than merely absent, which is the negative test for a prompt-injected capture.
  */
@@ -273,8 +275,8 @@ try {
   await stopRelay(relay)
   const onDisk = JSON.parse(await readFile(join(home, 'jobs', `${midRun.body.id}.json`), 'utf8'))
   check(
-    'stopping the relay hands the job back WITHOUT spending an attempt',
-    onDisk.status === 'queued' && onDisk.attempts === 1,
+    'stopping the relay hands the job back AND gives the claimed attempt back',
+    onDisk.status === 'queued' && onDisk.attempts === 0,
     `${onDisk.status}, attempts ${onDisk.attempts}`,
   )
   relay = await startRelay({ home, fakeMode: 'ok', token: TOKEN })
@@ -331,10 +333,18 @@ try {
     const real = await settle(client, realJob.body.id, 120_000)
     const wall = Date.now() - started
     check('the real CLI answers on the subscription, with no API key in the environment', real?.status === 'done', real?.error ?? '')
-    check('its reply is extracted from a fence', Boolean(real?.result?.text) && real.result.text.startsWith('{'))
+    check('its reply is extracted, fenced or bare', Boolean(real?.result?.text) && real.result.text.startsWith('{'))
     check(
-      'the overhead is about the measured 3,500 tokens rather than the harness default 13,700',
-      (real?.result?.tokens_in ?? 0) > 2_000 && (real?.result?.tokens_in ?? 0) < 8_000,
+      // THE NUMBER THIS PINS WAS WRONG UNTIL 2026-08-03 AND THIS CHECK IS WHY IT IS NOW RIGHT.
+      // The band used to be 2,000 to 8,000, on the spec's claim of ~3,500 per call with the
+      // system prompt replaced. Re-run at merge time it read 14,136 and failed: replacing the
+      // system prompt never removed the TOOL SCHEMAS, which are not part of it, and they
+      // arrive as a cache read that `usage.input_tokens` alone does not count. Adding
+      // `--tools ''` (an empty allowlist, which the review asked for on security grounds)
+      // takes the same job to 166. So this band is now the tripwire for both: a regression
+      // in the flag, or a CLI that starts ignoring it, shows up here as a bigger number.
+      'a call costs hundreds of tokens, not the harness default of ~14,000',
+      (real?.result?.tokens_in ?? 0) > 0 && (real?.result?.tokens_in ?? 0) < 2_000,
       `tokens_in ${real?.result?.tokens_in}`,
     )
     check(

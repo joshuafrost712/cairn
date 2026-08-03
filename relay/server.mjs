@@ -52,6 +52,7 @@ import {
   writeThrottle,
 } from './state.mjs'
 import { probeRunner, runClaudeJob, DEFAULT_TIMEOUT_MS } from './runner-claude.mjs'
+import { DEFAULT_LEASE_MS } from './queue.mjs'
 
 export const RELAY_VERSION = '1.0.0'
 
@@ -84,6 +85,20 @@ function parseArgs(argv) {
 
 // ---- HTTP plumbing ---------------------------------------------------------
 
+/**
+ * Any origin is reflected, and the bearer token is what actually guards the service.
+ *
+ * Said out loud because a reflected `Access-Control-Allow-Origin` reads like a hole. It is
+ * not one here, for two reasons that must both stay true: every worker route requires the
+ * token, and the app sends `credentials: 'omit'` (see `src/relay/client.ts`), so there is no
+ * ambient cookie a random tab could ride. The token itself lives in that origin's
+ * localStorage, which another origin cannot read. A tab on any site can therefore reach
+ * this port and get a 401, which is the intended answer.
+ *
+ * What would break the reasoning: adding a route that acts without checking the token, or
+ * ever answering with `Access-Control-Allow-Credentials`. Raised as a nit by the pre-merge
+ * review on 2026-08-03 on the grounds that the reasoning existed only in someone's head.
+ */
 function corsHeaders(req) {
   const origin = req.headers.origin
   return {
@@ -164,8 +179,45 @@ function publicJob(job) {
 
 // ---- the dispatcher --------------------------------------------------------
 
+/**
+ * The margin the lease must keep over the runner's timeout.
+ *
+ * Not zero, because the reap and the runner's own clock are different clocks: a job that
+ * times out at exactly the lease boundary would be reaped in the same instant it fails,
+ * and which write lands first would decide the record.
+ */
+export const LEASE_MARGIN_MS = 60_000
+
+/**
+ * The invariant `queue.mjs` documents and nothing used to check.
+ *
+ * `jobTimeoutMs` is operator-settable (`--job-timeout-ms`, or the env var in DEFAULTS)
+ * and `DEFAULT_LEASE_MS` is a compile-time constant, so an operator lengthening the
+ * timeout for a big batch could put the runner's allowance ABOVE the lease. The queue's
+ * whole double-spend argument rests on the opposite. What happens then is not a clean
+ * failure either: at 20 minutes the reap returns the job to `queued` while the runner is
+ * still working, and when it finishes `complete()` writes `done` over that, so the record
+ * disagrees with itself. `concurrency: 1` is what stops it also being billed twice today,
+ * which means the guard matters most for the case tl-22 exists to add. Refusing to boot is
+ * right: an unbootable relay is noticed in the first minute at a workshop, and a
+ * silently-wrong lease is noticed never. Found by this spec's pre-merge review, 2026-08-03.
+ */
+export function assertLeaseCoversTimeout(jobTimeoutMs, leaseMs = DEFAULT_LEASE_MS) {
+  if (!Number.isFinite(jobTimeoutMs) || jobTimeoutMs <= 0) {
+    throw new Error(`Job timeout must be a positive number of milliseconds; got ${jobTimeoutMs}.`)
+  }
+  if (jobTimeoutMs + LEASE_MARGIN_MS > leaseMs) {
+    throw new Error(
+      `Job timeout ${jobTimeoutMs}ms leaves no margin under the ${leaseMs}ms lease. ` +
+        `A runner allowed to outlive its lease can have its job reaped and handed out again. ` +
+        `Lower --job-timeout-ms to at most ${leaseMs - LEASE_MARGIN_MS}ms, or raise DEFAULT_LEASE_MS in queue.mjs.`,
+    )
+  }
+}
+
 export function createRelay(options = {}) {
   const config = { ...DEFAULTS, ...options }
+  assertLeaseCoversTimeout(config.jobTimeoutMs)
   let token = null
   let inFlight = 0
   let throttle = null

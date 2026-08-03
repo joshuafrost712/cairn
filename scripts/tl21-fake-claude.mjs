@@ -56,6 +56,17 @@ const envelope = (over = {}) => ({
   num_turns: 1,
   stop_reason: 'end_turn',
   total_cost_usd: 0.004267,
+  /**
+   * INVENTED NUMBERS. Not a measurement, and specifically not the per-call cost.
+   *
+   * 3,496 is pinned in six places as fixture data, which is the only reason it is still
+   * this figure. It happens to equal the spec's original (wrong) claim about real per-call
+   * input, and tl-21's own record then cited "3,496 in and 71 out from the browser
+   * walkthrough" as evidence that the trace carries REAL token counts for a subscription.
+   * It is this file's fiction. The real figure, measured through the real CLI on
+   * 2026-08-03, is 228 with `--tools ''` and 14,136 without; only `tl21-relay-checks.mjs
+   * --real` can produce it, and only that check should ever be read as a cost measurement.
+   */
   usage: {
     input_tokens: 3496,
     cache_creation_input_tokens: 0,

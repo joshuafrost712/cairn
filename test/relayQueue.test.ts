@@ -24,7 +24,7 @@ import {
   parseResumeAt,
 } from '../relay/extract.mjs'
 import { claudeArgs, childEnv, DISALLOWED_TOOLS, DEFAULT_TIMEOUT_MS } from '../relay/runner-claude.mjs'
-import { validateJobRequest } from '../relay/server.mjs'
+import { assertLeaseCoversTimeout, LEASE_MARGIN_MS, validateJobRequest } from '../relay/server.mjs'
 import { buildRelayJobFile } from '../src/relay/client'
 
 /**
@@ -402,7 +402,8 @@ describe('the invocation', () => {
   })
 
   it('replaces the harness system prompt and cuts its configuration sources', () => {
-    // This is the difference between 13,694 input tokens per call and a flat ~3,500.
+    // Worth ~3,400 tokens a call. NOT the whole harness overhead: it leaves the tool
+    // schemas in place, which is what the empty allowlist below removes.
     const args = claudeArgs({ system: 'runbook', model: null })
     expect(args).toContain('--system-prompt')
     expect(args).toContain('--strict-mcp-config')
@@ -410,7 +411,19 @@ describe('the invocation', () => {
     expect(args).not.toContain('--bare')
   })
 
-  it('disallows every tool the harness offers', () => {
+  it('makes no tool available at all, by an EMPTY ALLOWLIST', () => {
+    // The review's M1, and the whole reason a call costs 166 tokens instead of 14,136.
+    // `--tools ''` is the CLI's documented "disable all tools". It must come as its own
+    // argument pair, and the empty string must survive: a later edit that drops the ''
+    // would make `--tools` swallow the next flag.
+    const args = claudeArgs({ system: 'runbook', model: 'claude-haiku-4-5' })
+    const i = args.indexOf('--tools')
+    expect(i).toBeGreaterThan(-1)
+    expect(args[i + 1]).toBe('')
+    expect(args[i + 1]).not.toBe('default')
+  })
+
+  it('keeps the denylist as defence in depth, and does not pretend it is exhaustive', () => {
     const args = claudeArgs({ system: null, model: null })
     const i = args.indexOf('--disallowed-tools')
     expect(i).toBeGreaterThan(-1)
@@ -418,6 +431,25 @@ describe('the invocation', () => {
       expect(args[i + 1]).toContain(tool)
     }
     expect(DISALLOWED_TOOLS.split(',')).toHaveLength(11)
+    // Named to record WHY the allowlist above is the load-bearing one: these ship with
+    // the CLI and were never in the denylist.
+    for (const missing of ['ExitPlanMode', 'BashOutput', 'KillBash', 'SlashCommand', 'Skill']) {
+      expect(DISALLOWED_TOOLS).not.toContain(missing)
+    }
+  })
+
+  it('refuses to boot a relay whose runner could outlive its lease', () => {
+    // The review's M2. The invariant was documented in queue.mjs and checked nowhere, and
+    // --job-timeout-ms is operator-settable while DEFAULT_LEASE_MS is a constant.
+    expect(() => assertLeaseCoversTimeout(DEFAULT_TIMEOUT_MS)).not.toThrow()
+    expect(() => assertLeaseCoversTimeout(DEFAULT_LEASE_MS - LEASE_MARGIN_MS)).not.toThrow()
+    expect(() => assertLeaseCoversTimeout(DEFAULT_LEASE_MS)).toThrow(/no margin under/)
+    // The case that motivated it: 30 minutes for a big batch, under a 20-minute lease.
+    expect(() => assertLeaseCoversTimeout(30 * 60_000)).toThrow(/reaped and handed out again/)
+    expect(() => assertLeaseCoversTimeout(DEFAULT_LEASE_MS - LEASE_MARGIN_MS + 1)).toThrow()
+    // A garbled env var is a boot refusal too, not a NaN comparison that quietly passes.
+    expect(() => assertLeaseCoversTimeout(Number('twenty'))).toThrow(/positive number/)
+    expect(() => assertLeaseCoversTimeout(0)).toThrow(/positive number/)
   })
 
   it('strips any metered credential from the child environment', () => {
@@ -494,7 +526,9 @@ describe('the queue on disk', () => {
     expect(await state.listUncollected('w1')).toHaveLength(0)
   })
 
-  it('hands a released job straight back without spending an attempt', async () => {
+  it('hands a released job straight back and gives the claimed attempt back with it', async () => {
+    // The review's L1: this used to leave attempts at 1, so three restarts mid-batch
+    // abandoned a job that had never been allowed to finish once.
     const state = await import('../relay/state.mjs')
     const j = await state.enqueue({ fn: 'observation_routing', payload: { prompt: 'p' } })
     const claimed = await state.claimNext()
@@ -502,7 +536,22 @@ describe('the queue on disk', () => {
     await state.release(j.id)
     const again = await state.readJob(j.id)
     expect(again?.status).toBe('queued')
-    expect(again?.attempts).toBe(1)
+    expect(again?.attempts).toBe(0)
+  })
+
+  it('survives three restarts mid-flight without abandoning the job', async () => {
+    const state = await import('../relay/state.mjs')
+    const j = await state.enqueue({ fn: 'observation_routing', payload: { prompt: 'p' } })
+    for (let i = 0; i < 3; i++) {
+      const claimed = await state.claimNext()
+      expect(claimed?.id).toBe(j.id)
+      await state.release(j.id)
+    }
+    const fourth = await state.claimNext()
+    expect(fourth?.id).toBe(j.id)
+    expect(fourth?.attempts).toBe(1)
+    await state.complete(j.id, { text: '{}' })
+    expect((await state.readJob(j.id))?.status).toBe('done')
   })
 
   it('skips a hand-edited file that no longer parses instead of failing the whole queue', async () => {

@@ -2,12 +2,15 @@
  * Reading what the CLI said (tl-21). Pure string work, no IO, so every case below is a
  * unit test rather than a live run.
  *
- * THE HEADLINE FINDING THIS FILE EXISTS FOR: the model's answer comes back inside a
- * fence. Three trials of "Reply with only this JSON and nothing else" on 2026-08-03
- * returned ```json\n{...}\n``` every time, and a fourth on the real invocation while
- * this was being written did the same. So the runner EXTRACTS the first balanced JSON
- * object rather than parsing `result`, and a build that trusted the instruction would
- * have failed on its first real job.
+ * THE HEADLINE FINDING THIS FILE EXISTS FOR: the model's answer may come back inside a
+ * fence, and whether it does is not stable. Three trials of "Reply with only this JSON and
+ * nothing else" on 2026-08-03 returned ```json\n{...}\n``` every time, and a fourth on the
+ * real invocation did the same; with `--tools ''` added at pre-merge review the same prompt
+ * came back BARE. So "every time" was a property of one configuration, not of the model.
+ * Which changes nothing here, and that is the point: the runner EXTRACTS the first balanced
+ * JSON object rather than parsing `result`, so both shapes work and neither is relied on. A
+ * build that had trusted the instruction would have failed on its first real job; a build
+ * that had trusted the FENCE would have failed the day this flag was added.
  */
 
 /**

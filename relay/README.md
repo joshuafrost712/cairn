@@ -28,11 +28,17 @@ Four things worth knowing before changing anything in here:
   the pure half with a fabricated clock.
 - **The payload goes on stdin, never on argv**, and the child is spawned with an argument
   array and no shell. A dictated capture is arbitrary text.
-- **Every tool is disallowed and `ANTHROPIC_API_KEY` is deleted from the child's
-  environment.** The worker's job is text in, JSON out, on a subscription.
+- **No tool is available (`--tools ''`, an empty allowlist) and `ANTHROPIC_API_KEY` is
+  deleted from the child's environment.** The worker's job is text in, JSON out, on a
+  subscription. The allowlist replaced a denylist at pre-merge review: a denylist has to
+  stay exhaustive against a CLI that keeps shipping new built-in tools, and an empty
+  allowlist does not.
 - **`--bare` looks purpose-built for this and breaks subscription auth** ("OAuth and
-  keychain are never read"). The three flags in `claudeArgs` are the supported way to get a
-  small prompt: ~3,500 input tokens per call against ~13,700 with the harness defaults.
+  keychain are never read"). The flags in `claudeArgs` are the supported way to get a small
+  prompt, and the numbers are **166 input tokens per call, against 14,136 with the tools
+  enabled** (same job, real CLI, 2026-08-03). Two earlier figures in this file were wrong:
+  replacing the system prompt is worth ~3,400 of that, not all of it, and the rest is the
+  tool schemas, which arrive as a cache read that `usage.input_tokens` alone does not count.
 
 Harnesses: `node scripts/tl21-relay-checks.mjs` (54 checks, add `--real` for one job
 through the real CLI), `node scripts/tl21-local-agent.mjs` (the browser),

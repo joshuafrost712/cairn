@@ -10,15 +10,20 @@
  * There is no shell here at all — `spawn` with `shell: false`, which is the default and
  * is stated explicitly below so a later edit cannot flip it by accident.
  *
- * **Every tool is disallowed.** The worker's job is text in, JSON out. With no Bash, no
- * Read and no WebFetch, the worst a prompt-injected capture can achieve is a bad JSON
- * document, which the app's contract validator rejects. This is §5's answer for
- * untrusted input, and it is cheap here precisely because the job needs no tools.
+ * **No tool is available, by an empty allowlist rather than a denylist.** The worker's job
+ * is text in, JSON out. With no Bash, no Read and no WebFetch, the worst a prompt-injected
+ * capture can achieve is a bad JSON document, which the app's contract validator rejects.
+ * This is §5's answer for untrusted input, and it is cheap here precisely because the job
+ * needs no tools. The shape of the refusal matters and is the review's finding, not the
+ * build's: see DISALLOWED_TOOLS below for why an allowlist is the correct one and why it
+ * turned out to be worth 14,000 tokens a call.
  *
  * **The system prompt is the function's runbook, replacing the harness default.** Not
  * appended: `--system-prompt` plus `--setting-sources ""` and `--strict-mcp-config` is
- * what takes the per-call overhead from 13,694 tokens to a flat ~3,500, measured on
- * 2026-08-03 and confirmed again on the first real invocation of this build.
+ * what removes the harness's own instructions from the context. It is worth ~3,400 tokens
+ * a call and it is NOT the whole overhead: the tool schemas are not part of the system
+ * prompt, so replacing it left them in place. `--tools ''` below is what removes those,
+ * and it is the larger half by far. Measured 2026-08-03: 14,136 in without it, 166 with.
  *
  * **No metered key, ever.** `ANTHROPIC_API_KEY` is deleted from the child's environment.
  * The whole premise of this mode is a subscription that is already paid for, and a key
@@ -31,17 +36,50 @@
 import { spawn } from 'node:child_process'
 import { detectAuthFailure, detectThrottle, extractJson, parseEnvelope } from './extract.mjs'
 
-/** Every tool the harness offers, refused. `permission_denials` proves it at run time. */
+/**
+ * Tools are refused twice, and the FIRST of the two is the load-bearing one.
+ *
+ * `--tools ''` is the CLI's own "disable all tools" (its `--help` says exactly that), so
+ * no built-in tool is available to the call at all. That is an ALLOWLIST, and it is what
+ * makes "no tool is available" a syntactic fact instead of a claim about whether the list
+ * below stayed exhaustive. The denylist could not make that claim: it named eleven tools
+ * and the CLI ships others (ExitPlanMode, BashOutput, KillBash, SlashCommand, Skill), so
+ * the invariant rested on reasoning about which OTHER flags neutralise them, and a CLI
+ * release adding a twelfth built-in would have opened a hole silently. Found by this
+ * spec's pre-merge review on 2026-08-03, which is the review earning its keep.
+ *
+ * **It is also the largest cost lever in the whole AI path**, and that is not a
+ * coincidence: a tool that is unavailable needs no schema in the context. Measured
+ * through this relay on the real CLI, the same routing job both ways on 2026-08-03:
+ * **14,136 tokens in without the flag, 166 with it.** The spec's "~3,500 per call with
+ * the system prompt replaced" did not reproduce and is corrected in its record. The
+ * reason it looked true is worth keeping: `--system-prompt` replaces the system prompt,
+ * and tool schemas are not part of the system prompt, so replacing it never removed
+ * them; and `usage.input_tokens` alone excludes the cache read they arrive as, so the
+ * bulk was present but uncounted. `extract.mjs` sums all three token fields precisely so
+ * a figure like that cannot hide again.
+ *
+ * The denylist stays as defence in depth, for a CLI that might ever read an empty
+ * `--tools` as "default" rather than "none". `permission_denials` proves the refusal at
+ * run time, and `tl21-relay-checks.mjs` pins the token count, so a regression in either
+ * surfaces as a failed check rather than as a quietly larger bill.
+ */
 export const DISALLOWED_TOOLS =
   'Bash,Edit,Write,Read,WebFetch,WebSearch,Task,Glob,Grep,TodoWrite,NotebookEdit'
+
+/** The empty allowlist. A named constant so a later edit cannot read as a stray `''`. */
+export const NO_TOOLS = ''
 
 /**
  * The wall-clock allowance for one invocation.
  *
- * Ten minutes because a job is a BATCH: the measured overhead is ~3,500 tokens per call,
- * which is why captures are routed together rather than one at a time, and a batch of ten
- * takes minutes rather than the 1.3 to 3.3 seconds a ten-token prompt took. It must stay
- * comfortably below `DEFAULT_LEASE_MS` in queue.mjs, for the reason stated there.
+ * Ten minutes because a job is a BATCH: captures are routed together rather than one at a
+ * time, and a batch of ten takes minutes rather than the 1.3 to 3.3 seconds a ten-token
+ * prompt took. (Batching was originally justified by a ~3,500-token per-call overhead. With
+ * `--tools ''` that overhead is ~170, so batching now earns its place on wall clock and on
+ * the model seeing a day's captures together, not on amortising a fixed cost.) It must stay
+ * comfortably below `DEFAULT_LEASE_MS` in queue.mjs, and `assertLeaseCoversTimeout` in
+ * server.mjs now refuses to boot a relay where it does not.
  */
 export const DEFAULT_TIMEOUT_MS = 10 * 60_000
 
@@ -63,6 +101,8 @@ export function claudeArgs({ system, model }) {
     '--strict-mcp-config',
     '--setting-sources',
     '',
+    '--tools',
+    NO_TOOLS,
     '--disallowed-tools',
     DISALLOWED_TOOLS,
   ]

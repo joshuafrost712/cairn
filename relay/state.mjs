@@ -158,9 +158,30 @@ export async function fail(id, reason, options = {}) {
   return patchJob(id, failurePatch(job, options.now ?? Date.now(), reason, options))
 }
 
-/** Hand a leased job back without spending a further attempt: the shutdown path. */
+/**
+ * Hand a leased job back and GIVE BACK the attempt the claim spent: the shutdown path.
+ *
+ * The attempt is counted at claim time, which is right for every path that learns
+ * something about the job (a crash, a timeout, a reap) and wrong for this one, which
+ * learns nothing: the operator stopped the relay. Before the pre-merge review of 2026-08-03
+ * this only cleared the lease, so three mid-batch restarts walked a job to `attempts: 3`
+ * and the next reap abandoned it with "the lease expired with no result" over a job that
+ * had never once been allowed to finish. Restarting the relay to fix a port or a config is
+ * a documented recovery step, so it has to actually cost nothing.
+ *
+ * Giving the attempt back cannot defeat the poison-job ceiling, because a job that kills
+ * the relay does not come through here: an ungraceful exit leaves the row `leased` and the
+ * reap in `claimNext` counts it. Only `stop()` calls this, deliberately.
+ */
 export async function release(id, { now = Date.now() } = {}) {
-  return patchJob(id, { status: 'queued', lease_until: null, updated_at: new Date(now).toISOString() })
+  const job = await readJob(id)
+  if (!job) return null
+  return patchJob(id, {
+    status: 'queued',
+    lease_until: null,
+    attempts: Math.max(0, (job.attempts ?? 0) - 1),
+    updated_at: new Date(now).toISOString(),
+  })
 }
 
 /**
