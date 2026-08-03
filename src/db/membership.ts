@@ -1,7 +1,7 @@
 import { db } from './local'
 import { supabase, isSupabaseConfigured } from '../lib/supabase'
 import { memberPk } from '../auth/membership'
-import type { WorkshopMember, WorkshopRole } from '../lib/types'
+import type { MembershipChangeLog, WorkshopMember, WorkshopRole } from '../lib/types'
 
 /**
  * The caller's own workshop memberships: fetch from Postgres, cache in Dexie,
@@ -112,4 +112,145 @@ export async function synthesizeLocalMembership(
   }))
   if (rows.length > 0) await db.workshopMembers.bulkPut(rows)
   return rows
+}
+
+/**
+ * ## Changing a membership: the three RPCs (tl-02)
+ *
+ * `workshop_member` still has no client write path — tl-01 revoked the grants
+ * rather than merely omitting a policy. Every change goes through a
+ * security-definer function that resolves the caller from `auth.uid()` and
+ * applies the promotion matrix server-side. The client's copy of that matrix
+ * (`src/lib/permissions.ts`) decides which buttons to offer; it decides nothing
+ * else.
+ *
+ * **These three are deliberately online-only, and that is a departure from this
+ * wave's offline-first default.** Every other write in the app queues through an
+ * outbox because it records something the evaluator observed, and the backend's
+ * job is to accept it. A membership change is the opposite: the result is the
+ * server's decision, not the caller's observation. Queueing one offline would
+ * show a promotion on the device that the matrix may refuse an hour later, which
+ * is the failure mode tl-01's `isAuthorizationRefusal()` exists to contain — and
+ * here it would be a lie about who can do what, held on the one screen an
+ * administrator would trust. So a refusal is returned rather than queued, and
+ * `offline` is its own result the UI can name.
+ */
+
+/**
+ * What a membership call did. Not a thrown error: the server's refusal text is
+ * written to be readable, and the slug in `detail` is a stable key tl-11 can map
+ * to a chrome.json string rather than rendering Postgres prose forever.
+ */
+export type MembershipResult =
+  | { ok: true }
+  | { ok: false; reason: 'offline'; slug: null; message: null }
+  | { ok: false; reason: 'refused' | 'failed'; slug: string | null; message: string }
+
+const OFFLINE: MembershipResult = { ok: false, reason: 'offline', slug: null, message: null }
+
+interface PostgrestLikeError {
+  message?: string
+  details?: string | null
+  code?: string | null
+}
+
+/** A refusal raised by `raise_refusal()` carries 42501 and a slug in `details`. */
+function toResult(error: PostgrestLikeError | null): MembershipResult {
+  if (!error) return { ok: true }
+  const slug = typeof error.details === 'string' && error.details.startsWith('tl02.')
+    ? error.details
+    : null
+  return {
+    ok: false,
+    reason: error.code === '42501' ? 'refused' : 'failed',
+    slug,
+    message: error.message ?? 'That change could not be made.',
+  }
+}
+
+async function callMembershipRpc(
+  fn: 'set_workshop_member_role' | 'remove_workshop_member' | 'transfer_chief_admin',
+  args: Record<string, string>,
+): Promise<MembershipResult> {
+  if (!isSupabaseConfigured || !supabase || !navigator.onLine) return OFFLINE
+  try {
+    const { error } = await supabase.rpc(fn, args)
+    return toResult(error)
+  } catch (err) {
+    return {
+      ok: false,
+      reason: 'failed',
+      slug: null,
+      message: err instanceof Error ? err.message : 'That change could not be made.',
+    }
+  }
+}
+
+/** Grant or re-rank a workshop role. Refused unless the matrix permits it. */
+export async function setWorkshopMemberRole(
+  workshopId: string,
+  targetAppUserId: string,
+  role: WorkshopRole,
+): Promise<MembershipResult> {
+  return callMembershipRpc('set_workshop_member_role', {
+    _workshop_id: workshopId,
+    _target_app_user_id: targetAppUserId,
+    _role: role,
+  })
+}
+
+/**
+ * Remove somebody from a workshop. Passing your own app_user id is how you leave
+ * one, which every role but the chief admin may do without anybody's permission.
+ */
+export async function removeWorkshopMember(
+  workshopId: string,
+  targetAppUserId: string,
+): Promise<MembershipResult> {
+  return callMembershipRpc('remove_workshop_member', {
+    _workshop_id: workshopId,
+    _target_app_user_id: targetAppUserId,
+  })
+}
+
+/**
+ * Hand the chief admin role to another member, atomically. The outgoing chief
+ * admin becomes an `admin`; the workshop is never left without one.
+ */
+export async function transferChiefAdmin(
+  workshopId: string,
+  toAppUserId: string,
+): Promise<MembershipResult> {
+  return callMembershipRpc('transfer_chief_admin', {
+    _workshop_id: workshopId,
+    _to_app_user_id: toAppUserId,
+  })
+}
+
+/**
+ * The workshop's membership history, newest first.
+ *
+ * Read straight from Postgres with no Dexie cache: it is an administrator's
+ * audit surface, not something an evaluator's phone needs offline, and a cached
+ * copy of who-changed-what is a copy that can be stale in the one situation
+ * anybody reads it.
+ */
+export async function membershipHistory(
+  workshopId: string | null,
+  limit = 100,
+): Promise<MembershipChangeLog[]> {
+  if (!workshopId || !isSupabaseConfigured || !supabase || !navigator.onLine) return []
+  const { data, error } = await supabase
+    .from('membership_change_log')
+    .select(
+      'id, workshop_id, actor_app_user_id, actor_email, target_app_user_id, target_email, from_role, to_role, operation, at',
+    )
+    .eq('workshop_id', workshopId)
+    .order('at', { ascending: false })
+    .limit(limit)
+  if (error) {
+    console.warn('[honest-eval] membership history unavailable.', error)
+    return []
+  }
+  return (data ?? []) as MembershipChangeLog[]
 }
