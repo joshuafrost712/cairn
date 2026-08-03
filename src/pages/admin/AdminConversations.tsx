@@ -19,6 +19,10 @@ import { Drawer } from '../../components/data/Drawer'
 import { EmptyState } from '../../components/data/EmptyState'
 import { Copy } from '../../components/Copy'
 import { c } from '../../lib/content/chrome'
+import { runAiJob } from '../../ai/providers'
+import { aiUnavailableReason } from '../../ai/aiEnabled'
+import { validateGuidanceReply } from '../../ai/guidancePrompt'
+import { resolveAiConfig } from '../../lib/aiConfig'
 import type { MentoringConversation, WorkshopPerson } from '../../lib/types'
 
 /**
@@ -172,6 +176,19 @@ function AssignPanel({
         }}
         style={{ marginBottom: '0.5rem' }}
       />
+      {/* tl-13: an admin may ask for a suggested opening, which lands in the box
+          above for them to edit and own. Never sent to an evaluator unreviewed, and
+          stored as their guidance with no marker giving it special standing — tl-06
+          refused to hardcode guidance and this does not undo that. */}
+      <GuidanceSuggest
+        conv={conv}
+        actorEmail={actorEmail}
+        onSuggestion={(text) => {
+          setGuidance(text)
+          setGuidanceSaved(false)
+        }}
+      />
+
       <div className="row">
         <button type="button" onClick={handleGuidance} disabled={savingGuidance}>
           {savingGuidance
@@ -234,6 +251,158 @@ function AssignPanel({
         </button>
       </div>
     </>
+  )
+}
+
+/**
+ * "Suggest an opening" (tl-13).
+ *
+ * THE BRIEF IS BUILT FROM RECORDED EVIDENCE AND NOTHING ELSE. Participant name, the
+ * question and designation that triggered the follow-up, and the evaluator's own
+ * capture text for that observation where this device holds it. No scores from
+ * elsewhere, no history, no inference — because the guidance is about one
+ * conversation, and a brief that quietly widened its scope would produce advice an
+ * administrator could not check against anything.
+ *
+ * The suggestion lands in the guidance box UNSAVED. That is the whole design: the
+ * administrator edits it and presses Save, so what an evaluator eventually reads is
+ * something a person decided to send.
+ */
+function GuidanceSuggest({
+  conv,
+  actorEmail,
+  onSuggestion,
+}: {
+  conv: MentoringConversation
+  actorEmail: string | null
+  onSuggestion: (text: string) => void
+}) {
+  const [prompt, setPrompt] = useState('')
+  const [reply, setReply] = useState('')
+  const [status, setStatus] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
+
+  const configRows = useLiveQuery(() => db.aiConfigs.toArray(), [], [])
+  const config = resolveAiConfig(conv.workshop_id, configRows ?? [])
+  const offReason = aiUnavailableReason('conversation_guidance', config)
+  /**
+   * A conversation with no workshop cannot ask for a suggestion, and that is the
+   * honest answer rather than a gap. `workshop_id` is null only on pre-tl-04 rows
+   * whose capture has left the device; with no workshop there is no configuration to
+   * read, no permission to check server-side and nothing to trace the call against.
+   */
+  const workshopId = conv.workshop_id
+
+  const ask = async () => {
+    if (!workshopId) return
+    setBusy(true)
+    setStatus(null)
+    const evidence = conv.trigger_observation_id
+      ? await db.observations.get(conv.trigger_observation_id)
+      : undefined
+    const brief = [
+      `Participant: ${conv.participant_name}`,
+      conv.trigger_ksa_code ? `Question: ${conv.trigger_ksa_code}` : null,
+      conv.trigger_designation != null ? `Designation recorded: ${conv.trigger_designation}` : null,
+      // The evaluator's own words first, then the routed summary. Both, where both
+      // exist: the summary is what the pipeline made of the capture, and the excerpt
+      // is what the evaluator actually said, which is the part guidance should be
+      // grounded in.
+      evidence?.source_excerpt ? `Evaluator's words: ${evidence.source_excerpt}` : null,
+      evidence?.text ? `Recorded observation: ${evidence.text}` : null,
+    ]
+      .filter(Boolean)
+      .join('\n')
+
+    const outcome = await runAiJob(
+      { fn: 'conversation_guidance', workshopId, actorEmail, brief },
+      { config },
+    )
+    setBusy(false)
+
+    if (outcome.kind === 'result') {
+      const check = validateGuidanceReply(outcome.value)
+      if (check.ok) {
+        onSuggestion(check.value)
+        setStatus(c('admin-conversations.guidance.suggested'))
+      } else {
+        setStatus(check.reason)
+      }
+      return
+    }
+    if (outcome.kind === 'operator_action') {
+      setPrompt(outcome.prompt ?? '')
+      let copied = false
+      if (outcome.prompt && navigator.clipboard) {
+        try {
+          await navigator.clipboard.writeText(outcome.prompt)
+          copied = true
+        } catch {
+          /* clipboard blocked: the textarea below still holds it */
+        }
+      }
+      setStatus(
+        copied
+          ? c('admin-conversations.guidance.prompt-copied')
+          : c('admin-conversations.guidance.prompt-shown'),
+      )
+      return
+    }
+    setStatus(
+      outcome.kind === 'refused'
+        ? c(outcome.reason ?? 'setup.ai.fn.disabled')
+        : (outcome.reason ?? c('setup.ai.fn.disabled')),
+    )
+  }
+
+  const usePasted = () => {
+    const check = validateGuidanceReply(reply)
+    if (!check.ok) {
+      setStatus(check.reason)
+      return
+    }
+    onSuggestion(check.value)
+    setReply('')
+    setPrompt('')
+    setStatus(c('admin-conversations.guidance.suggested'))
+  }
+
+  if (offReason || !workshopId) {
+    return (
+      <p className="small muted">
+        <span className="pill queued">{c('setup.ai.fn.off')}</span>{' '}
+        {c('admin-conversations.guidance.ai-off')}
+      </p>
+    )
+  }
+
+  return (
+    <div style={{ marginBottom: '0.5rem' }}>
+      <button type="button" className="ghost small" onClick={() => void ask()} disabled={busy}>
+        {c('admin-conversations.guidance.suggest')}
+      </button>
+      {prompt && (
+        <>
+          <textarea
+            className="mono"
+            readOnly
+            rows={4}
+            value={prompt}
+            onFocus={(e) => e.currentTarget.select()}
+          />
+          <textarea
+            rows={4}
+            value={reply}
+            placeholder={c('admin-conversations.guidance.paste-placeholder')}
+            onChange={(e) => setReply(e.target.value)}
+          />
+          <button type="button" className="ghost small" disabled={!reply.trim()} onClick={usePasted}>
+            {c('admin-conversations.guidance.use-reply')}
+          </button>
+        </>
+      )}
+      {status && <p className="small muted">{status}</p>}
+    </div>
   )
 }
 

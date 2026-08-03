@@ -190,6 +190,37 @@ const ENTITIES: SetupChange[] = [
     entityId: 'rosterimport_1',
     label: 'bali-roster.csv',
   },
+  // tl-13: the AI configuration. Four rows, because the mode sentence, the two
+  // toggle sentences and the routing-off sentence are four different claims, and the
+  // routing-off one is the loudest thing this dialog ever says.
+  {
+    entity: 'ai_config',
+    operation: 'update',
+    entityId: null,
+    label: 'the AI provider mode',
+    fields: [{ field: 'mode', before: 'github-claude', after: 'hosted-api' }],
+  },
+  {
+    entity: 'ai_config',
+    operation: 'update',
+    entityId: null,
+    label: 'Turning captures into observations',
+    fields: [{ field: 'observation_routing', before: true, after: false }],
+  },
+  {
+    entity: 'ai_config',
+    operation: 'update',
+    entityId: null,
+    label: 'Drafting a scenario from a document',
+    fields: [{ field: 'scenario_draft', before: true, after: false }],
+  },
+  {
+    entity: 'ai_config',
+    operation: 'update',
+    entityId: null,
+    label: 'Suggesting how to open a hard conversation',
+    fields: [{ field: 'conversation_guidance', before: false, after: true }],
+  },
 ]
 
 const STATES: WorkshopState[] = ['draft', 'in_progress', 'closed']

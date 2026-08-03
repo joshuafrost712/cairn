@@ -761,3 +761,86 @@ describe('deriveWorkshopState', () => {
     ).toBe('closed')
   })
 })
+
+/**
+ * tl-13: the AI configuration.
+ *
+ * The case worth the tests is switching observation routing off. Every other member
+ * of `invalidates_evidence` changes what recorded evidence MEANS; this one leaves all
+ * of it alone and closes the far end of the pipeline, so evaluators go on capturing
+ * into nothing. Nothing on any screen looks wrong, which is exactly why the dialog
+ * has to say it.
+ */
+describe('classifySetupChange: the AI configuration', () => {
+  const change = (
+    fields: { field: string; before?: unknown; after?: unknown }[],
+    counts?: Record<string, number>,
+  ): SetupChange => ({
+    entity: 'ai_config',
+    operation: 'update',
+    entityId: null,
+    label: 'the AI provider mode',
+    fields,
+    counts,
+  })
+
+  it('treats a mode change as affecting what happens next', () => {
+    const impact = classifySetupChange(
+      change([{ field: 'mode', before: 'github-claude', after: 'byo-agent' }], { captures: 9 }),
+      'in_progress',
+    )
+    expect(impact.severity).toBe('affects_future')
+    expect(impact.consequences[0].id).toBe('setup.impact.ai.mode')
+    expect(impact.requiresTypedName).toBe(false)
+  })
+
+  it('says captures will stop becoming evidence, with the count, when routing goes off', () => {
+    const impact = classifySetupChange(
+      change([{ field: 'observation_routing', before: true, after: false }], { captures: 9 }),
+      'in_progress',
+    )
+    expect(impact.severity).toBe('invalidates_evidence')
+    const line = impact.consequences.find((x) => x.id === 'setup.impact.ai.routing-off')
+    expect(line?.tokens?.captures).toBe(9)
+  })
+
+  it('drops a tier when there is nothing in flight to strand', () => {
+    // The count-justifies-the-tier rule the whole module runs on: with no captures,
+    // claiming an invalidation would be crying wolf.
+    const impact = classifySetupChange(
+      change([{ field: 'observation_routing', before: true, after: false }], { captures: 0 }),
+      'in_progress',
+    )
+    expect(impact.severity).toBe('affects_future')
+    expect(impact.consequences.some((x) => x.id === 'setup.impact.ai.routing-off-clean')).toBe(true)
+  })
+
+  it('does not shout about turning routing back ON', () => {
+    const impact = classifySetupChange(
+      change([{ field: 'observation_routing', before: false, after: true }], { captures: 9 }),
+      'in_progress',
+    )
+    expect(impact.severity).toBe('affects_future')
+    expect(impact.consequences[0].id).toBe('setup.impact.ai.fn-on')
+  })
+
+  it('still warns and logs in a draft workshop, unlike a field edit', () => {
+    // The draft blanket would return `safe`, and `safe` changes are not written to
+    // the setup log — so the record of who pointed this workshop at which provider
+    // would not exist for exactly the workshops that get configured before they start.
+    const impact = classifySetupChange(
+      change([{ field: 'mode', before: 'github-claude', after: 'hosted-api' }]),
+      'draft',
+    )
+    expect(impact.severity).toBe('affects_future')
+    expect(impact.silent).toBe(false)
+  })
+
+  it('is silent when nothing actually changed', () => {
+    const impact = classifySetupChange(
+      change([{ field: 'mode', before: 'byo-agent', after: 'byo-agent' }]),
+      'in_progress',
+    )
+    expect(impact.silent).toBe(true)
+  })
+})

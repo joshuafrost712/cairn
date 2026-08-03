@@ -1,7 +1,8 @@
 import { describe, it, expect } from 'vitest'
 import { capturesToAdopt, captureRecordFromRow, type RemoteCaptureRow } from '../src/db/sync'
 import { myCaptures } from '../src/db/evaluations'
-import { shouldClearRoutingToken, DEFAULT_ROUTING_MODE } from '../src/routing/config'
+import { shouldClearRoutingToken } from '../src/routing/config'
+import { AI_MODES, DEFAULT_AI_MODE } from '../src/lib/aiConfig'
 import { NAV_GROUPS } from '../src/layout/navItems'
 import { ADMIN_ROLES } from '../src/layout/roles'
 import chrome from '../src/content/chrome.json'
@@ -188,8 +189,17 @@ describe('the evaluator-facing copy names no mechanism', () => {
   // string is reused on an evaluator's screen. The AI section is the only part that
   // has to name the mechanism (a provider, a token cost, the routing repo), so it is
   // the only part exempted, and every other `setup.` string stays under audit.
+  //
+  // tl-13 adds `setup.impact.ai.`, on the same earned-not-assumed footing. Those are
+  // the change-dialog consequences for an AI configuration edit, and one of them has
+  // to say the true and alarming thing in plain words: switching observation routing
+  // off means captures stop becoming observations. The dialog is rendered only by
+  // SetupSaveProvider, which is mounted only by the Setup hub (src/pages/admin/Setup.tsx,
+  // behind RequireRole ADMIN_ROLES) — so no evaluator can reach these strings. The
+  // rest of `setup.impact.` stays under audit, for the reason the paragraph above
+  // gives: exempting a whole branch is how the audit stops noticing.
   const ADMIN_ONLY =
-    /^(routing\.|sync-health\.|nav\.routing|nav\.sync-health|nav\.discrepancy-inbox|nav\.builder|setup\.ai\.)/
+    /^(routing\.|sync-health\.|nav\.routing|nav\.sync-health|nav\.discrepancy-inbox|nav\.builder|setup\.ai\.|setup\.impact\.ai\.)/
 
   const nodes = (chrome as { nodes: Array<Record<string, unknown>> }).nodes
 
@@ -211,8 +221,14 @@ describe('the evaluator-facing copy names no mechanism', () => {
     expect(offenders).toEqual([])
   })
 
-  it('still knows what the single routing mode is', () => {
-    expect(DEFAULT_ROUTING_MODE).toBe('github-claude')
-    expect(nodes.some((n) => n.id === `routing.mode.${DEFAULT_ROUTING_MODE}`)).toBe(true)
+  it('has a routing-page description for every mode, not only the default', () => {
+    // tl-03 asserted there was one mode and it had a string. tl-13 gave the workshop
+    // three, and the Routing page renders `routing.mode.${mode}` off the stored value
+    // — so a mode with no node would put the raw id on screen (the `c()` fallback) in
+    // the one card whose job is to say plainly how this workshop's work gets done.
+    expect(DEFAULT_AI_MODE).toBe('github-claude')
+    for (const mode of AI_MODES) {
+      expect(nodes.some((n) => n.id === `routing.mode.${mode}`)).toBe(true)
+    }
   })
 })
