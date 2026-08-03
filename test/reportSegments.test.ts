@@ -137,9 +137,9 @@ describe('evidence attribution', () => {
     const { reports, gates } = pipeline(f)
     const segs = buildDayEmailSegments(reports, gates, 'W', 'D')
     const fu = segs.find((s) => s.id.endsWith('/fu'))!
-    // o-5 is a 1 (at the threshold), o-6 is a 2 (above it).
+    // o-5 is a 1 (a low-trigger point on the default scale), o-6 is a 2 (not).
     expect(fu.evidence).toEqual(['o-5'])
-    expect(fu.note).toContain('at or below 1/3')
+    expect(fu.note).toContain('growth signal')
   })
 
   it('a CBC bullet carries the evidence for every KSA on the line', () => {

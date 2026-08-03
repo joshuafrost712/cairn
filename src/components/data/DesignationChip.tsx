@@ -1,10 +1,17 @@
 import type { DesignationStats } from '../../reports/analytics'
-import { LEVEL_WORD, isDeemphasized } from '../viz/viz'
-import type { Designation } from '../viz/viz'
+import { useScale } from '../../hooks/useScale'
+import { designationFill, designationInk, isDeemphasized, levelWord } from '../viz/viz'
+import { isLowTrigger, maxValue } from '../../lib/scale'
 
 /**
- * One 0-3 value. The numeral is always rendered; the fill is redundant.
- * A null value shows a middle dot on the empty surface, never a zero.
+ * One value on the workshop's scale. The numeral is always rendered; the fill is
+ * redundant. A null value shows a middle dot on the empty surface, never a zero.
+ *
+ * The scale comes from the hook rather than a prop because this chip is rendered
+ * from a dozen places, several of them deep inside table cells, and a prop
+ * threaded through all of them is a prop one of them will forget — with the
+ * failure being a chip labelled by the wrong workshop's words, which looks
+ * entirely normal.
  */
 export function DesignationChip({
   value,
@@ -17,14 +24,26 @@ export function DesignationChip({
   emphasizeRisk?: boolean
   title?: string
 }) {
+  const scale = useScale()
   const label =
-    value === null ? 'no evidence yet' : `${value} of 3, ${LEVEL_WORD[value as Designation]}`
+    value === null
+      ? 'no evidence yet'
+      : `${value} of ${maxValue(scale)}, ${levelWord(scale, value)}`
   return (
     <span
       className="chip-d"
       data-d={value === null ? 'none' : value}
       data-conflict={conflict || undefined}
-      data-deemph={isDeemphasized(value as Designation | null, emphasizeRisk) || undefined}
+      data-trigger={(value !== null && isLowTrigger(scale, value)) || undefined}
+      data-deemph={isDeemphasized(value, scale, emphasizeRisk) || undefined}
+      style={
+        value === null
+          ? undefined
+          : ({
+              '--fill': designationFill(value, scale),
+              '--ink-on': designationInk(value, scale),
+            } as React.CSSProperties)
+      }
       title={title ?? (conflict ? `${label} (evaluators conflicted)` : label)}
       aria-label={label}
     >

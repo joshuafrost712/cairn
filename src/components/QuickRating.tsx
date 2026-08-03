@@ -1,16 +1,22 @@
 import { useState } from 'react'
 import { c } from '../lib/content/chrome'
+import { useScale } from '../hooks/useScale'
 import type { EvidenceLevels } from '../lib/types'
 
-const LEVELS = [0, 1, 2, 3] as const
-type Level = (typeof LEVELS)[number]
-
 /**
- * Optional per-KSA quick read. The evaluator can tap a 0–3 (or leave it unset).
- * The selected level's anchor shows inline, and "All levels" reveals the full
- * 0–3 rubric (folding in the old RubricPanel). Buttons use
- * onMouseDown + preventDefault so tapping never blurs the active textarea —
+ * Optional per-KSA quick read. The evaluator can tap one of the workshop's scale
+ * points (or leave it unset). The selected point's anchor shows inline, and
+ * "All levels" reveals the full rubric (folding in the old RubricPanel). Buttons
+ * use onMouseDown + preventDefault so tapping never blurs the active textarea —
  * dictation inserts text word-by-word at the cursor, and stealing focus breaks it.
+ *
+ * The chips come from the workshop's scale since tl-09, not from a hardcoded
+ * 0-3. Two consequences worth knowing. The chip's LABEL is the point's own
+ * number, so a 1-5 workshop's evaluator taps a 1, not a 0 — the number they say
+ * out loud is the number on the button. And a chip on a low-trigger point
+ * carries the same underline the dashboard chips do, because "this one starts a
+ * follow-up conversation" is exactly the thing an evaluator should know before
+ * tapping it, and on a six-point scale it cannot be guessed.
  *
  * The evidence anchors are authored reference data, not chrome, so they carry
  * `data-dfb-source="ref"`: editing one files a proposal against the `ksa` row
@@ -24,14 +30,15 @@ export function QuickRating({
 }: {
   ksaId: string
   levels: EvidenceLevels | null
-  value: Level | undefined
-  onChange: (next: Level | undefined) => void
+  value: number | undefined
+  onChange: (next: number | undefined) => void
 }) {
+  const scale = useScale()
   const [showAll, setShowAll] = useState(false)
-  const anchor = (n: Level) => levels?.[String(n) as '0' | '1' | '2' | '3']
+  const anchor = (n: number) => levels?.[String(n)]
 
   /** Attributes addressing one evidence anchor back to its `ksa` row. */
-  const anchorAttrs = (n: Level) => ({
+  const anchorAttrs = (n: number) => ({
     'data-dfb-node': ksaId,
     'data-dfb-field': `evidence_levels.${n}`,
     'data-dfb-source': 'ref',
@@ -44,17 +51,18 @@ export function QuickRating({
         <span className="small muted" data-dfb-node="rating.quick-read" data-dfb-field="label" data-dfb-source="chrome">
           {c('rating.quick-read')}
         </span>
-        {LEVELS.map((n) => (
+        {scale.points.map((p) => (
           <button
-            key={n}
+            key={p.value}
             type="button"
-            className={`rating-chip ${value === n ? 'primary' : ''}`}
-            aria-pressed={value === n}
-            title={anchor(n) ?? undefined}
+            className={`rating-chip ${value === p.value ? 'primary' : ''}`}
+            data-trigger={p.is_low_trigger || undefined}
+            aria-pressed={value === p.value}
+            title={anchor(p.value) ?? p.description ?? p.label}
             onMouseDown={(e) => e.preventDefault()}
-            onClick={() => onChange(value === n ? undefined : n)}
+            onClick={() => onChange(value === p.value ? undefined : p.value)}
           >
-            {n}
+            {p.value}
           </button>
         ))}
         {value !== undefined && (
@@ -88,12 +96,19 @@ export function QuickRating({
         <div className="rubric-panel" role="region" aria-label={c('rating.levels-region')}>
           {levels ? (
             <ul>
-              {([3, 2, 1, 0] as const)
-                .filter((n) => anchor(n))
-                .map((n) => (
-                  <li key={n}>
-                    <span className="rubric-level">{n}:</span>{' '}
-                    <span {...anchorAttrs(n)}>{anchor(n)}</span>
+              {/* Top point first, as it always was: an evaluator reads down from
+                  what good looks like. Descriptors for points the scale no
+                  longer has are NOT shown, and are not deleted either — see
+                  EvidenceLevels in lib/types.ts. */}
+              {[...scale.points]
+                .reverse()
+                .filter((p) => anchor(p.value))
+                .map((p) => (
+                  <li key={p.value}>
+                    <span className="rubric-level" data-trigger={p.is_low_trigger || undefined}>
+                      {p.value}:
+                    </span>{' '}
+                    <span {...anchorAttrs(p.value)}>{anchor(p.value)}</span>
                   </li>
                 ))}
             </ul>

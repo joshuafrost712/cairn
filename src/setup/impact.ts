@@ -136,6 +136,28 @@ export interface ImpactCounts {
    * invalidates evidence.
    */
   regrouped?: number
+  /**
+   * The four numbers that describe a scale edit (tl-09).
+   *
+   * A scale change cannot be classified from field names: adding a point,
+   * renaming one and deleting one all appear as a change to the same thing, and
+   * they are three different acts with three different costs. So the arithmetic
+   * is done by `diffScales` in lib/scale.ts and arrives here as counts.
+   */
+  addedPoints?: number
+  removedPoints?: number
+  rewordedPoints?: number
+  retriggeredPoints?: number
+  /**
+   * Observations sitting on a point that is about to be removed. The number that
+   * separates `invalidates_evidence` from `destructive`, and the one the remap
+   * step exists for.
+   */
+  strandedObservations?: number
+  /** Follow-up conversations that would newly derive if the trigger set changes. */
+  conversationsAppearing?: number
+  /** Existing conversations whose trigger point would stop being a trigger. */
+  conversationsStale?: number
 }
 
 export interface SetupChange {
@@ -917,28 +939,113 @@ function classifyThreshold(change: SetupChange): Verdict {
 }
 
 /**
- * The grading scale (tl-09 owns the editor; this is the rule it plugs into).
+ * The grading scale (tl-09).
  *
  * A designation is a number whose meaning comes entirely from the scale it was
  * recorded on, so changing the scale under recorded evidence is the sharpest case
  * in the whole layer: nothing is deleted and nothing looks wrong, while every
  * stored number now means something else.
+ *
+ * tl-07 left one coarse rule here — any edit with scored evidence behind it was
+ * `invalidates_evidence`. That is too loud to be believed. Renaming a point is
+ * not the same act as deleting one, and a layer that shouts equally at both
+ * teaches an administrator to click through it, which is precisely how the
+ * dangerous one gets through. The spec specifies four cases and this is them.
+ *
+ * The change carries a `scale.*` diff shape rather than field names, because
+ * "which points were added, removed, reworded or re-triggered" is what decides
+ * the severity, and no per-field classification can express it: a rename and a
+ * removal both show up as a change to the same jsonb column.
  */
 function classifyScale(change: SetupChange): Verdict {
   const c = change.counts
   const scored = n(c, 'scored')
-  if (scored === 0) {
+  const removed = n(c, 'removedPoints')
+  const added = n(c, 'addedPoints')
+  const retriggered = n(c, 'retriggeredPoints')
+  const stranded = n(c, 'strandedObservations')
+
+  // 1. REMOVING a point. Destructive when observations sit on it, because their
+  //    number is about to become a value the scale cannot label; the editor
+  //    refuses the save without a mapping, and the dialog is where the admin is
+  //    told what the mapping will do.
+  if (removed > 0) {
+    if (stranded > 0) {
+      return {
+        severity: 'destructive',
+        consequences: [
+          {
+            id: 'setup.impact.scale.remove-strands',
+            tokens: {
+              removed,
+              stranded,
+              participants: n(c, 'participants'),
+              reports: n(c, 'reports'),
+            },
+          },
+          { id: 'setup.impact.scale.remap-marked', tokens: { stranded } },
+        ],
+      }
+    }
     return {
-      severity: 'affects_future',
-      consequences: [{ id: 'setup.impact.scale.clean' }],
+      severity: 'invalidates_evidence',
+      consequences: [{ id: 'setup.impact.scale.remove-clean', tokens: { removed, scored } }],
     }
   }
+
+  // 2. Changing WHICH points warrant a conversation. Nothing is rescored and yet
+  //    the follow-up queue is about to be a different list of people, which is a
+  //    real cost on a workshop mid-flight and none at all before one starts.
+  if (retriggered > 0) {
+    if (scored === 0) {
+      return {
+        severity: 'affects_future',
+        consequences: [{ id: 'setup.impact.scale.trigger-clean', tokens: { retriggered } }],
+      }
+    }
+    return {
+      severity: 'invalidates_evidence',
+      consequences: [
+        {
+          id: 'setup.impact.scale.trigger',
+          tokens: {
+            retriggered,
+            appearing: n(c, 'conversationsAppearing'),
+            stale: n(c, 'conversationsStale'),
+          },
+        },
+        { id: 'setup.impact.scale.trigger-not-dismissed' },
+      ],
+    }
+  }
+
+  // 3. ADDING a point. Existing evidence keeps its number and was scored against
+  //    a narrower scale, which cannot be retrofitted and must not be pretended
+  //    away.
+  if (added > 0) {
+    if (scored === 0) {
+      return {
+        severity: 'affects_future',
+        consequences: [{ id: 'setup.impact.scale.add-clean', tokens: { added } }],
+      }
+    }
+    return {
+      severity: 'affects_future',
+      consequences: [{ id: 'setup.impact.scale.add', tokens: { added, scored } }],
+    }
+  }
+
+  // 4. Wording only. The numbers stand and gain new words, which is a change to
+  //    what they MEAN and so is worth saying, with the count that makes it real.
+  if (scored === 0) {
+    return { severity: 'affects_future', consequences: [{ id: 'setup.impact.scale.clean' }] }
+  }
   return {
-    severity: 'invalidates_evidence',
+    severity: 'affects_future',
     consequences: [
       {
-        id: 'setup.impact.scale.rescore',
-        tokens: { scored, participants: n(c, 'participants'), reports: n(c, 'reports') },
+        id: 'setup.impact.scale.reword',
+        tokens: { reworded: n(c, 'rewordedPoints'), scored },
       },
     ],
   }

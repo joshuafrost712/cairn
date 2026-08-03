@@ -1,5 +1,7 @@
 import { db } from './local'
 import { pushVerdicts } from './sync'
+import { scaleForWorkshop } from './scale'
+import { isValidDesignation } from '../lib/scale'
 import type { ObservationRecord, VerificationDecision, VerificationVerdict } from '../lib/types'
 
 // Record/clear one evaluator's verdict on one observation. Keyed by
@@ -19,9 +21,23 @@ export async function recordVerdict(
   observation: ObservationRecord,
   evaluatorEmail: string,
   decision: VerificationDecision,
-  opts: { adjusted_designation?: 0 | 1 | 2 | 3 | null; note?: string | null } = {},
+  opts: { adjusted_designation?: number | null; note?: string | null } = {},
 ): Promise<void> {
   const id = verdictId(observation.id, evaluatorEmail)
+  // A BOUNDARY (tl-09). `adjusted_designation` was `0 | 1 | 2 | 3 | null` and the
+  // compiler kept a foreign value out; it is a plain number now, so the check has
+  // to be made rather than assumed. Resolved against the OBSERVATION's workshop,
+  // not the active one: verifying is done from a queue that can outlive a
+  // workshop switch, and validating against the wrong scale would either reject a
+  // legitimate adjustment or admit a number this workshop cannot label.
+  if (decision === 'adjust' && opts.adjusted_designation != null) {
+    const scale = await scaleForWorkshop(observation.workshop_id ?? null)
+    if (!isValidDesignation(opts.adjusted_designation, scale)) {
+      throw new Error(
+        `${opts.adjusted_designation} is not a point on this workshop's scale`,
+      )
+    }
+  }
   const verdict: VerificationVerdict = {
     id,
     observation_id: observation.id,

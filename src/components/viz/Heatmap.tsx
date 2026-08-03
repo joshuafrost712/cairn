@@ -1,10 +1,15 @@
 import type { HeatCell, HeatmapMatrix } from '../../reports/analytics'
-import { LEVEL_WORD, isDeemphasized } from './viz'
-import type { Designation } from './viz'
+import { useScale } from '../../hooks/useScale'
+import { isLowTrigger, maxValue, type Scale } from '../../lib/scale'
+import { designationFill, designationInk, isDeemphasized, levelWord } from './viz'
 
-function cellTitle(name: string, ksa: string, c: HeatCell): string {
+function cellTitle(name: string, ksa: string, c: HeatCell, scale: Scale): string {
   const bits = [name, ksa]
-  bits.push(c.value === null ? 'no evidence yet' : `${c.value}/3 ${LEVEL_WORD[c.value as Designation]}`)
+  bits.push(
+    c.value === null
+      ? 'no evidence yet'
+      : `${c.value}/${maxValue(scale)} ${levelWord(scale, c.value)}`,
+  )
   if (c.contributing > 0) bits.push(`${c.contributing} observation${c.contributing === 1 ? '' : 's'}`)
   if (c.toVerify > 0) bits.push(`${c.toVerify} awaiting review`)
   if (c.conflict) bits.push('evaluators conflicted')
@@ -42,6 +47,7 @@ export function Heatmap({
   plain?: boolean
   caption?: string
 }) {
+  const scale = useScale()
   if (matrix.rows.length === 0) {
     return <div className="empty">No participants to show yet.</div>
   }
@@ -89,10 +95,23 @@ export function Heatmap({
                     className="heat__cell"
                     data-d={cell.value === null ? 'none' : cell.value}
                     data-conflict={cell.conflict || undefined}
-                    data-deemph={
-                      isDeemphasized(cell.value as Designation | null, emphasizeRisk) || undefined
+                    data-trigger={
+                      (cell.value !== null && isLowTrigger(scale, cell.value)) || undefined
                     }
-                    title={cellTitle(row.name, matrix.cols[ci].short_label, cell)}
+                    data-deemph={isDeemphasized(cell.value, scale, emphasizeRisk) || undefined}
+                    /* Not set in `plain` mode: an inline style beats any
+                       selector, so leaving it on would make `.heat--plain`
+                       silently stop stripping the fills — the plain view is the
+                       colour-free twin and would have become a copy. */
+                    style={
+                      plain || cell.value === null
+                        ? undefined
+                        : ({
+                            '--fill': designationFill(cell.value, scale),
+                            '--ink-on': designationInk(cell.value, scale),
+                          } as React.CSSProperties)
+                    }
+                    title={cellTitle(row.name, matrix.cols[ci].short_label, cell, scale)}
                     onClick={() => onCell?.(row.participant_id, cell.ksa_code)}
                   >
                     {cell.value === null ? '·' : cell.value}

@@ -83,26 +83,59 @@
   --wash-warn: #fffbeb;
   --wash-danger: #fef2f2;
 
-  /* ---- THE 0-3 DESIGNATION RAMP -----------------------------------------
-     Ordinal: reordering the categories would change the meaning, so this is a
-     single-hue ramp with monotone lightness, not a categorical palette and not
-     red-to-green. Colourblind-safe by construction: one hue with ordered
+  /* ---- THE DESIGNATION RAMPS, ONE PER SCALE SIZE (tl-09) -----------------
+     Ordinal: reordering the points would change the meaning, so each of these
+     is a single-hue ramp with monotone lightness, not a categorical palette and
+     not red-to-green. Colourblind-safe by construction: one hue with ordered
      lightness carries no hue distinction to lose.
 
      THE NUMERAL IS ALWAYS RENDERED. Colour is a redundant channel here, never
      the only one, which is also what makes the plain table view a faithful twin.
+     A low-trigger point additionally carries an underline, because WHICH points
+     are low is configurable and so cannot be read off the ramp's direction.
 
-     Ink is chosen by fill luminance: 0 and 1 take dark ink, 2 and 3 take white.
-       0 on #86b6ef -> 9.33:1     2 on #256abf -> 5.39:1
-       1 on #5598e7 -> 6.59:1     3 on #104281 -> 9.91:1                      */
-  --d0: #86b6ef;
-  --d1: #5598e7;
-  --d2: #256abf;
-  --d3: #104281;
-  --d0-ink: #0b0b0b;
-  --d1-ink: #0b0b0b;
-  --d2-ink: #ffffff;
-  --d3-ink: #ffffff;
+     Five ramps rather than one interpolated at render time, so a future dark
+     mode stays the values-only change the note below promises. `--d-<n>-<i>` is
+     the fill for position i of an n-point scale; `-ink` is the text on it.
+
+     Every step is interpolated in OKLab between the two endpoints of the ramp
+     this app has always used, and every one clears 4.5:1 against its ink. The
+     FOUR-point ramp is byte-identical to the old --d0..--d3, so an existing 0-3
+     workshop looks exactly as it did. Two steps (the middle of the 3-point ramp
+     and the middle of the 5-point) landed in the narrow band where neither black
+     nor white reaches 4.5:1, and were nudged lighter until dark ink cleared it —
+     which is why those two are not perfectly even divisions. Contrast, in value
+     order:
+       n=2  9.33  9.91
+       n=3  9.33  4.51  9.91
+       n=4  9.33  6.59  5.39  9.91
+       n=5  9.33  6.58  4.51  6.57  9.91
+       n=6  9.33  7.07  5.23  5.15  7.18  9.91                                */
+  --d-2-0: #86b6ef;  --d-2-0-ink: #0b0b0b;
+  --d-2-1: #104281;  --d-2-1-ink: #ffffff;
+
+  --d-3-0: #86b6ef;  --d-3-0-ink: #0b0b0b;
+  --d-3-1: #4b7bb7;  --d-3-1-ink: #0b0b0b;
+  --d-3-2: #104281;  --d-3-2-ink: #ffffff;
+
+  --d-4-0: #86b6ef;  --d-4-0-ink: #0b0b0b;
+  --d-4-1: #5598e7;  --d-4-1-ink: #0b0b0b;
+  --d-4-2: #256abf;  --d-4-2-ink: #ffffff;
+  --d-4-3: #104281;  --d-4-3-ink: #ffffff;
+
+  --d-5-0: #86b6ef;  --d-5-0-ink: #0b0b0b;
+  --d-5-1: #6898d3;  --d-5-1-ink: #0b0b0b;
+  --d-5-2: #4b7bb7;  --d-5-2-ink: #0b0b0b;
+  --d-5-3: #2e5e9c;  --d-5-3-ink: #ffffff;
+  --d-5-4: #104281;  --d-5-4-ink: #ffffff;
+
+  --d-6-0: #86b6ef;  --d-6-0-ink: #0b0b0b;
+  --d-6-1: #6e9ed8;  --d-6-1-ink: #0b0b0b;
+  --d-6-2: #5686c2;  --d-6-2-ink: #0b0b0b;
+  --d-6-3: #3f6fac;  --d-6-3-ink: #ffffff;
+  --d-6-4: #285896;  --d-6-4-ink: #ffffff;
+  --d-6-5: #104281;  --d-6-5-ink: #ffffff;
+
   --d-empty: #f3f4f6;      /* no evidence yet: recedes, carries a middle dot */
   --d-empty-ink: #9ca3af;
 

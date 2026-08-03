@@ -1,8 +1,17 @@
 // Mentoring conversation subsystem.
 //
 // A mentoring conversation is triggered whenever a verified/adjusted observation
-// lands at a *low* effective_designation (0 or 1). One conversation record per
-// observation; id = `mc::${observation_id}` so reconcile is idempotent.
+// lands on a point its workshop marked `is_low_trigger`. One conversation record
+// per observation; id = `mc::${observation_id}` so reconcile is idempotent.
+//
+// THE TRIGGER IS DECLARATIVE (tl-09), and it is the reason the scale had to
+// become configurable rather than merely relabelable. Until this spec the test
+// was `d !== 0 && d !== 1`, in the client and in a check constraint on the table.
+// On a 5-point scale where 3 is adequate, that rule creates hard follow-up
+// conversations for participants who are doing fine and creates none for the ones
+// who are not — with nothing on any screen looking wrong. Making the scale
+// configurable without making this test declarative would have shipped exactly
+// that bug, which is why the spec pairs them.
 //
 // Status lifecycle:
 //   needed → scheduled (date set via scheduleConversation)
@@ -11,6 +20,8 @@
 
 import { db } from './local'
 import { annotateObservations, type AnnotatedObservation } from '../reports/verification'
+import { scaleForWorkshop } from './scale'
+import { DEFAULT_SCALE, isLowTrigger, type Scale } from '../lib/scale'
 import type { MentoringConversation, Participant } from '../lib/types'
 
 // ---------------------------------------------------------------------------
@@ -21,19 +32,28 @@ import type { MentoringConversation, Participant } from '../lib/types'
  * Given the full set of annotated observations and a map from participant_id to
  * Participant, return one MentoringConversation stub per observation that is:
  *   - vstatus === 'verified' or 'adjusted', AND
- *   - effective_designation is 0 or 1.
+ *   - whose effective_designation sits on a low-trigger point of ITS OWN
+ *     workshop's scale.
  *
  * Disputed, pending, or set-aside observations are not triggers.
- * Designations of 2 or 3 are not triggers.
  *
- * @param annotated      Full result of annotateObservations().
+ * PER WORKSHOP, NOT PER DEVICE (tl-09). `scaleFor` is a function rather than a
+ * single Scale because this runs over every observation on the device and two
+ * workshops in one deployment may score on different scales — resolving against
+ * the active workshop's scale would derive one workshop's conversations by the
+ * other's rules. Unresolvable workshops fall to the app's original 0-3, which
+ * reproduces exactly the behaviour this function had before this spec.
+ *
+ * @param annotated         Full result of annotateObservations().
  * @param participantsById  Map from participant_id → Participant (for the name).
- * @param nowIso         ISO timestamp to stamp created_at / updated_at.
+ * @param nowIso            ISO timestamp to stamp created_at / updated_at.
+ * @param scaleFor          Resolver from workshop id to that workshop's scale.
  */
 export function deriveNeededConversations(
   annotated: AnnotatedObservation[],
   participantsById: Map<string, Participant>,
   nowIso: string,
+  scaleFor: (workshopId: string | null) => Scale = () => DEFAULT_SCALE,
 ): MentoringConversation[] {
   const results: MentoringConversation[] = []
 
@@ -41,7 +61,7 @@ export function deriveNeededConversations(
     if (obs.participant_id === null) continue
     if (obs.vstatus !== 'verified' && obs.vstatus !== 'adjusted') continue
     const d = obs.effective_designation
-    if (d !== 0 && d !== 1) continue
+    if (!isLowTrigger(scaleFor(obs.workshop_id), d)) continue
 
     const p = participantsById.get(obs.participant_id)
     results.push({
@@ -87,9 +107,22 @@ export async function reconcileMentoringConversations(): Promise<{ added: number
 
   const annotated = annotateObservations(observations, verdicts)
 
+  // One scale per workshop present in the evidence, resolved once. The map is
+  // built here rather than inside the pure function so that function stays free
+  // of IO, which is what lets test/mentoring.test.ts drive it with a 6-point
+  // scale and no database.
+  const workshopIds = [...new Set(observations.map((o) => o.workshop_id))]
+  const scales = new Map<string | null, Scale>()
+  for (const id of workshopIds) scales.set(id, await scaleForWorkshop(id))
+
   const participantsById = new Map(participants.map((p) => [p.id, p]))
   const nowIso = new Date().toISOString()
-  const derived = deriveNeededConversations(annotated, participantsById, nowIso)
+  const derived = deriveNeededConversations(
+    annotated,
+    participantsById,
+    nowIso,
+    (id) => scales.get(id) ?? DEFAULT_SCALE,
+  )
 
   let added = 0
   for (const conv of derived) {

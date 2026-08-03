@@ -20,6 +20,7 @@
 import type { MentoringConversation } from '../lib/types'
 import type { ActivityAnalytics } from './analytics'
 import { MIN_N_FOR_MEAN } from './analytics'
+import { firstAdequateValue, getActiveScale, maxValue, type Scale } from '../lib/scale'
 import {
   SEGMENT_ID_VERSION,
   endBlock,
@@ -32,20 +33,32 @@ import {
 
 /**
  * A competency area is called out as a group pattern when at least this share of
- * the participants observed in the event scored below PATTERN_BELOW.
+ * the participants observed in the event scored below the workshop's first
+ * adequate point.
  *
- * Both are named and exported so the threshold is visible in the digest's own
- * tests and changeable in one place. A quarter is Joshua's number: below that it
- * is a few individuals having a hard session, which is the conversation line's
- * job, not the pattern line's.
+ * The share is named and exported so the threshold is visible in the digest's
+ * own tests and changeable in one place. A quarter is Joshua's number: below
+ * that it is a few individuals having a hard session, which is the conversation
+ * line's job, not the pattern line's.
+ *
+ * "Below competent" was the literal 2 until tl-09. It is now the lowest point
+ * the workshop did NOT mark a low trigger, which is 2 on the app's original
+ * scale — so this digest's output is unchanged for an existing workshop — and
+ * which means something on a 1-5 scale, where 2 may be the second-worst score
+ * there is.
  */
 export const PATTERN_SHARE = 0.25
-export const PATTERN_BELOW = 2
 
 export interface EventDigestOptions {
   fromName?: string
   /** Named recipients for the greeting, e.g. "facilitators". */
   toName?: string
+  /**
+   * The workshop's grading scale (tl-09). Defaults to the ACTIVE workshop's,
+   * which is right for every in-app caller and wrong for a job that generates
+   * documents for a workshop the operator is not currently in — those pass it.
+   */
+  scale?: Scale
 }
 
 export interface PatternLine {
@@ -66,14 +79,15 @@ export interface PatternLine {
  * people, which is exactly the inference the digest is meant to support and
  * therefore exactly the one it must not corrupt.
  */
-export function findPatterns(a: ActivityAnalytics): PatternLine[] {
+export function findPatterns(a: ActivityAnalytics, scale: Scale = getActiveScale()): PatternLine[] {
+  const below = firstAdequateValue(scale)
   const out: PatternLine[] = []
   for (const cell of a.perKsa) {
     // byParticipant is one row per person, rolled up the same way a report rolls
     // one up. stats.n counts observations and is the wrong denominator here.
     const observed = cell.byParticipant.length
     if (observed === 0) continue
-    const low = cell.byParticipant.filter((p) => p.value < PATTERN_BELOW)
+    const low = cell.byParticipant.filter((p) => p.value < below)
     if (low.length === 0) continue
     if (low.length / observed < PATTERN_SHARE) continue
     out.push({
@@ -101,6 +115,7 @@ export function buildEventDigestSegments(
   conversations: MentoringConversation[],
   opts: EventDigestOptions = {},
 ): DocSegment[] {
+  const scale = opts.scale ?? getActiveScale()
   const root = segId(SEGMENT_ID_VERSION, `ed:${slug(a.activity_id)}`)
   const out: DocSegment[] = []
   const dayBit = a.day ? ` (${a.day})` : ''
@@ -137,7 +152,7 @@ export function buildEventDigestSegments(
       id: segId(root, 'grp', 'mean'),
       kind: 'bullet',
       // Say which mean this is. The dashboard carries two and they differ.
-      text: `- Average across all observations in this event: **${fmt(a.overall.reportableMean ?? a.overall.mean)}/3** (${scope}).`,
+      text: `- Average across all observations in this event: **${fmt(a.overall.reportableMean ?? a.overall.mean)}/${maxValue(scale)}** (${scope}).`,
       note:
         a.overall.reportableMean === null
           ? `Below ${MIN_N_FOR_MEAN} observations, so this average is shown for completeness only.`
@@ -145,7 +160,7 @@ export function buildEventDigestSegments(
     })
   }
 
-  const patterns = findPatterns(a)
+  const patterns = findPatterns(a, scale)
   if (patterns.length === 0 && a.overall.n > 0) {
     push(out, {
       id: segId(root, 'grp', 'no-pattern'),
@@ -157,10 +172,10 @@ export function buildEventDigestSegments(
     push(out, {
       id: segId(root, 'grp', `k:${slug(p.ksa_code)}`),
       kind: 'bullet',
-      text: `- ${p.goal_title}: ${p.below} of ${p.observed} observed scored below competent (average ${fmt(p.mean)}/3).`,
+      text: `- ${p.goal_title}: ${p.below} of ${p.observed} observed scored below competent (average ${fmt(p.mean)}/${maxValue(scale)}).`,
       ksaCode: p.ksa_code,
       evidence: p.observationIds,
-      note: `A pattern line appears when at least ${Math.round(PATTERN_SHARE * 100)}% of the participants observed on this area scored below ${PATTERN_BELOW}/3.`,
+      note: `A pattern line appears when at least ${Math.round(PATTERN_SHARE * 100)}% of the participants observed on this area scored below ${firstAdequateValue(scale)}/${maxValue(scale)}.`,
     })
   }
   endBlock(out)
@@ -183,7 +198,7 @@ export function buildEventDigestSegments(
     // the frankest available account and it is what the evaluator actually
     // wrote, so it is quoted rather than paraphrased.
     const what = c.trigger_ksa_code
-      ? `${c.participant_name}: ${c.trigger_designation ?? '?'}/3 on ${c.trigger_ksa_code}.`
+      ? `${c.participant_name}: ${c.trigger_designation ?? '?'}/${maxValue(scale)} on ${c.trigger_ksa_code}.`
       : `${c.participant_name}.`
 
     const how =

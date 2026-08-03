@@ -1,5 +1,7 @@
 import { db } from '../db/local'
 import { observationsCrossingThreshold, type ImpactCounts } from './impact'
+import { annotateObservations } from '../reports/verification'
+import { diffScales, isLowTrigger, type Scale, type ScalePoint } from '../lib/scale'
 import type { EvaluationRecord, Ksa, ObservationRecord } from '../lib/types'
 
 /**
@@ -208,4 +210,69 @@ export async function countsForThreshold(
     return count >= lo && count < hi
   })
   return { crossing, participants: distinctParticipants(affected), observations: crossing }
+}
+
+/**
+ * A scale change's exposure (tl-09).
+ *
+ * Four numbers describe the SHAPE of the edit (added, removed, reworded,
+ * re-triggered) and three describe what it costs: how many observations sit on a
+ * point about to disappear, and how the follow-up queue would move if the
+ * trigger set changes.
+ *
+ * The conversation numbers are computed against ANNOTATED observations rather
+ * than raw ones, because only a verified or adjusted observation ever derives a
+ * conversation. Counting raw ones would tell an administrator that flipping a
+ * trigger creates forty follow-ups when it creates four, and a number that large
+ * and that wrong stops the change rather than informing it.
+ */
+export async function countsForScale(
+  workshopId: string,
+  before: ScalePoint[],
+  after: ScalePoint[],
+): Promise<ImpactCounts> {
+  const diff = diffScales(before, after)
+  const obs = await workshopObservations(workshopId)
+  const verdicts = await db.verifications.toArray()
+  const annotated = annotateObservations(obs, verdicts)
+
+  const scored = obs.filter((o) => o.evidence_designation != null)
+  const removedSet = new Set(diff.removed)
+  const stranded = scored.filter((o) => removedSet.has(o.evidence_designation))
+
+  // What the follow-up queue would gain and lose. `confirmed` is the set that can
+  // derive a conversation at all; the rest cannot, whatever the trigger set says.
+  const confirmed = annotated.filter(
+    (o) => o.vstatus === 'verified' || o.vstatus === 'adjusted',
+  )
+  const beforeScale: Scale = { workshop_id: workshopId, points: before }
+  const afterScale: Scale = { workshop_id: workshopId, points: after }
+  const existing = new Set(
+    (await db.mentoringConversations.where('workshop_id').equals(workshopId).toArray()).map(
+      (c) => c.trigger_observation_id,
+    ),
+  )
+
+  let appearing = 0
+  let stale = 0
+  for (const o of confirmed) {
+    const was = isLowTrigger(beforeScale, o.effective_designation)
+    const now = isLowTrigger(afterScale, o.effective_designation)
+    if (!was && now && !existing.has(o.id)) appearing++
+    if (was && !now && existing.has(o.id)) stale++
+  }
+
+  return {
+    addedPoints: diff.added.length,
+    removedPoints: diff.removed.length,
+    rewordedPoints: diff.reworded.length,
+    retriggeredPoints: diff.retriggered.length,
+    strandedObservations: stranded.length,
+    scored: scored.length,
+    observations: obs.length,
+    participants: distinctParticipants(stranded.length > 0 ? stranded : scored),
+    reports: distinctParticipants(scored),
+    conversationsAppearing: appearing,
+    conversationsStale: stale,
+  }
 }

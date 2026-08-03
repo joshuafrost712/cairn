@@ -28,6 +28,10 @@
 import type { Activity, DiscrepancyResolution, EvaluationRecord, MentoringConversation, Participant, VerificationVerdict } from '../lib/types'
 import type { ResolvedKsa } from '../lib/goals'
 import { designationOf, isSetAside } from './build'
+// lib/scale.ts is pure and Dexie-free, which is what keeps this module's own
+// no-Dexie contract intact. db/scale.ts is what KEEPS the active scale correct;
+// importing that here would drag IndexedDB into the pure tier.
+import { getActiveScale, isLowTrigger, rampIndexForMean, type Scale } from '../lib/scale'
 import type { ParticipantReport } from './build'
 import type { AnnotatedObservation, Gate } from './verification'
 import type { Discrepancy } from './discrepancy'
@@ -160,18 +164,19 @@ export function valueOf(o: SituatedObservation, policy: CountingPolicy): number 
 // 3. Descriptive stats, with the small-n guardrail built into the type
 // ---------------------------------------------------------------------------
 
-/** Counts by designation; the index IS the designation. */
-export type Distribution = readonly [number, number, number, number]
+/**
+ * Counts by scale POSITION: `dist[i]` is how many values landed on
+ * `scale.points[i]`.
+ *
+ * The index was the designation itself until tl-09, which was the same thing
+ * while every scale was 0-3 and is wrong the moment one starts at 1. A fixed
+ * four-tuple has become a variable-length array; a renderer must read the value
+ * from the scale rather than from the index.
+ */
+export type Distribution = readonly number[]
 
 /** Below this many values, a mean is not a number worth printing on its own. */
 export const MIN_N_FOR_MEAN = 3
-
-/**
- * A designation at or below this is "at risk". Matches the mentoring trigger
- * (MentoringConversation fires on a confirmed 0 or 1), so the dashboard's idea
- * of trouble and the app's idea of trouble are the same idea.
- */
-export const AT_RISK_MAX = 1
 
 export interface DesignationStats {
   n: number
@@ -194,13 +199,22 @@ export interface DesignationStats {
   max: number | null
   /** n < MIN_N_FOR_MEAN. Callers must show the n and must not rank on the mean. */
   lowN: boolean
-  /** How many values are at or below AT_RISK_MAX. The honest thing to sort on. */
+  /**
+   * How many values landed on a point the workshop marked a low trigger. The
+   * honest thing to sort on.
+   *
+   * It was `v <= AT_RISK_MAX`, a literal 1, until tl-09. Keeping that would have
+   * meant the dashboard's idea of trouble and the app's idea of trouble came
+   * apart the moment a workshop used a scale where 1 is adequate — the dashboard
+   * flagging people the follow-up queue never mentioned. They are still the same
+   * idea; the idea is `is_low_trigger` now.
+   */
   atRisk: number
 }
 
 export const EMPTY_STATS: DesignationStats = {
   n: 0,
-  dist: [0, 0, 0, 0],
+  dist: [],
   mean: null,
   reportableMean: null,
   median: null,
@@ -210,15 +224,29 @@ export const EMPTY_STATS: DesignationStats = {
   atRisk: 0,
 }
 
-export function designationStats(values: number[]): DesignationStats {
+/**
+ * `scale` defaults to the ACTIVE workshop's, through the synchronous mirror in
+ * db/scale.ts. That default is what kept this refactor from rippling through
+ * twenty call sites inside pure report code, and it carries tl-17's warning with
+ * it: anything computing ACROSS workshops must pass the scale explicitly, or one
+ * workshop's values will be bucketed against another's points.
+ */
+export function designationStats(values: number[], scale: Scale = getActiveScale()): DesignationStats {
+  // EMPTY_STATS itself, not a zero-filled distribution of the right length: with
+  // n === 0 every renderer takes its own empty path before it indexes `dist`, and
+  // returning the shared constant keeps "no evidence" one identifiable object
+  // rather than a different array per scale size.
   if (values.length === 0) return EMPTY_STATS
   const sorted = [...values].sort((a, b) => a - b)
-  const dist: [number, number, number, number] = [0, 0, 0, 0]
+  const dist: number[] = scale.points.map(() => 0)
   let atRisk = 0
   for (const v of sorted) {
-    const i = Math.max(0, Math.min(3, Math.round(v)))
-    dist[i]++
-    if (v <= AT_RISK_MAX) atRisk++
+    // Snap to the nearest POINT rather than clamping to an index: a scale need
+    // not be contiguous, and a mean rounded into a gap must still land on a real
+    // bucket. A value off the scale entirely lands in the nearest one and is
+    // counted, because dropping it would make the distribution disagree with `n`.
+    dist[rampIndexForMean(v, scale)]++
+    if (isLowTrigger(scale, v)) atRisk++
   }
   const n = sorted.length
   const mean = sorted.reduce((a, b) => a + b, 0) / n
@@ -315,10 +343,14 @@ export function activityAnalytics(
   ksas: ResolvedKsa[],
   situated: SituatedObservation[],
   evaluations: EvaluationRecord[],
-  opts?: { policy?: CountingPolicy; atRiskMax?: number },
+  opts?: { policy?: CountingPolicy; scale?: Scale },
 ): ActivityAnalytics {
   const policy = opts?.policy ?? 'counting'
-  const atRiskMax = opts?.atRiskMax ?? AT_RISK_MAX
+  // At risk is "the workshop marked this point a low trigger" since tl-09, not
+  // "at or below 1". The option is a Scale rather than a number because the
+  // trigger set need not be a prefix of the scale: an organization may mark only
+  // the bottom point of six, and no threshold expresses that.
+  const scale = opts?.scale ?? getActiveScale()
 
   const mine = situated.filter((o) => o.activity_id === activity.id && countsToward(o, policy))
   const captures = evaluations.filter((e) => e.activity_id === activity.id)
@@ -366,7 +398,7 @@ export function activityAnalytics(
       short_label: k.short_label || k.code,
       stats: designationStats(obs.map((o) => valueOf(o, policy))),
       byParticipant,
-      weak: byParticipant.filter((p) => p.value <= atRiskMax),
+      weak: byParticipant.filter((p) => isLowTrigger(scale, p.value)),
     }
   })
 
@@ -375,7 +407,7 @@ export function activityAnalytics(
   const flagMap = new Map<string, ActivityFlag>()
   for (const o of mine) {
     const v = valueOf(o, policy)
-    if (v > atRiskMax) continue
+    if (!isLowTrigger(scale, v)) continue
     const key = o.participant_id ?? `name::${o.participant_name}`
     const existing = flagMap.get(key)
     if (existing) {
@@ -427,7 +459,7 @@ export function allActivityAnalytics(
   ksas: ResolvedKsa[],
   situated: SituatedObservation[],
   evaluations: EvaluationRecord[],
-  opts?: { policy?: CountingPolicy; atRiskMax?: number },
+  opts?: { policy?: CountingPolicy; scale?: Scale },
 ): ActivityAnalytics[] {
   return activities.map((a) => activityAnalytics(a, ksas, situated, evaluations, opts))
 }
@@ -478,9 +510,9 @@ function severityOf(reason: RiskReason): number {
 export function flagParticipants(
   reports: ParticipantReport<AnnotatedObservation>[],
   gates: Map<string, Gate>,
-  opts?: { atRiskMax?: number; coverageFloor?: number },
+  opts?: { scale?: Scale; coverageFloor?: number },
 ): FlaggedParticipant[] {
-  const atRiskMax = opts?.atRiskMax ?? AT_RISK_MAX
+  const scale = opts?.scale ?? getActiveScale()
   const coverageFloor = opts?.coverageFloor ?? 0.4
 
   const out: FlaggedParticipant[] = []
@@ -491,7 +523,7 @@ export function flagParticipants(
     for (const k of r.ksaRollups) {
       if (k.representative !== null) {
         lowest = lowest === null ? k.representative : Math.min(lowest, k.representative)
-        if (k.representative <= atRiskMax) {
+        if (isLowTrigger(scale, k.representative)) {
           reasons.push({ kind: 'low_representative', ksa_code: k.ksa_code, value: k.representative })
         }
       }
@@ -787,7 +819,7 @@ export function ksaAnalytics(
       if (roll.conflict) conflictCount++
       if (roll.representative === null) return
       reps.push(roll.representative)
-      if (roll.representative <= AT_RISK_MAX) {
+      if (isLowTrigger(getActiveScale(), roll.representative)) {
         weak.push({
           participant_id: r.participant_id,
           participant_name: r.participant_name,

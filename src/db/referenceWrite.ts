@@ -1,5 +1,7 @@
 import { db, activityKsaPk, newId } from './local'
 import { supabase, isSupabaseConfigured } from '../lib/supabase'
+// Pure module: imported here rather than db/scale.ts, which imports this one.
+import { defaultScalePoints, scalePointPk, type ScalePoint } from '../lib/scale'
 import type {
   Activity,
   Goal,
@@ -59,6 +61,11 @@ const TABLE_SPEC: Record<ReferenceTable, { order: number; keyFields: string[] }>
     order: 8,
     keyFields: ['workshop_id', 'participant_id', 'evaluator_email', 'kind'],
   },
+  // tl-09. Only ever queued as a `replace`, which carries the whole scale and is
+  // applied by one RPC, so `keyFields` is never actually used to build a match —
+  // it is declared because the entry is the table's identity and a future
+  // per-row op on this table would need it to be right rather than absent.
+  scale_point: { order: 9, keyFields: ['workshop_id', 'value'] },
 }
 
 /** The columns forming a table's primary key, in the order `rowKey` joins them. */
@@ -191,9 +198,17 @@ async function drainReferenceOutbox(): Promise<{
   }
   // Set-aside entries are not retried on every pass; they would just fail again.
   const entries = (await db.referenceOutbox.toArray()).filter((e) => !isSetAside(e))
+  // Creating ops before destroying ones, parents before children among the first
+  // and children before parents among the second, so foreign keys hold at every
+  // point in the replay. `replace` ranks with `upsert` because it also needs its
+  // parent workshop to exist; a two-way `op === 'upsert' ? -1 : 1` comparator
+  // would have put it on the delete side of that split by accident.
+  const opRank = (op: ReferenceOutboxEntry['op']) => (op === 'delete' ? 1 : 0)
   entries.sort((a, b) => {
-    if (a.op !== b.op) return a.op === 'upsert' ? -1 : 1
-    return a.op === 'upsert'
+    const ra = opRank(a.op)
+    const rb = opRank(b.op)
+    if (ra !== rb) return ra - rb
+    return ra === 0
       ? TABLE_SPEC[a.table].order - TABLE_SPEC[b.table].order
       : TABLE_SPEC[b.table].order - TABLE_SPEC[a.table].order
   })
@@ -203,7 +218,20 @@ async function drainReferenceOutbox(): Promise<{
   for (const e of entries) {
     const keyFields = TABLE_SPEC[e.table].keyFields
     let error: { message: string; code?: string } | null
-    if (e.op === 'upsert') {
+    if (e.op === 'replace') {
+      // The whole-entity write (tl-09). One RPC, one transaction, so an invariant
+      // that spans rows is checked against the state that will actually commit.
+      // A refusal comes back as `23514` with a stable slug in `detail`, the same
+      // shape tl-02's RPCs use; it is NOT an authorization refusal, so it takes
+      // the attempts path and is set aside rather than retried forever.
+      const p = e.payload as { workshop_id: string; points: unknown; remap?: unknown }
+      const { error: rpcError } = await supabase.rpc('set_workshop_scale', {
+        p_workshop_id: p.workshop_id,
+        p_points: p.points,
+        p_remap: p.remap ?? {},
+      })
+      error = rpcError
+    } else if (e.op === 'upsert') {
       ;({ error } = await supabase
         .from(e.table)
         .upsert(e.payload as object, { onConflict: keyFields.join(',') }))
@@ -295,6 +323,12 @@ export async function createWorkshop(
     languages: [],
   }
   await upsertWorkshop(w)
+  // The local half of the backend's `workshop_seed_scale` trigger (tl-09). Not
+  // queued: the trigger has already written the identical rows server-side, and
+  // sending a `replace` for them would be a no-op that could still be refused if
+  // the workshop's own insert had not landed yet. A workshop created offline gets
+  // its scale here and the trigger's copy arrives with the first pull.
+  await db.scalePoints.bulkPut(defaultScalePoints(w.id))
   return w
 }
 
@@ -343,6 +377,40 @@ export async function duplicateWorkshop(sourceId: string, newName: string): Prom
   if (!src) throw new Error('source scenario not found')
   const w: Workshop = { ...src, id: newId(), name: newName.trim() || `${src.name} (copy)` }
   await upsertWorkshop(w)
+
+  // THE SCALE COMES ALONG (tl-09). Duplicating a workshop and leaving it on the
+  // app default would silently rescore the copy: every evidence-level descriptor
+  // copied below is written against the source's points, so a 5-point source
+  // duplicated onto a 0-3 default would carry descriptors for points that no
+  // longer exist and lose the two that do. The `replace` supersedes whatever the
+  // backend's insert trigger seeded a moment ago, which is exactly its job.
+  const sourceScale = await db.scalePoints.where('workshop_id').equals(sourceId).toArray()
+  if (sourceScale.length > 0) {
+    const copied: ScalePoint[] = sourceScale.map((p) => ({
+      ...p,
+      pk: scalePointPk(w.id, p.value),
+      workshop_id: w.id,
+    }))
+    await db.scalePoints.bulkPut(copied)
+    await enqueue({
+      id: `scale_point:${w.id}`,
+      table: 'scale_point',
+      op: 'replace',
+      rowKey: w.id,
+      payload: {
+        workshop_id: w.id,
+        points: copied.map((p) => ({
+          value: p.value,
+          label: p.label,
+          description: p.description,
+          is_low_trigger: p.is_low_trigger,
+        })),
+        remap: {},
+      },
+    })
+  } else {
+    await db.scalePoints.bulkPut(defaultScalePoints(w.id))
+  }
 
   const goals = await db.goals.where('workshop_id').equals(sourceId).toArray()
   const goalIdMap = new Map<string, string>()
@@ -436,6 +504,11 @@ export async function deleteWorkshop(id: string): Promise<void> {
       await db.workshops.delete(id)
     },
   )
+  // Mirror the server's cascade for the scale too, and drop any queued replace so
+  // a delete cannot race a re-add of the scale belonging to a workshop that is gone.
+  const scaleRows = await db.scalePoints.where('workshop_id').equals(id).toArray()
+  await db.scalePoints.bulkDelete(scaleRows.map((p) => p.pk))
+  await db.referenceOutbox.delete(`scale_point:${id}`)
   // Only the workshop delete needs queueing; Postgres FKs cascade to the rest.
   await enqueue({ id: `workshop:${id}`, table: 'workshop', op: 'delete', rowKey: id, payload: null })
   void pushReferenceOutbox()

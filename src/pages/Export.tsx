@@ -8,6 +8,7 @@ import { buildAllReports } from '../reports/build'
 import { annotateObservations, participantGate, getRequiredConfirmations, type Gate } from '../reports/verification'
 import { buildCbcExport, cbcKsaCsv, cbcSubpointCsv } from '../reports/cbcExport'
 import { downloadText } from '../lib/download'
+import { useScale } from '../hooks/useScale'
 import type { ObservationRecord, Participant, Team, VerificationVerdict } from '../lib/types'
 
 // CBC export: the interchange artifact for the (deferred) platform submission adapter.
@@ -20,6 +21,7 @@ export function Export() {
   const observations = useLiveQuery(() => db.observations.toArray(), [], [] as ObservationRecord[])
   const verdicts = useLiveQuery(() => db.verifications.toArray(), [], [] as VerificationVerdict[])
   const workshop = useLiveQuery(() => db.workshops.toCollection().first(), [])
+  const scale = useScale()
 
   const [onlyFinalized, setOnlyFinalized] = useState(true)
   const [msg, setMsg] = useState<string | null>(null)
@@ -44,8 +46,9 @@ export function Export() {
         generatedOn,
         requiredConfirmations: getRequiredConfirmations(),
         onlyFinalized,
+        scale,
       }),
-    [reports, gates, workshop, generatedOn, onlyFinalized],
+    [reports, gates, workshop, generatedOn, onlyFinalized, scale],
   )
 
   const total = (participants ?? []).filter((p) => (gates.get(p.id)?.total ?? 0) > 0).length

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { recordVerdict, clearVerdict } from '../db/verifications'
 import { c } from '../lib/content/chrome'
+import { useScaleFor } from '../hooks/useScale'
 import { Copy } from './Copy'
 import type { AnnotatedObservation } from '../reports/verification'
 
@@ -11,10 +12,20 @@ const STATUS_CLASS: Record<string, string> = {
   disputed: 'error',
 }
 
-// Per-observation verification controls: the signed-in evaluator records one
-// verdict (confirm / adjust to a different 0–3 / reject). Re-clicking overwrites
-// their prior verdict; "clear" removes it.
+/**
+ * Per-observation verification controls: the signed-in evaluator records one
+ * verdict (confirm / adjust to a different point / reject). Re-clicking
+ * overwrites their prior verdict; "clear" removes it.
+ *
+ * The adjust buttons are the OBSERVATION's workshop's scale points, not the
+ * active workshop's (tl-09). The verification queue is a list of observations
+ * and nothing stops it outliving a workshop switch, so asking the active
+ * workshop would offer an evaluator a button for a value the observation's own
+ * workshop has never heard of — and `recordVerdict` would then refuse the write
+ * they had just been invited to make.
+ */
 export function VerifyControls({ obs, evaluatorEmail }: { obs: AnnotatedObservation; evaluatorEmail: string }) {
+  const scale = useScaleFor(obs.workshop_id ?? null)
   const mine = obs.verdicts.find((v) => v.evaluator_email === evaluatorEmail)
   // tl-20: the confirm acknowledges itself. On a list of thirty observations the
   // only feedback for a recorded verdict was the pill changing several lines away,
@@ -49,13 +60,15 @@ export function VerifyControls({ obs, evaluatorEmail }: { obs: AnnotatedObservat
           onAnimationEnd={() => setPopped(false)}
         />
         <Copy id="verify.adjust" className="small muted" />
-        {[0, 1, 2, 3].map((n) => (
+        {scale.points.map((p) => (
           <button
-            key={n}
-            className={`ghost small ${mine?.decision === 'adjust' && mine.adjusted_designation === n ? 'primary' : ''}`}
-            onClick={() => recordVerdict(obs, evaluatorEmail, 'adjust', { adjusted_designation: n as 0 | 1 | 2 | 3 })}
+            key={p.value}
+            title={p.label}
+            data-trigger={p.is_low_trigger || undefined}
+            className={`ghost small ${mine?.decision === 'adjust' && mine.adjusted_designation === p.value ? 'primary' : ''}`}
+            onClick={() => recordVerdict(obs, evaluatorEmail, 'adjust', { adjusted_designation: p.value })}
           >
-            {n}
+            {p.value}
           </button>
         ))}
         <Copy

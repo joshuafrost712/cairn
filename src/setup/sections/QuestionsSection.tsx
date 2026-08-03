@@ -22,6 +22,7 @@ import type { Goal, Ksa, Workshop } from '../../lib/types'
 import { countsForGoal, countsForQuestion } from '../counts'
 import { diffFields } from '../impact'
 import { useSetupSave } from '../useSetupSave'
+import { useScaleFor } from '../../hooks/useScale'
 
 /**
  * Goals and questions: what this workshop is evaluating for, and what it asks.
@@ -328,6 +329,7 @@ function QuestionGroup({
   workshopId: string
 }) {
   const { request, busy } = useSetupSave()
+  const scale = useScaleFor(workshopId)
 
   const addQuestion = async () => {
     const ksa: Ksa = {
@@ -341,7 +343,11 @@ function QuestionGroup({
       description: '',
       evaluator_facing_prompt: '',
       ai_facing_rubric: null,
-      evidence_levels: { '0': '', '1': '', '2': '', '3': '' },
+      // One empty descriptor per point of THIS workshop's scale, not a fixed
+      // four (tl-09). A question born with keys 0-3 in a 1-5 workshop would show
+      // its author four boxes for five points, and the fifth would silently have
+      // no descriptor for the router to rate against.
+      evidence_levels: Object.fromEntries(scale.points.map((p) => [String(p.value), ''])),
       cbc_subpoint_refs: [],
       guiding_questions: [],
     }
@@ -389,9 +395,20 @@ function QuestionEditor({
   const [open, setOpen] = useState(false)
   const [draft, setDraft] = useState<Ksa>(ksa)
   const [confirmArmed, setConfirmArmed] = useState(false)
+  const scale = useScaleFor(workshopId)
   const levels = draft.evidence_levels ?? {}
-  const setLevel = (n: '0' | '1' | '2' | '3', v: string) =>
-    setDraft({ ...draft, evidence_levels: { ...levels, [n]: v } })
+  /**
+   * Descriptors for points the scale no longer has are RETAINED here and simply
+   * not rendered — `levels` is spread, so an untouched key survives the save.
+   * That is the spec's requirement and it is worth stating why: shortening a
+   * scale to three points and lengthening it back to four must not destroy the
+   * sentence somebody wrote for the fourth. The UI says so; see
+   * `setup.questions.levels-note`.
+   */
+  const setLevel = (n: number, v: string) =>
+    setDraft({ ...draft, evidence_levels: { ...levels, [String(n)]: v } })
+  const onScale = new Set(scale.points.map((p) => String(p.value)))
+  const retired = Object.keys(levels).filter((k) => !onScale.has(k) && (levels[k] ?? '').trim())
   const guiding = draft.guiding_questions ?? []
   const setGuiding = (arr: string[]) => setDraft({ ...draft, guiding_questions: arr })
 
@@ -501,17 +518,30 @@ function QuestionEditor({
           <p className="small muted">{c('setup.questions.prompt-override-note')}</p>
 
           <label className="small muted">{c('setup.questions.levels')}</label>
-          {(['0', '1', '2', '3'] as const).map((n) => (
-            <div key={n} className="row" style={{ alignItems: 'flex-start' }}>
-              <strong style={{ width: '1.5rem', paddingTop: '0.5rem' }}>{n}</strong>
+          {scale.points.map((p) => (
+            <div key={p.value} className="row" style={{ alignItems: 'flex-start' }}>
+              <strong
+                style={{ width: '1.5rem', paddingTop: '0.5rem' }}
+                title={p.label}
+                data-trigger={p.is_low_trigger || undefined}
+              >
+                {p.value}
+              </strong>
               <textarea
                 rows={2}
-                value={levels[n] ?? ''}
-                onChange={(e) => setLevel(n, e.target.value)}
+                aria-label={`${p.value} — ${p.label}`}
+                placeholder={p.label}
+                value={levels[String(p.value)] ?? ''}
+                onChange={(e) => setLevel(p.value, e.target.value)}
                 style={{ flex: 1 }}
               />
             </div>
           ))}
+          {retired.length > 0 && (
+            <p className="small muted">
+              {c('setup.questions.levels-note', 'label', { points: retired.join(', ') })}
+            </p>
+          )}
 
           <label className="small muted">{c('setup.questions.guiding')}</label>
           {guiding.map((g, i) => (

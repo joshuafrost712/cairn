@@ -26,20 +26,24 @@ import type { ObservationRecord } from '../lib/types'
  */
 export type EvidenceObservation = ObservationRecord & { effective_designation?: number }
 
-export const LEVEL_WORD: Record<number, string> = {
-  0: 'not yet demonstrated',
-  1: 'emerging',
-  2: 'competent',
-  3: 'strong',
-}
-
 /**
- * A confirmed designation at or below this level is a growth signal worth a
- * mentoring conversation. Named so the threshold is visible and changeable, and
- * shared so the day email, the participant email, and the event digest cannot
- * drift apart on what counts as low.
+ * The word for a designation and the test for "low enough to warrant a
+ * conversation" both moved to the workshop's scale in tl-09.
+ *
+ * This file used to own a four-entry `LEVEL_WORD` and a `MENTORING_THRESHOLD`
+ * of 1, shared across the day email, the participant email and the event digest
+ * so those three could not drift apart on what counts as low. That sharing was
+ * right and is preserved: the shared thing is now `labelFor(scale, v)` and
+ * `isLowTrigger(scale, v)` from lib/scale.ts, which every generator in this
+ * folder takes as a parameter. What is gone is the assumption that the answer is
+ * the same in every workshop.
+ *
+ * A generator resolves its scale ONCE, at the top, and passes it down. Reading
+ * `getActiveScale()` in a helper would reintroduce exactly the bug the parameter
+ * exists to prevent, on the day somebody generates one workshop's email while
+ * another workshop is the active one.
  */
-export const MENTORING_THRESHOLD = 1
+export { labelFor, isLowTrigger, firstAdequateValue, maxValue } from '../lib/scale'
 
 export type SegmentKind = 'heading' | 'paragraph' | 'bullet' | 'evidence' | 'meta'
 

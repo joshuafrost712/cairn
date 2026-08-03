@@ -1178,8 +1178,8 @@
       "label": "Nothing has been scored yet, so the new scale applies to everything from here on."
     },
     {
-      "id": "setup.impact.scale.rescore",
-      "label": "{scored} observation(s) across {participants} participant(s) carry designations recorded on the current scale, and {reports} report(s) read them. A designation is a number whose meaning comes entirely from its scale: change the scale and every stored number means something else, with nothing on screen looking wrong."
+      "id": "setup.impact.scale.reword",
+      "label": "{reworded} point(s) are being reworded. {scored} observation(s) keep the number they were given and gain the new wording, which is a change to what those numbers mean."
     },
     {
       "id": "setup.impact.state.closed",
@@ -1546,12 +1546,144 @@
       "label": "The grading scale"
     },
     {
-      "id": "setup.scale.scale-pending",
-      "label": "The scale is fixed at 0 to 3 today. Making it configurable from 2 to 6 points, with its own descriptions, is its own spec: changing a scale under recorded evidence is the sharpest warning in this whole layer, and it needs the export, the heatmap and the legend to move with it."
+      "id": "setup.scale.scale-intro",
+      "label": "Two to six points, each with its own wording, and a mark on the ones that call for a follow-up conversation. Points are added at the top or the bottom, so the order always reads the way people say it out loud. The numbers here are the numbers that appear in reports, emails and the export."
     },
     {
       "id": "setup.scale.descriptors-live-in",
-      "label": "What earns each 0 to 3 is written per question, on all {count} of them, in"
+      "label": "What earns each point is written per question, on all {count} of them, in"
+    },
+    {
+      "id": "setup.scale.scale-label",
+      "label": "the grading scale"
+    },
+    {
+      "id": "setup.scale.col-value",
+      "label": "Point"
+    },
+    {
+      "id": "setup.scale.col-label",
+      "label": "What it is called"
+    },
+    {
+      "id": "setup.scale.col-description",
+      "label": "What it means"
+    },
+    {
+      "id": "setup.scale.col-trigger",
+      "label": "Calls for a conversation"
+    },
+    {
+      "id": "setup.scale.col-recorded",
+      "label": "Recorded here"
+    },
+    {
+      "id": "setup.scale.trigger-yes",
+      "label": "yes"
+    },
+    {
+      "id": "setup.scale.remove-point",
+      "label": "Remove"
+    },
+    {
+      "id": "setup.scale.add-below",
+      "label": "Add a point below"
+    },
+    {
+      "id": "setup.scale.add-above",
+      "label": "Add a point above"
+    },
+    {
+      "id": "setup.scale.save-scale",
+      "label": "Save the scale"
+    },
+    {
+      "id": "setup.scale.remap-title",
+      "label": "These points hold recorded evidence"
+    },
+    {
+      "id": "setup.scale.remap-intro",
+      "label": "Removing {points} would leave observations on a number this workshop no longer has. Say where each one goes. Nothing is moved until you save, and nothing is guessed for you."
+    },
+    {
+      "id": "setup.scale.remap-row",
+      "label": "{observations} observation(s) at {value} move to"
+    },
+    {
+      "id": "setup.scale.remap-choose",
+      "label": "choose a point"
+    },
+    {
+      "id": "setup.scale.remap-marked",
+      "label": "Every observation moved this way is marked with the score it originally carried, and reports show the mark. A remapped score is your translation, not the evaluator's judgement."
+    },
+    {
+      "id": "setup.scale.needs-remap-hint",
+      "label": "Choose where the evidence on {points} goes before saving."
+    },
+    {
+      "id": "setup.scale.error.too-few",
+      "label": "A scale needs at least two points."
+    },
+    {
+      "id": "setup.scale.error.too-many",
+      "label": "A scale can have at most six points."
+    },
+    {
+      "id": "setup.scale.error.duplicate-value",
+      "label": "Two points cannot share a number."
+    },
+    {
+      "id": "setup.scale.error.non-integer",
+      "label": "A point's number has to be a whole number."
+    },
+    {
+      "id": "setup.scale.error.blank-label",
+      "label": "Every point needs a name."
+    },
+    {
+      "id": "setup.scale.error.all-triggers",
+      "label": "At least one point has to be a score that does not call for a conversation. A scale where every point does has stopped saying anything."
+    },
+    {
+      "id": "setup.scale.error.needs-remap",
+      "label": "That save would strand recorded evidence. Choose where it goes first."
+    },
+    {
+      "id": "setup.scale.error.refused",
+      "label": "The scale was not accepted. Nothing was changed."
+    },
+    {
+      "id": "setup.impact.scale.remove-strands",
+      "label": "Removing {removed} point(s) strands {stranded} observation(s) across {participants} participant(s), affecting {reports} report(s). Each one will be moved to the point you chose."
+    },
+    {
+      "id": "setup.impact.scale.remap-marked",
+      "label": "All {stranded} will be marked as remapped, and every report that prints them will say so."
+    },
+    {
+      "id": "setup.impact.scale.remove-clean",
+      "label": "Removing {removed} point(s). Nothing has been scored there, so no recorded evidence moves; the {scored} observation(s) already recorded keep their numbers."
+    },
+    {
+      "id": "setup.impact.scale.trigger",
+      "label": "Changing which points call for a conversation on {retriggered} point(s): {appearing} follow-up(s) would newly appear and {stale} would no longer qualify."
+    },
+    {
+      "id": "setup.impact.scale.trigger-not-dismissed",
+      "label": "Follow-ups that no longer qualify are left alone rather than dismissed. Whether a conversation someone already needed still needs holding is your call, not the app's."
+    },
+    {
+      "id": "setup.impact.scale.trigger-clean",
+      "label": "Changing which of {retriggered} point(s) call for a conversation. Nothing has been scored yet, so no follow-up moves."
+    },
+    {
+      "id": "setup.impact.scale.add",
+      "label": "Adding {added} point(s). The {scored} observation(s) already recorded were scored against a narrower scale and keep their numbers; they cannot be re-read against the new one."
+    },
+    {
+      "id": "setup.impact.scale.add-clean",
+      "label": "Adding {added} point(s). Nothing has been scored yet, so the wider scale applies to everything from here on."
     },
     {
       "id": "setup.people.title",
@@ -1784,6 +1916,10 @@
     {
       "id": "setup.questions.regroup-warning",
       "label": "Moving a question to another {label} reprints every report already written under a different heading. Nothing is rescored, and the warning will say how many reports move."
+    },
+    {
+      "id": "setup.questions.levels-note",
+      "label": "This question also holds wording for point(s) {points}, which the scale no longer has. It is kept, not deleted, so shortening the scale and lengthening it again does not destroy what you wrote."
     },
     {
       "id": "setup.wiring.wording",

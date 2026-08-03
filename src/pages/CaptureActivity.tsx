@@ -12,10 +12,11 @@ import { INPUT_RULES } from '../lib/ruleset'
 import { c } from '../lib/content/chrome'
 import { Copy } from '../components/Copy'
 import { QuickRating } from '../components/QuickRating'
+import { useScale } from '../hooks/useScale'
+import { isValidDesignation } from '../lib/scale'
 import { Glossary } from '../components/Glossary'
 import type { Participant, ParticipantScopeEntry, QuickRatings } from '../lib/types'
 
-type Level = 0 | 1 | 2 | 3
 
 /** Short initials for an evaluator email (local-part), e.g. "josh_frost@sil.org" -> "JF". */
 function evaluatorInitials(email: string): string {
@@ -60,6 +61,7 @@ export function CaptureActivity() {
   const [answers, setAnswers] = useState<Record<string, string>>({})
   const [scope, setScope] = useState<ParticipantScopeEntry[]>([])
   const [quickRatings, setQuickRatings] = useState<QuickRatings>({})
+  const scale = useScale()
   const [focusParticipantId, setFocusParticipantId] = useState<string | null>(null)
   const [focusMode, setFocusMode] = useState(false)
   const [attested, setAttested] = useState(false)
@@ -109,9 +111,17 @@ export function CaptureActivity() {
     persist(next)
   }
 
-  const onRatingChange = (ksaId: string, level: Level | undefined) => {
+  /**
+   * A quick read is a point on the WORKSHOP's scale (tl-09), so the type no
+   * longer constrains it and this is a boundary: the value comes from a button
+   * the scale rendered, but the scale can change under a capture that is already
+   * open, and a rating for a point that has just been removed would be written
+   * into a record nothing could later label. `isValidDesignation` is what
+   * replaces the union the compiler used to enforce here.
+   */
+  const onRatingChange = (ksaId: string, level: number | undefined) => {
     const next = { ...quickRatings }
-    if (level === undefined) delete next[ksaId]
+    if (level === undefined || !isValidDesignation(level, scale)) delete next[ksaId]
     else next[ksaId] = level
     setQuickRatings(next)
     persist(answers, { quick_ratings: next })

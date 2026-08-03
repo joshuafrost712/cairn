@@ -112,8 +112,19 @@ export interface Activity {
   genre_group: string | null
 }
 
-/** evidence_levels: what observed evidence merits each 0-3 designation. */
-export type EvidenceLevels = Partial<Record<'0' | '1' | '2' | '3', string>>
+/**
+ * What observed evidence merits each point of the workshop's scale, keyed by the
+ * point's VALUE as a string ("0", "1", … or "1" … "5" on a 1-5 scale).
+ *
+ * Widened from `Partial<Record<'0'|'1'|'2'|'3', string>>` by tl-09. Structurally
+ * it was always this: a jsonb object with numeric-string keys. What is gone is
+ * the compile-time promise that a key is one of four, and what replaces it is
+ * `scaleValues()` — every editor and renderer iterates the workshop's scale
+ * rather than a literal list, so a descriptor for a point the scale no longer has
+ * is retained in storage and simply not shown. That retention is deliberate:
+ * shortening a scale and lengthening it again must not destroy authored text.
+ */
+export type EvidenceLevels = Record<string, string>
 
 export interface Ksa {
   id: string
@@ -148,8 +159,14 @@ export interface Ksa {
   guiding_questions?: string[]
 }
 
-/** An evaluator's optional quick 0-3 read on a KSA, keyed by ksa_id. */
-export type QuickRatings = Record<string, 0 | 1 | 2 | 3>
+/**
+ * An evaluator's optional quick read on a KSA, keyed by ksa_id.
+ *
+ * The value is a point on the workshop's scale (tl-09), not an index into it, and
+ * not a literal union any more. Validate with `isValidDesignation` before storing
+ * one that came from outside this device.
+ */
+export type QuickRatings = Record<string, number>
 
 export interface ActivityKsa {
   activity_id: string
@@ -444,7 +461,23 @@ export interface ObservationRecord {
   ksa_code: string
   text: string
   source_excerpt: string
-  evidence_designation: 0 | 1 | 2 | 3
+  /**
+   * A point on the workshop's scale (tl-09), no longer a `0 | 1 | 2 | 3` union.
+   * Its MEANING lives in `scale_point`, so nothing may decide whether this number
+   * is good or bad by comparing it to a literal — ask `isLowTrigger`.
+   */
+  evidence_designation: number
+  /**
+   * What this observation was ORIGINALLY scored at, when a scale change removed
+   * that point and an administrator mapped it onto a surviving one (tl-09).
+   *
+   * Null for everything ever recorded on a point that still exists. When it is
+   * set, every surface printing the score must print the mark with it: a remapped
+   * number is an administrator's translation, not an evaluator's judgement, and a
+   * report that hides the difference is claiming somebody said something they did
+   * not. Set only once, so a value moved twice still records where it started.
+   */
+  remapped_from?: number | null
   sentiment_flag: 'strong' | 'weak' | 'neutral'
   confidence: 'low' | 'medium' | 'high'
   needs_review: boolean
@@ -465,9 +498,11 @@ export interface ObservationRecord {
 export type MentoringStatus = 'needed' | 'scheduled' | 'completed' | 'dismissed'
 
 /**
- * A mentoring conversation triggered by a confirmed low observation
- * (effective_designation 0 or 1 on a verified/adjusted observation). When a
- * participant scores a confirmed low on a KSA, the mentor holds a short
+ * A mentoring conversation triggered by a confirmed low observation: one whose
+ * effective designation sits on a point the workshop marked `is_low_trigger`
+ * (tl-09; it was the literal 0-or-1 until then, in the client AND in a check
+ * constraint on this table). When a participant scores a confirmed low on a KSA,
+ * the mentor holds a short
  * follow-up the next day; how the participant responds to correction is itself
  * evaluation data. One record per triggering observation; idempotent on
  * re-derive because the id is derived from the observation id.
@@ -480,7 +515,8 @@ export interface MentoringConversation {
   workshop_id: string | null
   trigger_observation_id: string | null
   trigger_ksa_code: string | null
-  trigger_designation: number | null // 0 or 1
+  /** The low-trigger point it fired on. Whatever the workshop's scale calls low. */
+  trigger_designation: number | null
   trigger_activity_id: string | null
   status: MentoringStatus
   scheduled_for: string | null // ISO date
@@ -524,12 +560,22 @@ export type ReferenceTable =
   | 'activity_ksa'
   | 'workshop_setting'
   | 'report_assignment'
+  | 'scale_point'
 
 export interface ReferenceOutboxEntry {
   /** `${table}:${rowKey}` — repeated edits to the same row collapse to one entry. */
   id: string
   table: ReferenceTable
-  op: 'upsert' | 'delete'
+  /**
+   * `replace` is tl-09's, and it is the third op because a scale is one thing
+   * rather than six rows. Its invariant ("two to six points, at least one of them
+   * not a trigger") is a property of the SET, and this queue pushes one row per
+   * HTTP request, i.e. one row per transaction — so a per-row upsert can only
+   * ever check the invariant against a state that is not the final one. A
+   * `replace` entry carries the whole scale and is applied by one RPC in one
+   * transaction, which keeps the write offline-first AND atomic.
+   */
+  op: 'upsert' | 'delete' | 'replace'
   /** the row id, or `${activity_id}::${ksa_id}` for activity_ksa (its composite key). */
   rowKey: string
   /** the Postgres row to upsert; null for a delete. */
@@ -589,8 +635,12 @@ export interface VerificationVerdict {
   workshop_id: string | null
   evaluator_email: string
   decision: VerificationDecision
-  /** the designation this evaluator believes is correct, when decision === 'adjust' */
-  adjusted_designation?: 0 | 1 | 2 | 3 | null
+  /**
+   * The designation this evaluator believes is correct, when decision === 'adjust'.
+   * A point on the workshop's scale (tl-09); check with `isValidDesignation`
+   * before recording one, because the type no longer does it for you.
+   */
+  adjusted_designation?: number | null
   note?: string | null
   at: string
   /** Backend sync state, same contract as EvaluationRecord's (tl-04). */

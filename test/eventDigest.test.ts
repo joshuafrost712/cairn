@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
+import { DEFAULT_SCALE, firstAdequateValue } from '../src/lib/scale'
 import {
-  PATTERN_BELOW,
-  PATTERN_SHARE,
+    PATTERN_SHARE,
   buildEventDigestSegments,
   conversationsForEvent,
   findPatterns,
@@ -106,9 +106,12 @@ describe('the quarter threshold', () => {
     expect(p.map((x) => x.ksa_code)).toEqual(['CHECK', 'GENRE'])
   })
 
-  it('the constants say what they mean', () => {
+  it('the share is a constant and "below competent" comes from the scale (tl-09)', () => {
     expect(PATTERN_SHARE).toBe(0.25)
-    expect(PATTERN_BELOW).toBe(2)
+    // The literal 2 is gone. On the app's original scale the lowest point that
+    // does NOT call for a conversation is 2, so the digest's output is unchanged;
+    // on a scale where 1 is adequate it would correctly be 1.
+    expect(firstAdequateValue(DEFAULT_SCALE)).toBe(2)
   })
 })
 
