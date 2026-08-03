@@ -82,6 +82,10 @@ const ROUTES = [
   { path: 'observations', label: 'observations', auth: true, owned: true },
   { path: 'reports', label: 'reports', auth: true, owned: true },
   { path: 'conversations', label: 'conversations', auth: true, owned: true },
+  // tl-05's workshop-wide follow-up queue. The evaluator's own /conversations is
+  // already walked above; this is the admin surface that assigns them, and it is
+  // ADMIN_ROLES rather than the CHIEF_ROLES the rest of that group carries.
+  { path: 'admin/conversations', label: 'admin-conversations', auth: true, owned: true, elevate: true },
   // tl-17's cross-workshop overview. Gated on holding an admin role in ANY
   // membership rather than the active one, so it walks under the same elevation as
   // the rest of the admin routes. Its own harness (scripts/tl17-multi-workshop.mjs)
