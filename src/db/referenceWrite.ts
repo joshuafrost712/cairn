@@ -90,6 +90,10 @@ const TABLE_SPEC: Record<ReferenceTable, { order: number; keyFields: string[] }>
   // wrongly. It is renumbered anyway: two independent tables sharing a sort key is
   // an invitation for a later reader to infer a dependency that is not there.
   person_profile: { order: 11, keyFields: ['person_id'] },
+  // tl-13. Depends only on its workshop, so anywhere below `workshop` would do;
+  // 12 is next and the wave has no concurrent session left to collide with (the
+  // remaining specs are a dependency chain — see D5 in 00-program-throughline.md).
+  ai_config: { order: 12, keyFields: ['workshop_id'] },
 }
 
 /** The columns forming a table's primary key, in the order `rowKey` joins them. */

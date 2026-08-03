@@ -4,6 +4,7 @@ import { pushReferenceOutbox } from './referenceWrite'
 import { cacheSettingRows, mirrorActiveWorkshop } from './settings'
 import { cacheScalePoints, mirrorActiveScale, seedDefaultScale } from './scale'
 import { cacheAssignmentRows } from './assignments'
+import { cacheAiConfigRows, refreshPlatformSettings } from './aiConfig'
 import { getActiveWorkshopId } from '../lib/activeWorkshop'
 import * as seed from '../data/seed'
 import {
@@ -57,7 +58,7 @@ export async function loadReferenceData(): Promise<void> {
       return
     }
     try {
-      const [w, t, p, a, g, k, ak, st, ra, sp] = await Promise.all([
+      const [w, t, p, a, g, k, ak, st, ra, sp, ac] = await Promise.all([
         supabase.from('workshop').select('*'),
         supabase.from('team').select('*'),
         supabase.from('participant').select('*'),
@@ -68,8 +69,13 @@ export async function loadReferenceData(): Promise<void> {
         supabase.from('workshop_setting').select('*'),
         supabase.from('report_assignment').select('*'),
         supabase.from('scale_point').select('*'),
+        // tl-13. Admin-only by policy, so an evaluator's device gets an empty array
+        // rather than an error — the same silent filtering every other read here
+        // relies on, and the reason `cacheAiConfigRows` prunes from the authorized
+        // workshop set rather than from what came back.
+        supabase.from('ai_config').select('*'),
       ])
-      const firstError = [w, t, p, a, g, k, ak, st, ra, sp].find((r) => r.error)?.error
+      const firstError = [w, t, p, a, g, k, ak, st, ra, sp, ac].find((r) => r.error)?.error
       if (firstError) throw firstError
 
       await db.transaction(
@@ -116,6 +122,12 @@ export async function loadReferenceData(): Promise<void> {
       await cacheSettingRows(st.data ?? [], inScope)
       await cacheAssignmentRows(ra.data ?? [], inScope)
       await cacheScalePoints(sp.data ?? [], inScope)
+      await cacheAiConfigRows(ac.data ?? [], inScope)
+      // The deployment switch that decides whether hosted AI is even offerable.
+      // Awaited rather than fired so that a caller who has finished loading really
+      // has: the Setup AI section renders a mode picker off the mirrored value, and
+      // a picker that flips a second later reads as a bug.
+      await refreshPlatformSettings()
       // Re-point the synchronous verification threshold at what just arrived.
       // It happens HERE rather than in a separate effect so there is no window
       // in which fresh settings sit in Dexie while the gate still runs on the

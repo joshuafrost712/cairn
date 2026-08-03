@@ -646,6 +646,17 @@ export type ReferenceTable =
   // device's observation — the same exception tl-02's membership RPCs took.
   | 'person'
   | 'person_profile'
+  // tl-13. The AI mode and function toggles are a setup edit like any other, so
+  // they take the same offline-first road: Dexie now, backend when there is one.
+  // A direct write would work online and silently lose an administrator's decision
+  // about where their workshop's evidence gets sent.
+  //
+  // The TRACE (`ai_call_log`) deliberately does NOT come through here, and the
+  // reason is worth keeping: `loadReferenceData()` refuses its pull while anything
+  // is pending in this queue, so a trace the backend would not accept could stop a
+  // device refreshing its reference data forever. A lost trace line is a small
+  // loss; a device frozen on stale questions is not. See db/aiConfig.ts.
+  | 'ai_config'
 
 export interface ReferenceOutboxEntry {
   /** `${table}:${rowKey}` — repeated edits to the same row collapse to one entry. */
@@ -777,6 +788,39 @@ export interface SetupChangeLogEntry {
   diff: Record<string, { before?: unknown; after?: unknown }>
   /** The numbers the dialog quoted, kept so the record shows what was decided on. */
   counts: Record<string, number>
+  at: string
+  sync_status: SyncStatus
+  sync_error?: string | null
+}
+
+/**
+ * One AI provider call, as the trace records it (tl-13).
+ *
+ * Written for EVERY outcome, including `operator_action` — which is not a failure
+ * but the normal state of the two human-in-the-loop modes, and the one the protocol
+ * most wants visible: "the operator was handed a prompt and nothing has come back
+ * yet" is exactly the state that otherwise looks like nothing happened.
+ *
+ * Cached locally with a `sync_status` for the usual offline reason, and pushed by
+ * its own best-effort function rather than through the reference outbox. See the
+ * `ai_config` note on ReferenceTable for why that separation is load-bearing.
+ */
+export interface AiCallLogEntry {
+  id: string
+  workshop_id: string
+  /** Which AI function. `fn` rather than `function`, which is a reserved word in SQL. */
+  fn: string
+  mode: string
+  model: string | null
+  actor_email: string | null
+  /** Size of what was sent, in characters. Not tokens: this side cannot count those. */
+  input_chars: number | null
+  outcome: 'result' | 'operator_action' | 'refused' | 'error'
+  /** A chrome id or a provider message, so a refusal says which refusal. */
+  detail: string | null
+  tokens_in: number | null
+  tokens_out: number | null
+  latency_ms: number | null
   at: string
   sync_status: SyncStatus
   sync_error?: string | null

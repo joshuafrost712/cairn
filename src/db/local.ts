@@ -2,6 +2,7 @@ import Dexie, { type EntityTable } from 'dexie'
 import type {
   Activity,
   ActivityKsa,
+  AiCallLogEntry,
   CoverageRow,
   DiscrepancyResolution,
   EvaluationRecord,
@@ -29,6 +30,7 @@ import type { DraftDoc } from '../drafts/types'
 import { planBackfill } from './backfill'
 import { planGoalBackfill } from './goalBackfill'
 import { defaultScalePoints, type ScalePoint } from '../lib/scale'
+import type { AiConfigRow } from '../lib/aiConfig'
 import { getActiveWorkshopId } from '../lib/activeWorkshop'
 
 /**
@@ -66,6 +68,8 @@ class CairnDB extends Dexie {
   persons!: EntityTable<Person, 'id'>
   personProfiles!: EntityTable<PersonProfile, 'person_id'>
   personCards!: EntityTable<PersonCard, 'person_id'>
+  aiConfigs!: EntityTable<AiConfigRow, 'workshop_id'>
+  aiCallLog!: EntityTable<AiCallLogEntry, 'id'>
 
   constructor() {
     super('cairn')
@@ -338,6 +342,24 @@ class CairnDB extends Dexie {
       // during capture — which is the whole reason any of this is cached at all.
       personCards: 'person_id',
       participants: 'id, workshop_id, team_id, person_id',
+    })
+    // v18 (tl-13): the AI configuration, and the trace.
+    //
+    // VERSION CLAIM: v18 was claimed for this spec in 00-program-throughline.md
+    // (D5, 2026-08-03) after re-reading this file — versions 1 through 17 with no
+    // gaps. tl-13 through tl-16 are a dependency chain rather than a set, so this
+    // is the first spec in the wave with no concurrent session to collide with;
+    // the number is claimed anyway, because the discipline is what made the last
+    // six versions interleave without one collision.
+    //
+    // `aiConfigs` is cached so a toggle is known offline: an administrator on a
+    // plane must still be told that draft-fill is switched off, rather than being
+    // shown a working button that will refuse when it lands.
+    //
+    // Purely additive, so no upgrade function.
+    this.version(18).stores({
+      aiConfigs: 'workshop_id',
+      aiCallLog: 'id, workshop_id, fn, sync_status, at',
     })
   }
 }
