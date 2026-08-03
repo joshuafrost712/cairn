@@ -25,9 +25,17 @@ import type { AiFunction } from '../../lib/aiConfig'
  * THE ONE PROPERTY NO OTHER MODE HAS. `github-claude` costs nothing per call and needs no
  * key, but it is not unattended — a person opens a Claude session and works the runbook.
  * `hosted-api` is unattended and metered. This mode is the only one that is both free at
- * the point of use and unattended, and the only one that needs no network: the model runs
- * through a CLI on the machine in the room, so an administrator on hotel wifi or on none
- * presses one button and the observations come back.
+ * the point of use and unattended: an administrator presses one button and the observations
+ * come back, with no key, no paste and no GitHub round trip.
+ *
+ * WHAT IS AND IS NOT LOCAL, because the earlier framing of this file overclaimed it. The
+ * APP needs no network here: no GitHub, no metered endpoint, and the transport is loopback.
+ * The MODEL is not local — `claude` is a network client, so an outage queues the work
+ * rather than losing it. And captures made on somebody else's phone reach this machine
+ * through Supabase (`pullPendingCaptures` on the routing page), not through the relay,
+ * which binds to loopback and is never reachable from another device. So the true
+ * requirement is that each device has internet at some point, not that they share a
+ * network. Reaching this relay across a LAN is tl-22's argument to have.
  *
  * TWO RULES THIS PROVIDER MAY NOT BREAK.
  *
