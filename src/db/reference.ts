@@ -75,8 +75,22 @@ export async function loadReferenceData(): Promise<void> {
         // workshop set rather than from what came back.
         supabase.from('ai_config').select('*'),
       ])
-      const firstError = [w, t, p, a, g, k, ak, st, ra, sp, ac].find((r) => r.error)?.error
+      // `ac` is deliberately NOT in this list, and it is the only read here that is
+      // not. Every other table is member-readable, so an error from one means
+      // something is genuinely wrong and falling back to the cache is right.
+      // `ai_config` is admin-only, which is a new shape in this list: it is the one
+      // read most likely to come back as an ERROR rather than as silent filtering if
+      // a policy is ever misconfigured or a device meets a backend without this
+      // migration — and letting that stop the whole refresh would mean an
+      // administrator's questions, roster and scale quietly stopped updating because
+      // of a table that has a legal empty state. No config resolves to the app's
+      // pre-tl-13 behaviour, so absence is a correct answer and an error is treated
+      // as absence, loudly in the console.
+      const firstError = [w, t, p, a, g, k, ak, st, ra, sp].find((r) => r.error)?.error
       if (firstError) throw firstError
+      if (ac.error) {
+        console.warn('[honest-eval] could not read ai_config; using its defaults', ac.error.message)
+      }
 
       await db.transaction(
         'rw',
@@ -122,7 +136,10 @@ export async function loadReferenceData(): Promise<void> {
       await cacheSettingRows(st.data ?? [], inScope)
       await cacheAssignmentRows(ra.data ?? [], inScope)
       await cacheScalePoints(sp.data ?? [], inScope)
-      await cacheAiConfigRows(ac.data ?? [], inScope)
+      // Only prune on a successful read. Passing `inScope` after a failed one would
+      // delete this device's cached configuration on the strength of a response that
+      // never arrived, which is the exact mistake `inScope` exists to prevent.
+      if (!ac.error) await cacheAiConfigRows(ac.data ?? [], inScope)
       // The deployment switch that decides whether hosted AI is even offerable.
       // Awaited rather than fired so that a caller who has finished loading really
       // has: the Setup AI section renders a mode picker off the mirrored value, and
