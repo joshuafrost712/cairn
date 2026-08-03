@@ -3578,14 +3578,6 @@
       "label": "Turning something off never deletes anything already recorded."
     },
     {
-      "id": "setup.ai.col-function",
-      "label": "Function"
-    },
-    {
-      "id": "setup.ai.col-state",
-      "label": "State"
-    },
-    {
       "id": "setup.ai.fn.on",
       "label": "on"
     },

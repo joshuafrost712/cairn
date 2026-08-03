@@ -178,55 +178,49 @@ function FunctionToggles({ workshopId, config }: { workshopId: string; config: A
     <div className="card form-col">
       <h2>{c('setup.ai.functions-title')}</h2>
       <p className="small muted">{c('setup.ai.functions-help')}</p>
-      <div className="dt-wrap">
-        <table className="dt">
-          <thead>
-            <tr>
-              <th scope="col">{c('setup.ai.col-function')}</th>
-              <th scope="col">{c('setup.ai.col-state')}</th>
-              <th scope="col" />
-            </tr>
-          </thead>
-          <tbody>
-            {AI_FUNCTIONS.map((fn) => {
-              const built = AI_FUNCTION_BUILT[fn]
-              const on = aiEnabled(fn, config)
-              return (
-                <tr key={fn}>
-                  <th scope="row">
-                    <strong>{c(`setup.ai.fn.${fn}`)}</strong>
-                    <br />
-                    <span className="small muted">{c(`setup.ai.fn.${fn}-help`)}</span>
-                  </th>
-                  <td>
-                    {!built ? (
-                      <span className="pill local">{c('setup.ai.fn.not-built')}</span>
-                    ) : on ? (
-                      <span className="pill ok">{c('setup.ai.fn.on')}</span>
-                    ) : (
-                      <span className="pill queued">{c('setup.ai.fn.off')}</span>
-                    )}
-                  </td>
-                  <td>
-                    {/* A function with no call path gets no switch. A toggle that
-                        governs nothing is worse than an absent one: it reports a
-                        state the app cannot honour. */}
-                    {built && (
-                      <button
-                        className="ghost small"
-                        disabled={busy}
-                        onClick={() => void toggle(fn, !on)}
-                      >
-                        {on ? c('setup.ai.fn.turn-off') : c('setup.ai.fn.turn-on')}
-                      </button>
-                    )}
-                  </td>
-                </tr>
-              )
-            })}
-          </tbody>
-        </table>
-      </div>
+      {/*
+        A STACKED LIST, NOT A TABLE, and the reason is a screenshot. The first draft
+        was a three-column `.dt` inside a `.dt-wrap`, which passes tl-20's audit —
+        it scrolls inside itself and carries the there-is-more-that-way gradient —
+        and on a 390px phone showed the function names with the state pill and the
+        switch pushed off the right edge. That is the tl-09 scale-editor lesson in a
+        milder key: "no body overflow" is not the same as "usable", and a table whose
+        two narrow columns ARE the controls has nothing to gain from being a table.
+        Stacked rows put the switch next to the thing it switches at both widths.
+      */}
+      <ul className="plain-list">
+        {AI_FUNCTIONS.map((fn) => {
+          const built = AI_FUNCTION_BUILT[fn]
+          const on = aiEnabled(fn, config)
+          return (
+            <li key={fn} className="ai-fn">
+              <div className="ai-fn__text">
+                <div className="row" style={{ gap: 'var(--s-1)', alignItems: 'baseline' }}>
+                  <strong>{c(`setup.ai.fn.${fn}`)}</strong>
+                  {!built ? (
+                    <span className="pill local">{c('setup.ai.fn.not-built')}</span>
+                  ) : on ? (
+                    <span className="pill ok">{c('setup.ai.fn.on')}</span>
+                  ) : (
+                    <span className="pill queued">{c('setup.ai.fn.off')}</span>
+                  )}
+                </div>
+                <p className="small muted" style={{ margin: '0.15rem 0 0' }}>
+                  {c(`setup.ai.fn.${fn}-help`)}
+                </p>
+              </div>
+              {/* A function with no call path gets no switch. A toggle that governs
+                  nothing is worse than an absent one: it reports a state the app
+                  cannot honour. */}
+              {built && (
+                <button className="ghost small" disabled={busy} onClick={() => void toggle(fn, !on)}>
+                  {on ? c('setup.ai.fn.turn-off') : c('setup.ai.fn.turn-on')}
+                </button>
+              )}
+            </li>
+          )
+        })}
+      </ul>
       <p className="small muted">{c('setup.ai.functions-footnote')}</p>
     </div>
   )

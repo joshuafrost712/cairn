@@ -142,9 +142,9 @@ async function seedCapture() {
 
 const text = () => page.evaluate(() => document.body.innerText)
 
-/** Click the button whose visible text is exactly `label` inside a row naming `row`. */
+/** Click the switch in the function row naming `rowText`. */
 async function clickInRow(rowText, buttonText) {
-  const row = page.locator('tr', { hasText: rowText }).first()
+  const row = page.locator('li.ai-fn', { hasText: rowText }).first()
   await row.locator('button', { hasText: buttonText }).first().click()
 }
 
@@ -199,8 +199,13 @@ await page.waitForTimeout(1200)
     'the two functions with no call path are marked, not switched',
     `${(body.match(/not built yet/g) ?? []).length} marked`,
   )
-  const switches = await page.locator('table.dt button', { hasText: /Turn o/ }).count()
+  const switches = await page.locator('li.ai-fn button', { hasText: /Turn o/ }).count()
   check(switches === 3, 'only the built functions carry a switch', `${switches} switches`)
+  // The form itself, not just its contents: a three-column table put the switch off
+  // the right edge of a 390px phone behind a horizontal scroll, which the responsive
+  // audit passes and a person cannot use.
+  const scrollingTables = await page.locator('li.ai-fn').count()
+  check(scrollingTables === 5, 'the functions are a stacked list rather than a table', `${scrollingTables} rows`)
   check(
     body.includes('Token and cost estimates per mode are a later spec'),
     'no cost figure is invented before tl-14 exists',
