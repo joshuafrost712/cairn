@@ -12,6 +12,8 @@ import {
   type AiConfigRow,
 } from '../src/lib/aiConfig'
 import { aiEnabled, aiUnavailableReason, BUILT_AI_FUNCTIONS } from '../src/ai/aiEnabled'
+import { MAX_AI_INPUT_CHARS } from '../src/ai/providers'
+import { MAX_SCENARIO_DOCUMENT_CHARS } from '../src/ai/scenarioDraft'
 import { findChromeNode } from '../src/lib/content/chrome'
 
 /**
@@ -217,5 +219,37 @@ describe('the two copies of the default map agree', () => {
     // marked built with no provider handling it would show a working switch over
     // nothing at all.
     expect(AI_FUNCTIONS.filter((fn) => AI_FUNCTION_BUILT[fn])).toEqual(BUILT_AI_FUNCTIONS)
+  })
+})
+
+describe('the input cap is one number in three places', () => {
+  /**
+   * Three copies exist and each is load-bearing where it sits: the provider entry point
+   * refuses before a request is built, the scenario path refuses before an upload is
+   * accepted, and the Edge Function refuses on the wire because a client is not a
+   * permission. The Deno file cannot import from `src/`, so the third copy can only be
+   * kept honest by reading it — which is what this does. A cap that disagreed with
+   * itself would refuse a document in one layer and accept it in the next, and the
+   * symptom would be an error message quoting a limit the user had not exceeded.
+   */
+  it('agrees across the two client copies and the Edge Function', () => {
+    expect(MAX_SCENARIO_DOCUMENT_CHARS).toBe(MAX_AI_INPUT_CHARS)
+    const fn = readFileSync('supabase/functions/draft-scenario/index.ts', 'utf8')
+    const declared = fn.match(/MAX_DOCUMENT_CHARS = ([\d_]+)/)?.[1]
+    expect(declared, 'the Edge Function no longer declares MAX_DOCUMENT_CHARS').toBeTruthy()
+    expect(Number((declared ?? '').replace(/_/g, ''))).toBe(MAX_AI_INPUT_CHARS)
+  })
+
+  it('gives the Edge Function a timeout, because an outbound call without one is a bug', () => {
+    const fn = readFileSync('supabase/functions/draft-scenario/index.ts', 'utf8')
+    expect(fn).toMatch(/AbortSignal\.timeout\(GEMINI_TIMEOUT_MS\)/)
+  })
+
+  it('has the Edge Function read the scale server-side rather than trusting the request', () => {
+    // The request still carries a scale (the spec asks for it), and the function
+    // resolves the authoritative one from `scale_point` — otherwise an administrator
+    // whose cached scale is stale drafts against points the workshop no longer has.
+    const fn = readFileSync('supabase/functions/draft-scenario/index.ts', 'utf8')
+    expect(fn).toMatch(/from\('scale_point'\)/)
   })
 })

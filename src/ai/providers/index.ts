@@ -15,12 +15,24 @@ import {
 } from './types'
 import { buildScenarioPrompt } from '../scenarioDraft'
 import { buildGuidancePrompt } from '../guidancePrompt'
+import { buildExportBundle } from '../../routing/operations'
 import type { AiConfig, AiMode } from '../../lib/aiConfig'
 
 export * from './types'
-export { githubClaudeProvider } from './githubClaude'
-export { byoAgentProvider } from './byoAgent'
-export { hostedApiProvider } from './hostedApi'
+
+/**
+ * THE PROVIDERS ARE NOT RE-EXPORTED HERE, and that omission is the point.
+ *
+ * They were, and it made "there is no other way into a provider" false by one import:
+ * `providerFor(mode).run(job)` from this barrel skips `aiEnabled` entirely, and for
+ * `github-claude` there is no server-side backstop to catch it — the bypassed call is
+ * `pushPendingCaptures()` writing to a private repo with the device's own token. So
+ * the barrel exports the guarded entry point and the types, and nothing else.
+ *
+ * A test, or a future spec that genuinely needs one provider, imports it from its own
+ * module (`./githubClaude`). That is a deliberate act rather than the path of least
+ * resistance, which is the most a module boundary can do.
+ */
 
 /**
  * THE PROVIDER ENTRY POINT (tl-13). One way in, for every AI function, in every mode.
@@ -51,7 +63,8 @@ const PROVIDERS: Record<AiMode, AiProvider> = {
   'hosted-api': hostedApiProvider,
 }
 
-export function providerFor(mode: AiMode): AiProvider {
+/** Module-private: exported only through `runAiJob`, per the note above. */
+function providerFor(mode: AiMode): AiProvider {
   return PROVIDERS[mode] ?? githubClaudeProvider
 }
 
@@ -61,8 +74,20 @@ export function providerFor(mode: AiMode): AiProvider {
  * Deliberately NOT `byoAgentProvider.run(job)`: reusing that would trace the call as
  * though the workshop had chosen bring-your-own, and a trace that misreports the mode
  * is worse than no trace. Same prompts, its own instruction id.
+ *
+ * OBSERVATION ROUTING FALLS BACK TOO, and getting that wrong would have been the most
+ * expensive thing in this spec. It first returned `refused` here, which contradicted
+ * both this file's own comment and the shipped copy on the Routing page ("there is no
+ * hosted endpoint for routing yet, so this step still hands you a prompt") — and the
+ * consequence was real rather than editorial: selecting `hosted-api` is classified
+ * `affects_future`, so an administrator would have chosen a mode, been told nothing
+ * about it, and found the capture pipeline the whole app depends on refusing. A
+ * hand-off a human can complete is the honest answer for a mode with no endpoint.
+ *
+ * `push` is still refused, because it is not "do this another way" but "use the
+ * repository", which is a different mode's mechanism.
  */
-function fallbackOutcome(job: AiJob): AiOutcome {
+async function fallbackOutcome(job: AiJob): Promise<AiOutcome> {
   switch (job.fn) {
     case 'scenario_draft':
       return operatorAction('setup.ai.op.fallback-prompt', {
@@ -70,8 +95,15 @@ function fallbackOutcome(job: AiJob): AiOutcome {
       })
     case 'conversation_guidance':
       return operatorAction('setup.ai.op.fallback-prompt', { prompt: buildGuidancePrompt(job.brief) })
-    case 'observation_routing':
-      return refused('setup.ai.error.hosted-fn-not-built')
+    case 'observation_routing': {
+      if (job.intent === 'push') return refused('setup.ai.error.hosted-fn-not-built')
+      try {
+        const { json, count } = await buildExportBundle()
+        return operatorAction('setup.ai.op.fallback-prompt', { value: { count }, prompt: json })
+      } catch (err) {
+        return failed(err instanceof Error ? err.message : 'The capture bundle could not be built.')
+      }
+    }
   }
 }
 
@@ -86,8 +118,18 @@ export async function runAiJob(job: AiJob, options: RunAiJobOptions = {}): Promi
   const inputChars = jobInputChars(job)
   const started = Date.now()
 
-  const finish = async (outcome: AiOutcome): Promise<AiOutcome> => {
-    await traceAiCall({
+  /**
+   * Record and return. FIRED, NOT AWAITED, and the distinction is the one the
+   * protocol's reliability section is about: `traceAiCall` catches its own throws,
+   * which covers a Dexie that refuses, and does nothing at all about a Dexie that
+   * HANGS. A blocked IndexedDB upgrade — an ordinary event for an installed PWA with a
+   * second tab open on the previous version — would leave `db.aiCallLog.put` pending
+   * forever, and awaiting it here would mean `runAiJob` never resolves and the panel
+   * stays busy with no error anywhere. Every outbound call in this spec got a timeout;
+   * the one local write on the critical path gets this instead.
+   */
+  const finish = (outcome: AiOutcome): AiOutcome => {
+    void traceAiCall({
       workshop_id: job.workshopId,
       fn: job.fn,
       mode: config.mode,
@@ -115,7 +157,7 @@ export async function runAiJob(job: AiJob, options: RunAiJobOptions = {}): Promi
   }
 
   const provider = providerFor(config.mode)
-  if (!provider.handles(job.fn)) return finish(fallbackOutcome(job))
+  if (!provider.handles(job.fn)) return finish(await fallbackOutcome(job))
 
   try {
     return finish(await provider.run(job))

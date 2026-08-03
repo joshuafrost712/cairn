@@ -79,7 +79,10 @@ export function parseDraftReply(text: string): { ok: true; value: ScenarioDraft 
 export async function draftScenarioWithAI(
   documentText: string,
   context: { workshopId: string; scale?: DraftScalePoint[] },
-): Promise<{ ok: true; value: ScenarioDraft } | { ok: false; reason: string }> {
+): Promise<
+  | { ok: true; value: ScenarioDraft; model?: string | null; tokensIn?: number | null; tokensOut?: number | null }
+  | { ok: false; reason: string }
+> {
   if (!isSupabaseConfigured || !supabase) {
     return { ok: false, reason: 'AI drafting needs the backend; use the copy/paste path instead.' }
   }
@@ -98,11 +101,28 @@ export async function draftScenarioWithAI(
       },
     })
     if (error) return { ok: false, reason: await readInvokeError(error) }
-    // The function returns { scenario } (parsed), { raw } (unparsed text), or { error }.
+    // The function returns { scenario } (parsed), { raw } (unparsed text), or { error },
+    // plus the model it used and the token counts it reported. THE USAGE FIELDS ARE
+    // CARRIED THROUGH, not dropped: the function goes to the trouble of reporting
+    // `usageMetadata` and the trace goes to the trouble of having columns for it, so a
+    // hosted call that logged `model: null, 0 tokens` would make both of those
+    // pointless — and tl-14's estimator is specced to be built on these numbers.
     if (data && typeof data === 'object') {
+      const usage = data as { model?: unknown; tokens_in?: unknown; tokens_out?: unknown }
+      const meta = {
+        model: typeof usage.model === 'string' ? usage.model : null,
+        tokensIn: typeof usage.tokens_in === 'number' ? usage.tokens_in : null,
+        tokensOut: typeof usage.tokens_out === 'number' ? usage.tokens_out : null,
+      }
       if ('error' in data) return { ok: false, reason: String((data as { error: unknown }).error) }
-      if ('scenario' in data) return validateScenarioDraft((data as { scenario: unknown }).scenario)
-      if ('raw' in data) return parseDraftReply(String((data as { raw: unknown }).raw))
+      if ('scenario' in data) {
+        const parsed = validateScenarioDraft((data as { scenario: unknown }).scenario)
+        return parsed.ok ? { ...parsed, ...meta } : parsed
+      }
+      if ('raw' in data) {
+        const parsed = parseDraftReply(String((data as { raw: unknown }).raw))
+        return parsed.ok ? { ...parsed, ...meta } : parsed
+      }
     }
     if (typeof data === 'string') return parseDraftReply(data)
     return validateScenarioDraft(data)

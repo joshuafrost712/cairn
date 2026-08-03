@@ -643,7 +643,13 @@ function classifyAiConfig(change: SetupChange): Verdict {
       severity = raise(severity, 'affects_future')
       consequences.push({
         id: 'setup.impact.ai.mode',
-        tokens: { from: words(String(f.before ?? '')), to: words(String(f.after ?? '')) },
+        // The mode's own identifier, NOT `words()`. That helper turns
+        // `chief_evaluator` into words because it is a role nobody says aloud with an
+        // underscore; applied here it produced "from github claude to hosted api",
+        // which is neither the value being written nor anything the rest of the screen
+        // calls it. The sentence around it names them as routes so the identifier
+        // reads as one.
+        tokens: { from: String(f.before ?? ''), to: String(f.after ?? '') },
       })
       continue
     }
@@ -664,7 +670,12 @@ function classifyAiConfig(change: SetupChange): Verdict {
     severity = raise(severity, 'affects_future')
     consequences.push({
       id: turningOff ? 'setup.impact.ai.fn-off' : 'setup.impact.ai.fn-on',
-      tokens: { fn: words(f.field) },
+      // `change.label`, which the caller has already resolved to the function's real
+      // name ("Drafting a scenario from a document"), rather than `words(f.field)`
+      // ("scenario draft"). The proper name exists two panels away on the same screen,
+      // and a dialog calling the same thing something else is a small lie about what is
+      // being changed.
+      tokens: { fn: change.label },
     })
   }
 

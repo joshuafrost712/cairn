@@ -3607,7 +3607,7 @@
     },
     {
       "id": "setup.ai.fn.observation_routing-help",
-      "label": "The pipeline the app already depends on: a dictated capture becomes one observation per participant per question. With this off, captures are still recorded and never become evidence."
+      "label": "The pipeline the app already depends on: a dictated capture becomes one observation per participant per question. With this off, captures are still recorded and stop being handed over for routing."
     },
     {
       "id": "setup.ai.fn.scenario_draft",
@@ -3835,15 +3835,15 @@
     },
     {
       "id": "setup.impact.ai.mode",
-      "label": "Work moves from {from} to {to}. Nothing already recorded changes; every request from here on takes the new route."
+      "label": "Work moves from the {from} route to the {to} route. Nothing already recorded changes; every request from here on takes the new one."
     },
     {
       "id": "setup.impact.ai.routing-off",
-      "label": "Captures stop becoming observations. There are {captures} submitted capture(s) in this workshop, and anything captured from now on will be recorded and will never reach a report until this is switched back on."
+      "label": "Captures stop being sent for routing. There are {captures} submitted capture(s) in this workshop, and anything captured from now on will be recorded and will not be handed over to become evidence until this is switched back on. Observations somebody has already routed can still be brought back in."
     },
     {
       "id": "setup.impact.ai.routing-off-clean",
-      "label": "Captures will not become observations while this is off. Nothing has been captured yet, so nothing is stranded."
+      "label": "Captures will not be sent for routing while this is off. Nothing has been captured yet, so nothing is waiting."
     },
     {
       "id": "setup.impact.ai.fn-on",
@@ -3863,7 +3863,7 @@
     },
     {
       "id": "routing.mode.off-consequence",
-      "label": "Captures are still being recorded; none of them will become observations until it is switched back on."
+      "label": "Captures are still being recorded and are no longer being handed over, so none of them will become observations until it is switched back on. Anything already routed can still be pulled or pasted back in."
     },
     {
       "id": "routing.mode.byo-agent",
@@ -3900,6 +3900,10 @@
     {
       "id": "admin-conversations.guidance.ai-off",
       "label": "Suggested openings are switched off for this workshop. Write the guidance yourself in the box above."
+    },
+    {
+      "id": "setup.ai.op.pasted-reply",
+      "label": "A draft was pasted in from somebody's own AI and read successfully."
     }
   ]
 }

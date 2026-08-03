@@ -519,6 +519,36 @@ async function main() {
     )
   }
 
+  // ---------------------------------------------------------------------------
+  // 10. The refusals are traced, which is the half the client can never see.
+  // ---------------------------------------------------------------------------
+  {
+    const res = await fetch(
+      `${SUPABASE_URL}/rest/v1/ai_call_log?workshop_id=eq.${WS}&select=outcome,detail,actor_email`,
+      { headers: { apikey: ANON_KEY, Authorization: `Bearer ${tokens.admin}` } },
+    )
+    const rows = await res.json()
+    const details = Array.isArray(rows) ? rows.map((r) => r.detail) : []
+    assert(
+      'the server records the refusals it issued, with the caller it resolved',
+      details.includes('tl13.not_an_admin_of_this_workshop') &&
+        details.includes('tl13.function_is_switched_off_for_this_workshop') &&
+        (Array.isArray(rows) ? rows : []).some(
+          (r) => r.actor_email === ACCOUNTS.evaluator.email,
+        ),
+      `${details.length} row(s): ${[...new Set(details)].join(', ').slice(0, 60)}`,
+    )
+    assert(
+      'an evaluator cannot read the trace of their own refusal',
+      (await fetch(`${SUPABASE_URL}/rest/v1/ai_call_log?workshop_id=eq.${WS}`, {
+        headers: { apikey: ANON_KEY, Authorization: `Bearer ${tokens.evaluator}` },
+      })
+        .then((r) => r.json())
+        .then((r) => (Array.isArray(r) ? r.length : -1))) === 0,
+      'admin-only by policy',
+    )
+  }
+
   console.log('\n--- recorded response bodies ---')
   console.log(JSON.stringify(bodies, null, 2))
 

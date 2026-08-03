@@ -55,6 +55,13 @@ export const hostedApiProvider: AiProvider = {
     // and this text came from the server, which is a distinction the trace should
     // keep rather than blur.
     if (!r.ok) return failed(r.reason)
-    return result(r.value)
+    // The model and the token counts travel with the outcome, so the trace records
+    // what was actually spent rather than a null and a zero. This is the only mode
+    // that can report real numbers, and it is the mode where they matter.
+    return result(r.value, {
+      model: r.model ?? null,
+      tokensIn: r.tokensIn ?? null,
+      tokensOut: r.tokensOut ?? null,
+    })
   },
 }

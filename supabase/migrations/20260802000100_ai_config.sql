@@ -242,6 +242,15 @@ create trigger ai_config_check
 
 alter table ai_config enable row level security;
 
+-- REVOKE FIRST, and this is the codebase's doctrine rather than a flourish: Supabase's
+-- default privileges grant everything on a new public table to `anon` and
+-- `authenticated`, so a table protected by RLS alone is one `disable row level
+-- security` — typed while fixing something else — away from being wide open. tl-01 put
+-- it plainly: an attempt should fail at the GRANT, before any policy is consulted.
+-- Every table-creating migration since has opened this way, and the first draft of this
+-- one did not.
+revoke all on ai_config from anon, authenticated;
+
 drop policy if exists ai_config_select on ai_config;
 create policy ai_config_select on ai_config for select to authenticated
   using (has_workshop_role(workshop_id, array['chief_admin', 'admin']));
@@ -295,6 +304,9 @@ comment on table ai_call_log is
 create index if not exists ai_call_log_workshop_at_idx on ai_call_log (workshop_id, at desc);
 
 alter table ai_call_log enable row level security;
+
+-- Same reason as ai_config above: the grant is the first gate, the policy the second.
+revoke all on ai_call_log from anon, authenticated;
 
 drop policy if exists ai_call_log_select on ai_call_log;
 create policy ai_call_log_select on ai_call_log for select to authenticated

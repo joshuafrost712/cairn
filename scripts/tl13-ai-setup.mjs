@@ -221,8 +221,16 @@ await page.waitForTimeout(1200)
   await page.waitForTimeout(700)
   const dialog = await text()
   check(
-    /Captures stop becoming observations/.test(dialog),
+    /Captures stop being sent for routing/.test(dialog),
     'turning routing off names the real consequence',
+  )
+  // And does not overstate it. The return leg (pull, or paste an already-routed
+  // reply) is NOT gated, deliberately: work a human has already done should not be
+  // trapped by a switch. The second-AI review caught the first wording claiming
+  // otherwise, so the harness now pins the honest version.
+  check(
+    /already routed can still be brought back/.test(dialog),
+    'and does not claim to close the return leg, which stays open',
   )
   check(
     /1 submitted capture/.test(dialog),

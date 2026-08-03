@@ -5,6 +5,7 @@ import { db } from '../../db/local'
 import { hostedAiEnabled, saveAiConfig } from '../../db/aiConfig'
 import { isSupabaseConfigured } from '../../lib/supabase'
 import { c } from '../../lib/content/chrome'
+import { describeDetail } from '../../ai/traceDetail'
 import { ScenarioDraftPanel } from '../../components/ScenarioDraftPanel'
 import {
   AI_FUNCTION_BUILT,
@@ -265,7 +266,7 @@ function TraceCard({ workshopId }: { workshopId: string }) {
                 <span className="pill queued">{c('setup.ai.trace-local')}</span>
               </>
             )}
-            {e.detail ? <span className="muted"> · {e.detail.slice(0, 120)}</span> : null}
+            {e.detail ? <span className="muted"> · {describeDetail(e.detail)}</span> : null}
           </p>
         ))
       )}

@@ -1,16 +1,15 @@
 import { describe, expect, it } from 'vitest'
-import {
-  byoAgentProvider,
-  githubClaudeProvider,
-  hostedApiProvider,
-  jobInputChars,
-  MAX_AI_INPUT_CHARS,
-  providerFor,
-  runAiJob,
-  type AiJob,
-} from '../src/ai/providers'
+import { jobInputChars, MAX_AI_INPUT_CHARS, runAiJob, type AiJob } from '../src/ai/providers'
+// Imported from their own modules, not from the barrel, because the barrel
+// deliberately does not export them: `providerFor(mode).run(job)` from the public
+// entry would skip `aiEnabled` entirely. A test reaching past the front door is a
+// deliberate act; the point is that it cannot be the path of least resistance.
+import { githubClaudeProvider } from '../src/ai/providers/githubClaude'
+import { byoAgentProvider } from '../src/ai/providers/byoAgent'
+import { hostedApiProvider } from '../src/ai/providers/hostedApi'
 import { defaultAiConfig, resolveAiConfig, type AiConfigRow } from '../src/lib/aiConfig'
 import { buildGuidancePrompt, validateGuidanceReply } from '../src/ai/guidancePrompt'
+import { describeDetail } from '../src/ai/traceDetail'
 
 /**
  * The provider layer's decisions, without a network or an IndexedDB.
@@ -67,11 +66,15 @@ describe('which mode services which function', () => {
     expect(hostedApiProvider.handles('observation_routing')).toBe(false)
   })
 
-  it('falls back to the mode that works when the stored mode is unknown', () => {
+  it('falls back to the mode that works when the stored mode is unknown', async () => {
     // Matches resolveAiConfig's tolerance. A mode nothing can service is worse than
-    // the one that always can.
-    expect(providerFor('github-claude')).toBe(githubClaudeProvider)
-    expect(providerFor('nonsense' as 'github-claude')).toBe(githubClaudeProvider)
+    // the one that always can. Asserted through the entry point rather than on
+    // `providerFor`, which is module-private now: an unrecognized stored mode must
+    // still produce github-claude's hand-off rather than an error.
+    const config = { ...defaultAiConfig('w1'), mode: 'nonsense' as 'github-claude' }
+    const outcome = await runAiJob(draftJob(), { config })
+    expect(outcome.kind).toBe('operator_action')
+    expect(outcome.instructionsId).toBe('setup.ai.op.scenario-prompt')
   })
 })
 
@@ -171,5 +174,54 @@ describe('a guidance reply is checked before it is offered as guidance', () => {
 
   it('rejects something nobody is going to read', () => {
     expect(validateGuidanceReply('word '.repeat(1000)).ok).toBe(false)
+  })
+})
+
+/**
+ * The trace's own copy problem (tl-13, found by the second-AI review reading a
+ * screenshot rather than the code).
+ *
+ * `detail` carries a chrome id for every refusal and every hand-off, which is every row
+ * in the app's DEFAULT mode. Rendered raw it put `setup.ai.op.scenario-prompt` on
+ * screen, which is the content layer's characteristic failure: `c()` returns the id
+ * when a node is missing, and here the id was never looked up at all.
+ */
+describe('a trace row says something a person can read', () => {
+  it('resolves a chrome id to its sentence', () => {
+    expect(describeDetail('setup.ai.op.scenario-prompt')).toMatch(/prompt is ready/i)
+    expect(describeDetail('setup.ai.fn.disabled')).toMatch(/switched off/i)
+  })
+
+  it('prints a server message unchanged rather than losing it to a lookup', () => {
+    const message = 'Gemini request failed (429): quota exceeded'
+    expect(describeDetail(message)).toBe(message)
+  })
+
+  it('falls back to the id itself when there is no node, because an id is searchable', () => {
+    expect(describeDetail('setup.ai.op.invented-later')).toBe('setup.ai.op.invented-later')
+  })
+
+  it('covers every id the provider layer can put in that column', () => {
+    // The ids `runAiJob` writes are `outcome.reason ?? outcome.instructionsId`, so this
+    // is the union of the refusal reasons and the operator-action instruction ids.
+    const ids = [
+      'setup.ai.fn.disabled',
+      'setup.ai.error.input-too-large',
+      'setup.ai.error.routing-not-automated',
+      'setup.ai.error.byo-never-pushes',
+      'setup.ai.error.hosted-fn-not-built',
+      'setup.ai.mode.hosted-needs-backend',
+      'setup.ai.mode.hosted-not-enabled-here',
+      'setup.ai.op.routing-copy',
+      'setup.ai.op.routing-pushed',
+      'setup.ai.op.scenario-prompt',
+      'setup.ai.op.guidance-prompt',
+      'setup.ai.op.byo-routing',
+      'setup.ai.op.byo-scenario',
+      'setup.ai.op.byo-guidance',
+      'setup.ai.op.fallback-prompt',
+      'setup.ai.op.pasted-reply',
+    ]
+    for (const id of ids) expect(describeDetail(id), id).not.toBe(id)
   })
 })

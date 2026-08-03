@@ -9,6 +9,7 @@ import {
   MAX_SCENARIO_DOCUMENT_CHARS,
 } from '../ai/scenarioDraft'
 import { runAiJob } from '../ai/providers'
+import { traceAiCall } from '../db/aiConfig'
 import { aiEnabled, aiUnavailableReason } from '../ai/aiEnabled'
 import { resolveAiConfig } from '../lib/aiConfig'
 import { buildScale, type ScalePoint } from '../lib/scale'
@@ -138,8 +139,51 @@ export function ScenarioDraftPanel({ workshopId }: { workshopId: string }) {
     )
   }
 
-  const parseReply = () => {
+  /**
+   * The paste-back half of the hand-off, and it goes through the SAME GUARD.
+   *
+   * It did not, and that was the toggle's biggest hole: `parseReply` and `doImport`
+   * called the contract and the importer directly, so with draft-fill switched off an
+   * administrator could still paste a model's output and have it write activities,
+   * goals and questions — no refusal and no trace, which is exactly what the spec's
+   * "attempt to invoke it through the UI and confirm both are refused" is about. A
+   * pasted reply is model output arriving by a different door; the door does not
+   * change whether the workshop said yes.
+   *
+   * Capped as well, because a pasted blob is as arbitrary as an uploaded file and had
+   * no limit at all where the document has three.
+   */
+  const parseReply = async () => {
+    if (replyText.length > MAX_SCENARIO_DOCUMENT_CHARS) {
+      setStatus(
+        c('setup.ai.draft.too-long', 'label', {
+          chars: replyText.length.toLocaleString(),
+          limit: MAX_SCENARIO_DOCUMENT_CHARS.toLocaleString(),
+        }),
+      )
+      return
+    }
+    if (!enabled) {
+      setStatus(c(offReason ?? 'setup.ai.fn.disabled'))
+      return
+    }
     const r = parseDraftReply(replyText)
+    // Traced by hand rather than through `runAiJob`, because no provider ran: the
+    // model call happened in somebody else's tool. What the trace records is that
+    // model output entered this workshop, which is the fact worth having.
+    void traceAiCall({
+      workshop_id: workshopId,
+      fn: 'scenario_draft',
+      mode: config.mode,
+      model: null,
+      actor_email: identity?.email ?? null,
+      input_chars: replyText.length,
+      outcome: r.ok ? 'result' : 'error',
+      detail: r.ok ? 'setup.ai.op.pasted-reply' : r.reason,
+      tokens_in: null,
+      tokens_out: null,
+      latency_ms: null,
+    })
     if (r.ok) {
       setDraft(r.value)
       setStatus(c('setup.ai.draft.parsed'))
@@ -150,6 +194,13 @@ export function ScenarioDraftPanel({ workshopId }: { workshopId: string }) {
 
   const doImport = async () => {
     if (!draft) return
+    // The last gate before anything is written. A draft can sit in state across a
+    // switch being turned off in another tab, and importing it would be the write the
+    // switch exists to prevent.
+    if (!enabled) {
+      setStatus(c(offReason ?? 'setup.ai.fn.disabled'))
+      return
+    }
     setBusy(true)
     const r = await importScenarioDraft(draft, workshopId, scale)
     setBusy(false)
@@ -253,19 +304,23 @@ export function ScenarioDraftPanel({ workshopId }: { workshopId: string }) {
         />
       )}
 
-      <details style={{ marginTop: '0.5rem' }}>
-        <summary className="small muted">{c('setup.ai.draft.paste-back')}</summary>
-        <textarea
-          rows={5}
-          value={replyText}
-          onChange={(e) => setReplyText(e.target.value)}
-          placeholder={c('setup.ai.draft.reply-placeholder')}
-          className="mono"
-        />
-        <button className="ghost" disabled={!replyText.trim()} onClick={parseReply}>
-          {c('setup.ai.draft.use-reply')}
-        </button>
-      </details>
+      {/* Hidden, not merely disabled, while the function is off: an open box inviting
+          a paste is a promise the switch has already withdrawn. */}
+      {enabled && (
+        <details style={{ marginTop: '0.5rem' }}>
+          <summary className="small muted">{c('setup.ai.draft.paste-back')}</summary>
+          <textarea
+            rows={5}
+            value={replyText}
+            onChange={(e) => setReplyText(e.target.value)}
+            placeholder={c('setup.ai.draft.reply-placeholder')}
+            className="mono"
+          />
+          <button className="ghost" disabled={!replyText.trim()} onClick={() => void parseReply()}>
+            {c('setup.ai.draft.use-reply')}
+          </button>
+        </details>
+      )}
 
       {draft && (
         <div className="banner" style={{ marginTop: '0.5rem' }}>
