@@ -386,6 +386,28 @@ export async function countsForScale(
 }
 
 /**
+ * What an AI configuration change costs (tl-13).
+ *
+ * One number, and it is the only one that matters: how many submitted captures are
+ * in this workshop. Switching observation routing off closes the pipeline that turns
+ * those into observations, so the count answers "how much work is in flight that
+ * would stop becoming evidence".
+ *
+ * Captures rather than observations, deliberately. Observations already exist and
+ * are untouched by any switch here; a capture is the thing whose fate the toggle
+ * decides. Quoting the observation count would name a number that is not at risk.
+ */
+export async function countsForAiConfig(workshopId: string): Promise<ImpactCounts> {
+  const captures = await submittedCaptures(workshopId)
+  // Only `captures`, and nothing else. Every other key in ImpactCounts means
+  // something specific across the whole classifier, and a plausible-looking
+  // `observations` here (the unrouted subset, say) would be a different quantity
+  // under a shared name — which is how a later consequence line ends up quoting a
+  // number that does not mean what it says.
+  return { captures: captures.length }
+}
+
+/**
  * What a person merge joins together (tl-12).
  *
  * Both sides, summed, because the dialog's question is "how big is the history you

@@ -44,40 +44,19 @@ export function canPushPull(): boolean {
 }
 
 // ---------------------------------------------------------------------------
-// Routing mode (tl-03)
+// Routing mode: MOVED (tl-03 → tl-13)
 //
-// One mode exists and it is the default: captures go to the private GitHub repo
-// and are routed by Joshua's Claude Max subscription. This is deliberately not a
-// setting an evaluator can see or change — there is no code path below
-// administrator that reads or writes it, and there is no picker in the UI.
+// tl-03 kept the mode in a localStorage key here and labelled the storage
+// PROVISIONAL, on the grounds that tl-13 would fold it into a workshop-scoped
+// `ai_config` row. It has: see src/lib/aiConfig.ts for the resolved value and
+// src/ai/providers/ for what services each mode.
 //
-// PROVISIONAL STORAGE. tl-13 folds the mode into a workshop-scoped `ai_config`
-// row alongside the provider abstraction and the function toggles. Until then a
-// single localStorage key on the administrator's own device is sufficient, and it
-// must not be treated as load-bearing: nothing persists a non-default value today,
-// so tl-13 is free to move this without a migration.
+// The accessor is GONE rather than left delegating, because two answers to "which
+// mode is this workshop in" is precisely the failure the move was meant to prevent
+// — and a device-local key would keep answering for a workshop it knows nothing
+// about. Nothing had ever persisted a non-default value through it, so there was
+// nothing to migrate; `DEFAULT_ROUTING_MODE` now lives as `DEFAULT_AI_MODE`.
 // ---------------------------------------------------------------------------
-
-export type RoutingMode = 'github-claude'
-
-export const DEFAULT_ROUTING_MODE: RoutingMode = 'github-claude'
-
-const MODE_KEY = 'cairn.routing.mode'
-
-/**
- * The active routing mode. Always `github-claude` today; the accessor exists so
- * tl-13 has one call site to extend rather than a hard-coded assumption spread
- * across the page. An unrecognized stored value falls back to the default rather
- * than propagating: a mode nothing can service is worse than the one that works.
- */
-export function getRoutingMode(): RoutingMode {
-  try {
-    const stored = localStorage.getItem(MODE_KEY)
-    return stored === 'github-claude' ? stored : DEFAULT_ROUTING_MODE
-  } catch {
-    return DEFAULT_ROUTING_MODE
-  }
-}
 
 // ---------------------------------------------------------------------------
 // Token hygiene (tl-03)

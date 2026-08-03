@@ -146,6 +146,19 @@ export type SetupEntity =
    * deleting a workshop.
    */
   | 'person_merge'
+  /**
+   * The workshop's AI provider mode and function toggles (tl-13).
+   *
+   * `affects_future` for everything except one case, and that case is the reason
+   * this is its own entity rather than another `setting`. Turning observation
+   * routing off does not touch a single stored row, and it stops captures becoming
+   * observations — so evidence gathered from that moment on never becomes evidence
+   * at all. Nothing on any screen looks wrong; evaluators go on capturing into a
+   * pipeline whose far end is closed. That is `invalidates_evidence` in effect even
+   * though its mechanism is the opposite of every other member of that tier, and
+   * the dialog has to say so in the plainest words in this file.
+   */
+  | 'ai_config'
 
 export type SetupOperation = 'create' | 'update' | 'delete'
 
@@ -524,6 +537,19 @@ function applyState(
    * exactly the workshops that are built by importing one.
    */
   if (change.entity === 'roster_import') return lower(severity, 'affects_future')
+  /**
+   * THE AI CONFIGURATION IS EXEMPT TOO (tl-13), on the second half of the roster
+   * import's argument rather than the first.
+   *
+   * A draft workshop has captured nothing, so switching a provider genuinely costs
+   * no evidence, and if the dialog were the only consideration `safe` would be
+   * right. The log is the other consideration: setup/log.ts does not record `safe`
+   * changes, and "who pointed this workshop at which provider, and when" is
+   * precisely the question an organization asks when it wants to know where its
+   * evidence went. Most of that configuring happens before a workshop starts, which
+   * is exactly the window the blanket would erase.
+   */
+  if (change.entity === 'ai_config') return lower(severity, 'affects_future')
   //
   // tl-12's `person_merge` is exempt for the same reason and it is the sharper
   // case: a merge is `update`, not `delete`, so without this line the discount
@@ -580,7 +606,80 @@ function classify(change: SetupChange): Verdict {
       return classifyProfile()
     case 'person_merge':
       return classifyPersonMerge(change)
+    case 'ai_config':
+      return classifyAiConfig(change)
   }
+}
+
+// ---------------------------------------------------------------------------
+// AI configuration (tl-13)
+// ---------------------------------------------------------------------------
+
+/**
+ * A mode change or a function toggle.
+ *
+ * The interesting case is switching observation routing OFF, and it is worth
+ * spelling out why it lands in a tier whose name reads backwards here. Every other
+ * `invalidates_evidence` change alters what already-recorded evidence MEANS. This
+ * one leaves all of it alone and closes the far end of the pipeline: evaluators keep
+ * capturing, captures keep arriving, and none of them become observations, so none
+ * of them reach a report. The cost is entirely in the future and it is total, which
+ * is exactly the sort of thing a warning layer exists to say out loud.
+ *
+ * It drops to `affects_future` in a workshop with no captures, on the same
+ * count-justifies-the-tier rule the rest of this module follows: with nothing in
+ * flight there is nothing to strand.
+ */
+function classifyAiConfig(change: SetupChange): Verdict {
+  const c = change.counts
+  const fields = changed(change)
+  if (fields.length === 0) return { severity: 'safe', consequences: [] }
+
+  let severity: SetupSeverity = 'safe'
+  const consequences: Consequence[] = []
+
+  for (const f of fields) {
+    if (f.field === 'mode') {
+      severity = raise(severity, 'affects_future')
+      consequences.push({
+        id: 'setup.impact.ai.mode',
+        // The mode's own identifier, NOT `words()`. That helper turns
+        // `chief_evaluator` into words because it is a role nobody says aloud with an
+        // underscore; applied here it produced "from github claude to hosted api",
+        // which is neither the value being written nor anything the rest of the screen
+        // calls it. The sentence around it names them as routes so the identifier
+        // reads as one.
+        tokens: { from: String(f.before ?? ''), to: String(f.after ?? '') },
+      })
+      continue
+    }
+
+    const turningOff = f.after === false
+    if (f.field === 'observation_routing' && turningOff) {
+      const captures = n(c, 'captures')
+      if (captures === 0) {
+        severity = raise(severity, 'affects_future')
+        consequences.push({ id: 'setup.impact.ai.routing-off-clean' })
+      } else {
+        severity = raise(severity, 'invalidates_evidence')
+        consequences.push({ id: 'setup.impact.ai.routing-off', tokens: { captures } })
+      }
+      continue
+    }
+
+    severity = raise(severity, 'affects_future')
+    consequences.push({
+      id: turningOff ? 'setup.impact.ai.fn-off' : 'setup.impact.ai.fn-on',
+      // `change.label`, which the caller has already resolved to the function's real
+      // name ("Drafting a scenario from a document"), rather than `words(f.field)`
+      // ("scenario draft"). The proper name exists two panels away on the same screen,
+      // and a dialog calling the same thing something else is a small lie about what is
+      // being changed.
+      tokens: { fn: change.label },
+    })
+  }
+
+  return { severity, consequences }
 }
 
 // ---------------------------------------------------------------------------

@@ -966,3 +966,34 @@ button.btn--block-left {
   gap: var(--s-2);
   line-height: 1.5;
 }
+
+/* ---------------------------------------------------------------------------
+   Setup → AI: the function list (tl-13)
+
+   A stacked row rather than a table row, because the two things worth seeing
+   are the name and its switch, and a three-column table put the switch off the
+   right edge of a 390px phone behind a horizontal scroll. `wrap` is what makes
+   one rule serve both widths: side by side where there is room, switch beneath
+   where there is not.
+   --------------------------------------------------------------------------- */
+.plain-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.ai-fn {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-1);
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: 0.6rem 0;
+  border-top: 1px solid var(--line);
+}
+
+.ai-fn:first-child { border-top: 0; }
+
+/* Wide enough to keep the help text readable, narrow enough that the switch can
+   sit beside it on a laptop. Below that the row wraps and the button drops. */
+.ai-fn__text { flex: 1 1 22rem; min-width: 0; }

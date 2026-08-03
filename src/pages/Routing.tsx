@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '../db/local'
 import { useAuth } from '../auth/AuthContext'
@@ -14,15 +15,15 @@ import {
   setRoutingToken,
   clearRoutingToken,
   canPushPull,
-  getRoutingMode,
 } from '../routing/config'
 import {
   listPendingCaptures,
-  pushPendingCaptures,
   pullObservationsFromRepo,
-  buildExportBundle,
   importObservationsText,
 } from '../routing/operations'
+import { runAiJob, type AiOutcome } from '../ai/providers'
+import { aiEnabled, aiUnavailableReason } from '../ai/aiEnabled'
+import { resolveAiConfig } from '../lib/aiConfig'
 
 // Routing screen: send submitted captures to the routing repo, route them with
 // Claude (Max — no metered API), and bring the per-individual observations back.
@@ -37,8 +38,17 @@ export function Routing() {
   const email = identity?.email ?? null
   const repo = getRoutingRepo()
   const automated = canPushPull()
-  const mode = getRoutingMode()
   const workshopId = useScopedWorkshopId()
+
+  // tl-13: the mode is the workshop's `ai_config`, not a device localStorage key.
+  // `getRoutingMode()` was tl-03's provisional stand-in and said so in its own
+  // comment; nothing had ever persisted a non-default value through it, so there is
+  // nothing to migrate and the accessor is gone rather than left as a second answer
+  // to the same question.
+  const configRows = useLiveQuery(() => db.aiConfigs.toArray(), [], [])
+  const config = resolveAiConfig(workshopId ?? '', configRows ?? [])
+  const routingOn = aiEnabled('observation_routing', config)
+  const routingOffReason = aiUnavailableReason('observation_routing', config)
 
   const pending = useLiveQuery(async () => (await listPendingCaptures()).length, [], 0)
   const observationCount = useLiveQuery(() => db.observations.count(), [], 0)
@@ -78,6 +88,23 @@ export function Routing() {
     }
   }, [workshopId])
 
+  /**
+   * Hand this workshop's pending captures to whoever routes them.
+   *
+   * One call site for both transports, because the decision (is routing on? which
+   * mode? trace it) is identical and only the `intent` differs. Two copies of this
+   * would be two places to forget the toggle.
+   */
+  const handOff = (intent: 'copy' | 'push'): Promise<AiOutcome> =>
+    runAiJob(
+      { fn: 'observation_routing', workshopId: workshopId as string, actorEmail: email, intent },
+      { config },
+    )
+
+  /** A non-hand-off outcome as a sentence. Never a raw error object. */
+  const describeOutcome = (outcome: AiOutcome): string =>
+    outcome.kind === 'refused' ? c(outcome.reason ?? 'setup.ai.fn.disabled') : (outcome.reason ?? '')
+
   const run = async (fn: () => Promise<string>) => {
     setBusy(true)
     setMsg(null)
@@ -105,12 +132,20 @@ export function Routing() {
         </p>
       </div>
 
-      {/* The default is not a choice (tl-03 build step 4). One mode exists, it is
-          stated rather than selected, and tl-13 turns this card into the provider
-          configuration it will extend. */}
+      {/* The mode is stated here and CHOSEN in Setup → AI (tl-13). Two places to
+          change one thing is how the two disagree, so this card reports and links. */}
       <div className="card">
         <Copy id="routing.mode.title" as="h2" />
-        <Copy id={`routing.mode.${mode}`} as="p" className="small muted" />
+        <Copy id={`routing.mode.${config.mode}`} as="p" className="small muted" />
+        <p className="small muted">
+          {c('routing.mode.configured-in')} <Link to="/admin/setup/ai">{c('routing.mode.setup-link')}</Link>.
+        </p>
+        {routingOffReason && (
+          <p className="small">
+            <span className="pill queued">{c('setup.ai.fn.off')}</span> {c(routingOffReason)}{' '}
+            {c('routing.mode.off-consequence')}
+          </p>
+        )}
       </div>
 
       <div className="card">
@@ -152,20 +187,31 @@ export function Routing() {
         </p>
         <button
           className="primary"
-          disabled={busy}
+          disabled={busy || !routingOn || !workshopId}
           onClick={() =>
             run(async () => {
-              const { json, count } = await buildExportBundle()
-              setBundle(json)
-              if (count > 0 && navigator.clipboard) {
-                try {
-                  await navigator.clipboard.writeText(json)
-                  return `Copied ${count} capture${count === 1 ? '' : 's'} to the clipboard.`
-                } catch {
-                  /* clipboard blocked; the textarea below still has it */
+              if (!workshopId) return ''
+              // Through the provider (tl-13), not straight to buildExportBundle: the
+              // toggle has to gate the CALL rather than the button, and this hand-off
+              // is the call. It is also the point at which the trace records that
+              // captures left for a human to route.
+              const outcome = await handOff('copy')
+              if (outcome.kind === 'operator_action') {
+                setBundle(outcome.prompt ?? '')
+                const count = (outcome.value as { count?: number } | undefined)?.count ?? 0
+                if (count > 0 && outcome.prompt && navigator.clipboard) {
+                  try {
+                    await navigator.clipboard.writeText(outcome.prompt)
+                    return `Copied ${count} capture${count === 1 ? '' : 's'} to the clipboard.`
+                  } catch {
+                    /* clipboard blocked; the textarea below still has it */
+                  }
                 }
+                return count > 0
+                  ? `Prepared ${count} capture${count === 1 ? '' : 's'} below.`
+                  : 'Nothing pending.'
               }
-              return count > 0 ? `Prepared ${count} capture${count === 1 ? '' : 's'} below.` : 'Nothing pending.'
+              return describeOutcome(outcome)
             })
           }
         >
@@ -223,10 +269,15 @@ export function Routing() {
         )}
         <div className="row" style={{ marginTop: '0.5rem' }}>
           <button
-            disabled={busy || !automated}
+            disabled={busy || !automated || !routingOn || !workshopId}
             onClick={() => run(async () => {
-              const r = await pushPendingCaptures()
-              return `Pushed ${r.pushed} capture${r.pushed === 1 ? '' : 's'} to inbox/.`
+              if (!workshopId) return ''
+              const outcome = await handOff('push')
+              if (outcome.kind === 'operator_action') {
+                const pushed = (outcome.value as { pushed?: number } | undefined)?.pushed ?? 0
+                return `Pushed ${pushed} capture${pushed === 1 ? '' : 's'} to inbox/.`
+              }
+              return describeOutcome(outcome)
             })}
           >
             Push pending → repo
