@@ -3562,10 +3562,6 @@
       "label": "Hosted AI is switched off for this whole deployment. Whoever runs it holds the key and the bill, so turning it on is their decision rather than a workshop setting."
     },
     {
-      "id": "setup.ai.estimates-pending",
-      "label": "Token and cost estimates per mode are a later spec. Until they exist this screen shows no cost figure, rather than a made-up one."
-    },
-    {
       "id": "setup.ai.functions-title",
       "label": "What a model is allowed to help with"
     },
@@ -3904,6 +3900,306 @@
     {
       "id": "setup.ai.op.pasted-reply",
       "label": "A draft was pasted in from somebody's own AI and read successfully."
+    },
+    {
+      "id": "setup.ai.model.title",
+      "label": "Which model"
+    },
+    {
+      "id": "setup.ai.model.help",
+      "label": "Each function can name the model it uses. What follows is what the provider's own pages say about price and about what happens to what you send them; this app does not grade those terms, it shows them."
+    },
+    {
+      "id": "setup.ai.model.none",
+      "label": "Provider's own default"
+    },
+    {
+      "id": "setup.ai.model.none-help",
+      "label": "No model named. Hosted AI then uses whatever the server is configured with; the two hand-off modes use whichever model the person doing the work is signed in to."
+    },
+    {
+      "id": "setup.ai.model.recommended",
+      "label": "Suggested"
+    },
+    {
+      "id": "setup.ai.model.price",
+      "label": "per million tokens, in and out"
+    },
+    {
+      "id": "setup.ai.model.context",
+      "label": "context window"
+    },
+    {
+      "id": "setup.ai.model.posture-source",
+      "label": "Read the provider's terms"
+    },
+    {
+      "id": "setup.ai.model.unreachable",
+      "label": "Not reachable in this mode. Change the mode above if you want this model."
+    },
+    {
+      "id": "setup.ai.model.why-routing",
+      "label": "Routing is by far the highest-volume function: every capture from every evaluator passes through it. Unit price matters more here than anything else, and the work is short classification rather than writing."
+    },
+    {
+      "id": "setup.ai.model.why-prose",
+      "label": "Reports and emails go out under a person's name, so register matters more than unit price. There are far fewer of these than there are captures, so a dearer model costs little in total."
+    },
+    {
+      "id": "setup.ai.model.why-default",
+      "label": "The balanced middle, and what this deployment's server already calls when nothing else is named. Choosing it means the app and the server agree."
+    },
+    {
+      "id": "setup.ai.posture.no-training-no-retention",
+      "label": "Provider states it does not train on what you send and does not keep it by default"
+    },
+    {
+      "id": "setup.ai.posture.no-training-retained",
+      "label": "Provider states it does not train on what you send, but keeps it for a stated period"
+    },
+    {
+      "id": "setup.ai.posture.unclear-or-trains",
+      "label": "No clear statement, or the provider does use what you send to improve its products"
+    },
+    {
+      "id": "setup.ai.est.title",
+      "label": "What this would cost"
+    },
+    {
+      "id": "setup.ai.est.help",
+      "label": "Worked out from this workshop's own shape and the assumptions below. It is meant to answer whether the difference between two models is a few dollars or a few hundred, which is a question worth answering. Predicting a workshop to the token is not, so this is a range."
+    },
+    {
+      "id": "setup.ai.est.empty",
+      "label": "Not enough workshop to estimate yet. Add activities, participants and questions, then come back."
+    },
+    {
+      "id": "setup.ai.est.all-off",
+      "label": "Every function is switched off, so nothing here would call a model and nothing would be spent."
+    },
+    {
+      "id": "setup.ai.est.expected",
+      "label": "Expected"
+    },
+    {
+      "id": "setup.ai.est.low",
+      "label": "Low"
+    },
+    {
+      "id": "setup.ai.est.high",
+      "label": "High"
+    },
+    {
+      "id": "setup.ai.est.band-help",
+      "label": "The low and high figures are multipliers on the expected case, and they come from how much the length of a dictated capture varies. They are not a confidence interval."
+    },
+    {
+      "id": "setup.ai.est.tokens",
+      "label": "tokens"
+    },
+    {
+      "id": "setup.ai.est.recurring",
+      "label": "Through the workshop"
+    },
+    {
+      "id": "setup.ai.est.one-off",
+      "label": "Once, at setup"
+    },
+    {
+      "id": "setup.ai.est.one-off-help",
+      "label": "Shown apart from the rest rather than spread across the days, because a one-off folded into a daily rate overstates a short workshop and disappears in a long one."
+    },
+    {
+      "id": "setup.ai.est.in",
+      "label": "in"
+    },
+    {
+      "id": "setup.ai.est.out",
+      "label": "out"
+    },
+    {
+      "id": "setup.ai.est.exclusions-title",
+      "label": "What this figure leaves out"
+    },
+    {
+      "id": "setup.ai.est.excl-retries",
+      "label": "Retries. A request that fails and is sent again is paid for twice."
+    },
+    {
+      "id": "setup.ai.est.excl-rerouting",
+      "label": "Re-routing. A workshop that routes the same captures a second time, after fixing a question or a roster, will exceed this."
+    },
+    {
+      "id": "setup.ai.est.excl-operator",
+      "label": "Your own iteration. Drafting a scenario three times to get it right costs three times the one-off figure."
+    },
+    {
+      "id": "setup.ai.est.derived",
+      "label": "From this workshop"
+    },
+    {
+      "id": "setup.ai.est.assumed",
+      "label": "Assumed"
+    },
+    {
+      "id": "setup.ai.est.basis-help",
+      "label": "The split matters: the first line of each row is measured from your workshop, the second is a number somebody chose. You can change the second."
+    },
+    {
+      "id": "setup.ai.est.measured-capture",
+      "label": "Capture length is measured from this workshop's real captures, not assumed."
+    },
+    {
+      "id": "setup.ai.est.assumed-capture",
+      "label": "Capture length is assumed. Once this workshop has real captures the measured length is used instead."
+    },
+    {
+      "id": "setup.ai.est.subscription-framing",
+      "label": "This mode runs on a subscription rather than per token, so there is no dollar figure to give. The token count is still the number that matters: it is what tells you whether a workshop fits inside a monthly limit."
+    },
+    {
+      "id": "setup.ai.est.metered-framing",
+      "label": "This mode bills per token, so the figures below are in tokens and in dollars at the selected model's published rates."
+    },
+    {
+      "id": "setup.ai.est.reviewed",
+      "label": "Prices and terms last checked"
+    },
+    {
+      "id": "setup.ai.est.stale",
+      "label": "Out of date. These prices and terms were last checked more than six months ago and providers change both. Treat the figures as indicative and check the linked pages."
+    },
+    {
+      "id": "setup.ai.est.no-model",
+      "label": "No model named for this function, so there is no rate to cost it at. The token figures still hold."
+    },
+    {
+      "id": "setup.ai.est.actuals-title",
+      "label": "What has actually been spent"
+    },
+    {
+      "id": "setup.ai.est.actuals-help",
+      "label": "From the call log below. An estimate never compared against an outcome stays wrong, so the real figure sits next to the guess."
+    },
+    {
+      "id": "setup.ai.est.actuals-none",
+      "label": "No model call from this workshop has reported token counts yet. The two hand-off modes cannot report any, because the work happens outside the app."
+    },
+    {
+      "id": "setup.ai.est.actuals-calls",
+      "label": "over"
+    },
+    {
+      "id": "setup.ai.est.actuals-calls-suffix",
+      "label": "recorded calls"
+    },
+    {
+      "id": "setup.ai.assume.title",
+      "label": "Assumptions"
+    },
+    {
+      "id": "setup.ai.assume.help",
+      "label": "The things this workshop cannot tell the app. Change one and the estimate above moves. Only what you change is stored, so a later correction to a default still reaches this workshop."
+    },
+    {
+      "id": "setup.ai.assume.reset",
+      "label": "Back to defaults"
+    },
+    {
+      "id": "setup.ai.assume.saved",
+      "label": "Saved"
+    },
+    {
+      "id": "setup.ai.assume.captureChars",
+      "label": "Characters in a typical dictated capture"
+    },
+    {
+      "id": "setup.ai.assume.evaluatorsPerActivity",
+      "label": "Evaluators capturing against the same activity"
+    },
+    {
+      "id": "setup.ai.assume.observationCoverage",
+      "label": "Fraction of participants an evaluator names per activity"
+    },
+    {
+      "id": "setup.ai.assume.reportsPerParticipant",
+      "label": "Narrative reports per participant"
+    },
+    {
+      "id": "setup.ai.assume.emailsPerParticipant",
+      "label": "Participant emails per participant"
+    },
+    {
+      "id": "setup.ai.assume.digestsPerEvent",
+      "label": "Event digests per activity"
+    },
+    {
+      "id": "setup.ai.assume.discrepancyNotes",
+      "label": "Discrepancy notes expected"
+    },
+    {
+      "id": "setup.ai.assume.observationsPerConversation",
+      "label": "Observations quoted into one conversation's guidance"
+    },
+    {
+      "id": "setup.ai.assume.documentChars",
+      "label": "Characters in a document handed to draft-fill"
+    },
+    {
+      "id": "setup.ai.assume.lowMultiplier",
+      "label": "Low multiplier on the expected case"
+    },
+    {
+      "id": "setup.ai.assume.highMultiplier",
+      "label": "High multiplier on the expected case"
+    },
+    {
+      "id": "setup.ai.assume.save",
+      "label": "Save assumptions"
+    },
+    {
+      "id": "setup.ai.model.registry-title",
+      "label": "What each provider does with what you send"
+    },
+    {
+      "id": "setup.ai.derived.activities",
+      "label": "activities in this workshop"
+    },
+    {
+      "id": "setup.ai.derived.participants",
+      "label": "participants on the roster"
+    },
+    {
+      "id": "setup.ai.derived.questionsPerActivity",
+      "label": "questions wired per activity"
+    },
+    {
+      "id": "setup.ai.derived.rubricChars",
+      "label": "length of the rubric each capture carries"
+    },
+    {
+      "id": "setup.ai.derived.rosterChars",
+      "label": "length of the roster each capture carries"
+    },
+    {
+      "id": "setup.ai.derived.conversations",
+      "label": "follow-up conversations already derived"
+    },
+    {
+      "id": "setup.ai.est.basis-none",
+      "label": "none"
+    },
+    {
+      "id": "setup.ai.model.price-intro",
+      "label": "Introductory rate in force on the review date; the standard rate shown here is what it returns to."
+    },
+    {
+      "id": "setup.ai.model.free-tier-source",
+      "label": "Read the free-tier statement"
+    },
+    {
+      "id": "setup.ai.model.free-tier-label",
+      "label": "Paid tier only"
     }
   ]
 }

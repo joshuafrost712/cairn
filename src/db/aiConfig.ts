@@ -62,7 +62,16 @@ export async function getAiConfig(workshopId: string | null): Promise<AiConfig> 
  */
 export async function saveAiConfig(
   workshopId: string,
-  next: { mode?: AiMode; functions?: AiConfig['functions'] },
+  next: {
+    mode?: AiMode
+    functions?: AiConfig['functions']
+    /**
+     * The SPARSE assumption map (tl-14) — only what differs from the estimator's
+     * defaults. Pass `{}` to reset a workshop to the defaults; omit to leave the
+     * stored overrides alone, which is what every tl-13 caller does.
+     */
+    assumptions?: Record<string, number>
+  },
   updatedBy: string | null,
 ): Promise<AiConfig> {
   const current = await getAiConfig(workshopId)
@@ -71,6 +80,7 @@ export async function saveAiConfig(
     workshop_id: workshopId,
     mode: next.mode ?? current.mode,
     functions: next.functions ?? current.functions,
+    assumptions: next.assumptions ?? current.assumptions,
     updated_by: updatedBy,
     updated_at: new Date().toISOString(),
   }
@@ -78,6 +88,7 @@ export async function saveAiConfig(
     workshop_id: workshopId,
     mode: merged.mode,
     functions: functionsValue(merged),
+    assumptions: merged.assumptions,
     updated_by: merged.updated_by,
     updated_at: merged.updated_at,
   }
@@ -91,6 +102,37 @@ export async function saveAiConfig(
   })
   void pushReferenceOutbox()
   return merged
+}
+
+/**
+ * Choose the model one function uses, leaving the rest of the configuration alone (tl-14).
+ *
+ * Null clears the choice, which means "whatever the provider's own default is" — for
+ * the hosted path that is the Edge Function's `GEMINI_MODEL`, and for the two
+ * subscription modes it is whatever model the human happens to be signed in to. That
+ * is a real state rather than a missing one, so it is representable.
+ */
+export async function setAiFunctionModel(
+  workshopId: string,
+  fn: AiFunction,
+  model: string | null,
+  updatedBy: string | null,
+): Promise<AiConfig> {
+  const current = await getAiConfig(workshopId)
+  return saveAiConfig(
+    workshopId,
+    { functions: { ...current.functions, [fn]: { ...current.functions[fn], model } } },
+    updatedBy,
+  )
+}
+
+/** Replace the estimator's assumption overrides (tl-14). `{}` resets to the defaults. */
+export async function setAiAssumptions(
+  workshopId: string,
+  assumptions: Record<string, number>,
+  updatedBy: string | null,
+): Promise<AiConfig> {
+  return saveAiConfig(workshopId, { assumptions }, updatedBy)
 }
 
 /** Toggle one function, leaving the rest of the configuration alone. */
@@ -130,6 +172,9 @@ export async function cacheAiConfigRows(
     workshop_id: r.workshop_id,
     mode: r.mode,
     functions: r.functions,
+    // Carried explicitly rather than by spread, so a column added server-side does
+    // not silently start being cached before this client knows what it means.
+    assumptions: r.assumptions ?? {},
     updated_by: r.updated_by ?? null,
     updated_at: r.updated_at ?? null,
   }))

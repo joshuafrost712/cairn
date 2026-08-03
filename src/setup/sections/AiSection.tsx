@@ -7,6 +7,7 @@ import { isSupabaseConfigured } from '../../lib/supabase'
 import { c } from '../../lib/content/chrome'
 import { describeDetail } from '../../ai/traceDetail'
 import { ScenarioDraftPanel } from '../../components/ScenarioDraftPanel'
+import { AiEstimate } from './AiEstimate'
 import {
   AI_FUNCTION_BUILT,
   AI_FUNCTIONS,
@@ -42,9 +43,9 @@ import type { AiCallLogEntry } from '../../lib/types'
  * THE TRACE is on this screen and not on a separate page, because the person who
  * turned something on is the person who needs to see whether it is working.
  *
- * NOT HERE: cost estimates. tl-14 owns the model registry and the estimator, and a
- * plausible-looking number invented in the meantime would be exactly the fabricated
- * figure the program's success criteria forbid.
+ * THE MODEL AND THE COST arrived with tl-14, in `AiEstimate`. They are on this screen
+ * rather than a report of their own for the reason the spec gives: the cost of a
+ * toggle should be visible at the moment somebody flips it, not discovered afterwards.
  */
 export function AiSection({ workshopId }: { workshopId: string }) {
   const rows = useLiveQuery(() => db.aiConfigs.toArray(), [], [])
@@ -59,6 +60,11 @@ export function AiSection({ workshopId }: { workshopId: string }) {
       </div>
 
       <FunctionToggles workshopId={workshopId} config={config} />
+
+      {/* tl-14: which model, what it would cost, and what it has actually cost. Placed
+          directly under the toggles so the price of switching one on is on screen at
+          the moment of the decision. */}
+      <AiEstimate workshopId={workshopId} config={config} />
 
       {/* The draft-fill offer, which is one of the functions above rather than a
           separate feature. It reads the same config and says so when it is off. */}
@@ -134,7 +140,9 @@ function ModePicker({ workshopId, config }: { workshopId: string; config: AiConf
       <p className="small muted">
         {c('setup.ai.routing-help')} <Link to="/admin/routing">{c('setup.ai.routing-link')}</Link>.
       </p>
-      <p className="small muted">{c('setup.ai.estimates-pending')}</p>
+      {/* `setup.ai.estimates-pending` used to sit here saying estimates were a later
+          spec. tl-14 is that spec, so the node is gone rather than reworded: a sentence
+          that has stopped being true is worse than an absent one. */}
     </div>
   )
 }
