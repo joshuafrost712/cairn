@@ -80,8 +80,14 @@ export type AiJob =
        * `copy` prepares the bundle for a human to paste; `push` writes it to the
        * routing repo through the stored token. Both are hand-offs; only the
        * transport differs.
+       *
+       * `run` (tl-21) is the third thing, and the reason it is an intent rather than a
+       * fourth function: it asks for the SAME work by the same contract, done here and
+       * now rather than handed to somebody. Only `local-agent` can service it; the other
+       * modes refuse it with a reason naming the limitation ("somebody has to sit down and
+       * do this"), which is more useful than a button that does nothing.
        */
-      intent: 'copy' | 'push'
+      intent: 'copy' | 'push' | 'run'
     }
   | {
       fn: 'scenario_draft'
@@ -116,6 +122,15 @@ export function jobInputChars(job: AiJob): number {
     case 'observation_routing':
       // The bundle is assembled inside the provider from the local store, so there
       // is nothing to measure here and nothing a caller could inflate.
+      //
+      // Which means MAX_AI_INPUT_CHARS does not govern routing, and that is deliberate
+      // rather than an oversight: a legitimate batch of a day's captures plus the rubric
+      // can be large, and refusing it at 120k would block real work to enforce a cap
+      // aimed at caller-supplied text. Routing's size limit lives where the bundle is
+      // actually built, in the relay's own MAX_PROMPT_CHARS (400k). An oversize bundle is
+      // not a raw server error either: the relay answers 400, `client.ts` maps 400/404/413
+      // to `refused`, and the provider returns it as a chrome id like every other refusal.
+      // Confirmed while reviewing this file on 2026-08-03; the review had it the other way.
       return 0
     case 'scenario_draft':
       return job.document.length

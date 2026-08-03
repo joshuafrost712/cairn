@@ -14,6 +14,7 @@ import { RequireRoleAnywhere } from './layout/RequireRoleAnywhere'
 import { ADMIN_ROLES, CHIEF_ROLES, useHasWorkshopRole, useScopedWorkshopId } from './layout/roles'
 import { syncDrafts } from './db/draftSync'
 import { enforceTokenHygiene } from './routing/config'
+import { enforceRelayHygiene } from './relay/config'
 import { SignIn } from './pages/SignIn'
 import { NoWorkshop } from './pages/NoWorkshop'
 import { EvaluatorHome } from './pages/EvaluatorHome'
@@ -112,6 +113,14 @@ function Shell() {
     const adminSomewhere = memberships.some((m) => ADMIN_ROLES.includes(m.role))
     if (enforceTokenHygiene(adminSomewhere)) {
       console.info('[cairn] cleared a routing token: this account administers no workshop')
+    }
+    // tl-21: the relay's token is the same kind of thing on the same device, held for the
+    // same role, and cleared by the same rule. It buys less — the relay is on loopback and
+    // needs somebody at the keyboard — but a credential whose owner has been demoted has
+    // no reason to still be there, and two hygiene rules that disagreed would be worse
+    // than either.
+    if (enforceRelayHygiene(adminSomewhere)) {
+      console.info('[cairn] cleared the local relay token: this account administers no workshop')
     }
   }, [identity, memberships, membershipStatus])
 

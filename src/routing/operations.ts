@@ -276,11 +276,40 @@ async function storeObservationsFile(file: ObservationsFile): Promise<{ stored: 
   // workshop does not define is rejected exactly as a malformed one is: it would
   // otherwise sit in a report as a number no legend can label.
   const scale = await scaleForWorkshop(workshopId)
+  /**
+   * THE THIRD PART OF THE IMPORT BOUNDARY (tl-21). `validateObservation` checks the
+   * shape and `isOnScale` checks the designation; neither has ever checked that the
+   * participant the observation names actually exists.
+   *
+   * It was found by writing this spec's negative test — "a result whose JSON is valid but
+   * names a participant who is not in the workshop must be rejected, not created" — and
+   * discovering that it was not true of any mode, including the copy/paste path this
+   * check now also covers. An observation carrying an invented id is worse than a
+   * rejected one: reports roll up BY participant, so it lands in the store, appears in no
+   * report, and nothing anywhere says a word about it.
+   *
+   * THE GUARD ON THE GUARD. It only applies when this device actually holds a roster for
+   * the workshop. A device that has not pulled reference data yet knows no participants at
+   * all, and rejecting real work against an empty roster would be a far worse failure than
+   * the one being prevented. Unmatched names are still legal: the runbook tells the router
+   * to send `participant_id: null` with `needs_review` when it cannot match somebody, and
+   * that path is untouched.
+   */
+  const roster = new Set(
+    (workshopId ? await db.participants.where('workshop_id').equals(workshopId).toArray() : []).map((p) => p.id),
+  )
   const records: ObservationRecord[] = []
   let rejected = 0
   validated.forEach((v, i) => {
     if (!v.ok) {
       rejected++
+      return
+    }
+    if (v.value.participant_id && roster.size > 0 && !roster.has(v.value.participant_id)) {
+      rejected++
+      console.warn(
+        `[honest-eval] routed observation ${captureId}::${i} rejected: participant ${v.value.participant_id} is not in this workshop`,
+      )
       return
     }
     if (!isOnScale(v.value, scale)) {

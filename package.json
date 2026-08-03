@@ -13,7 +13,9 @@
     "report:preview": "tsx scripts/report-preview.ts",
     "gate:preview": "tsx scripts/gate-preview.ts",
     "test": "vitest run",
-    "icons": "tsx scripts/gen-icons.ts"
+    "icons": "tsx scripts/gen-icons.ts",
+    "relay": "node relay/server.mjs",
+    "relay:wipe": "node relay/wipe.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.108.0",

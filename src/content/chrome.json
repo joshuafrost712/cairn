@@ -4200,6 +4200,282 @@
     {
       "id": "setup.ai.model.free-tier-label",
       "label": "Paid tier only"
+    },
+    {
+      "id": "setup.ai.mode.local-agent",
+      "label": "A machine at the workshop runs it, on a subscription you already pay for"
+    },
+    {
+      "id": "setup.ai.mode.local-agent-detail",
+      "label": "One computer in the room does the work itself, through Claude installed on that machine. No metered key, no per-use cost and no repository: press the button and the observations come back. The app itself needs no connection for any of this; the Claude on that machine still reaches Anthropic to do the thinking, so work asked for while the connection is down waits in a queue and runs when it returns."
+    },
+    {
+      "id": "setup.ai.mode.local-agent-limit",
+      "label": "Its limits: that machine has to be switched on and running the helper, the administrator has to use Chrome (Safari refuses a local connection outright), and a personal Claude subscription decides for itself whether your evidence may be used to improve future models. Check that setting before a workshop."
+    },
+    {
+      "id": "setup.ai.draft.mode-note.local-agent",
+      "label": "The machine at this workshop will draft this. It takes a minute or two, on that machine, with no key and no per-use cost."
+    },
+    {
+      "id": "routing.mode.local-agent",
+      "label": "A machine at this workshop routes captures itself, using a Claude subscription on that machine. Nothing is sent to a repository and no key is used."
+    },
+    {
+      "id": "setup.ai.error.mode-not-unattended",
+      "label": "This workshop’s mode needs a person to do the routing step, so it cannot route on its own. Switch to the machine-at-the-workshop mode in Setup, or use the copy-and-paste path below."
+    },
+    {
+      "id": "setup.ai.relay.not-configured",
+      "label": "No machine has been set up for this workshop yet. Add its address and token in Setup → AI."
+    },
+    {
+      "id": "setup.ai.relay.never-pushes",
+      "label": "This mode does its work on the machine at the workshop, so there is nothing to push to a repository."
+    },
+    {
+      "id": "setup.ai.relay.nothing-pending",
+      "label": "Nothing is waiting to be routed."
+    },
+    {
+      "id": "setup.ai.relay.model-unreachable",
+      "label": "The model this workshop has chosen cannot be reached by a machine at the workshop. Choose one of the Claude models in Setup → AI."
+    },
+    {
+      "id": "setup.ai.relay.still-running",
+      "label": "The machine is still working. Come back to this screen and press \"Collect finished work\" — nothing is lost and nothing needs sending again."
+    },
+    {
+      "id": "setup.ai.relay.collected",
+      "label": "collected from the machine at the workshop"
+    },
+    {
+      "id": "setup.ai.op.local-drop",
+      "label": "A job file is ready. Save it into the machine’s drop folder; the answer appears beside it, and you paste that back below."
+    },
+    {
+      "id": "setup.ai.relay.title",
+      "label": "The machine at this workshop"
+    },
+    {
+      "id": "setup.ai.relay.help",
+      "label": "One computer runs a small helper that does this workshop’s AI work on its own Claude subscription. Start it on that machine with npm run relay; it prints an address and a token to put here. Use Chrome: Safari refuses to talk to a program on your own computer, with no way to allow it."
+    },
+    {
+      "id": "setup.ai.relay.not-in-use",
+      "label": "not in use"
+    },
+    {
+      "id": "setup.ai.relay.not-in-use-help",
+      "label": "This workshop has chosen a different mode, so nothing here is being used yet. You can still set it up and test it now, and switch the mode afterwards."
+    },
+    {
+      "id": "setup.ai.relay.url-label",
+      "label": "Address of the helper on this computer"
+    },
+    {
+      "id": "setup.ai.relay.url-save",
+      "label": "Save address"
+    },
+    {
+      "id": "setup.ai.relay.url-current",
+      "label": "Using {url}."
+    },
+    {
+      "id": "setup.ai.relay.url-empty",
+      "label": "Enter an address, or leave it blank to use the default."
+    },
+    {
+      "id": "setup.ai.relay.url-unreadable",
+      "label": "That is not an address this can use. It should look like http://127.0.0.1:8791."
+    },
+    {
+      "id": "setup.ai.relay.url-not-local",
+      "label": "Only a helper on this same computer can be used. A machine elsewhere on the network is not supported yet."
+    },
+    {
+      "id": "setup.ai.relay.saved",
+      "label": "Saved on this device."
+    },
+    {
+      "id": "setup.ai.relay.token-label",
+      "label": "The token the helper printed"
+    },
+    {
+      "id": "setup.ai.relay.token-set",
+      "label": "token set on this device"
+    },
+    {
+      "id": "setup.ai.relay.token-clear",
+      "label": "Forget it"
+    },
+    {
+      "id": "setup.ai.relay.token-cleared",
+      "label": "The token has been removed from this device."
+    },
+    {
+      "id": "setup.ai.relay.token-save",
+      "label": "Save token"
+    },
+    {
+      "id": "setup.ai.relay.token-placeholder",
+      "label": "paste the token here"
+    },
+    {
+      "id": "setup.ai.relay.token-help",
+      "label": "Kept on this device only, never sent to the backend and never shared with the other people in the workshop. Each machine has its own."
+    },
+    {
+      "id": "setup.ai.relay.test",
+      "label": "Test the connection"
+    },
+    {
+      "id": "setup.ai.relay.testing",
+      "label": "Testing…"
+    },
+    {
+      "id": "setup.ai.relay.state.healthy",
+      "label": "ready"
+    },
+    {
+      "id": "setup.ai.relay.fix.healthy",
+      "label": "The helper answered and a Claude worker is available on that machine."
+    },
+    {
+      "id": "setup.ai.relay.state.no-runner",
+      "label": "no worker"
+    },
+    {
+      "id": "setup.ai.relay.fix.no-runner",
+      "label": "The helper is running, but Claude on that machine cannot be used. Install Claude Code there and sign it in, then test again."
+    },
+    {
+      "id": "setup.ai.relay.state.throttled",
+      "label": "waiting on the subscription"
+    },
+    {
+      "id": "setup.ai.relay.fix.throttled",
+      "label": "The subscription has reached its usage limit. Work stays in the queue and starts again by itself; nothing is lost."
+    },
+    {
+      "id": "setup.ai.relay.state.not-configured",
+      "label": "not set up"
+    },
+    {
+      "id": "setup.ai.relay.fix.not-configured",
+      "label": "Paste the token the helper printed, then test again."
+    },
+    {
+      "id": "setup.ai.relay.state.not-reachable",
+      "label": "not reachable"
+    },
+    {
+      "id": "setup.ai.relay.fix.not-reachable",
+      "label": "Nothing answered at that address. Three things to check: the helper is running on this computer (npm run relay), the address matches what it printed, and the browser is Chrome — Safari refuses this kind of connection outright. If Chrome asks for permission to reach a program on your computer, allow it."
+    },
+    {
+      "id": "setup.ai.relay.state.bad-token",
+      "label": "wrong token"
+    },
+    {
+      "id": "setup.ai.relay.fix.bad-token",
+      "label": "The helper answered but did not accept that token. Copy it again from the terminal where the helper is running."
+    },
+    {
+      "id": "setup.ai.relay.state.refused",
+      "label": "refused"
+    },
+    {
+      "id": "setup.ai.relay.fix.refused",
+      "label": "The helper would not accept that request. Its own words are below."
+    },
+    {
+      "id": "setup.ai.relay.state.timeout",
+      "label": "no answer in time"
+    },
+    {
+      "id": "setup.ai.relay.fix.timeout",
+      "label": "The helper did not answer quickly enough. If it is busy with a batch, this is normal; test again in a moment."
+    },
+    {
+      "id": "setup.ai.relay.state.server",
+      "label": "something went wrong"
+    },
+    {
+      "id": "setup.ai.relay.fix.server",
+      "label": "The helper answered with an error. Its own words are below, and its log is in the folder shown there."
+    },
+    {
+      "id": "setup.ai.relay.queue",
+      "label": "Queue: {queued} waiting, {running} running, {done} done, {failed} failed, {uncollected} not yet collected."
+    },
+    {
+      "id": "setup.ai.relay.throttled-until",
+      "label": "The usage limit lifts at about {time}."
+    },
+    {
+      "id": "setup.ai.relay.throttled-unknown",
+      "label": "The usage limit has been reached and no resume time was given."
+    },
+    {
+      "id": "setup.ai.relay.last",
+      "label": "Last job: {fn}, {status}, at {at} — {tokens_in} tokens in, {tokens_out} out, {ms}ms."
+    },
+    {
+      "id": "setup.ai.relay.drop",
+      "label": "Drop folder, for a phone or any browser that cannot reach the helper: {path}"
+    },
+    {
+      "id": "setup.ai.relay.posture",
+      "label": "What happens to this workshop’s evidence in this mode is decided by the Claude account on that machine, not by this app: a personal Pro or Max subscription can have data use for model improvement switched on, which Anthropic states means five-year retention, against thirty days when it is off."
+    },
+    {
+      "id": "setup.ai.relay.posture-source",
+      "label": "Read Anthropic’s statement"
+    },
+    {
+      "id": "setup.ai.relay.posture-checked",
+      "label": "Checked {date}."
+    },
+    {
+      "id": "routing.local.title",
+      "label": "Route on the machine at this workshop"
+    },
+    {
+      "id": "routing.local.intro",
+      "label": "The captures waiting above are routed here, by the Claude subscription on this machine. No terminal and no pasting. The app needs no connection of its own; the Claude on this machine reaches Anthropic to do the work, and anything asked for while the connection is down runs when it comes back. If you close this screen while it is working, the machine finishes anyway and the result is waiting when you return."
+    },
+    {
+      "id": "routing.local.run",
+      "label": "Route now"
+    },
+    {
+      "id": "routing.local.prepare-file",
+      "label": "Prepare a file instead"
+    },
+    {
+      "id": "routing.local.collect",
+      "label": "Collect finished work"
+    },
+    {
+      "id": "routing.local.working",
+      "label": "The machine is routing them. This takes a minute or two per batch."
+    },
+    {
+      "id": "routing.local.preparing",
+      "label": "Preparing the file…"
+    },
+    {
+      "id": "routing.local.result",
+      "label": "Routed {captures} capture(s) into {stored} observation(s), {rejected} rejected — {tokens_in} tokens in, {tokens_out} out."
+    },
+    {
+      "id": "routing.local.drained",
+      "label": "Collected {stored} observation(s) from {files} capture(s). {failed} job(s) failed, {discarded} discarded."
+    },
+    {
+      "id": "routing.local.file-help",
+      "label": "Save this as a .json file into the machine’s drop folder (its path is in Setup → AI). The answer appears in the folder beside it; paste that text into the import box below."
     }
   ]
 }
