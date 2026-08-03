@@ -90,20 +90,23 @@ export const NAV_GROUPS: NavGroup[] = [
     labelId: 'nav.group.configure',
     roles: CHIEF_ROLES,
     items: [
-      { labelId: 'nav.builder', to: '/builder' },
+      // tl-07: one entry for the whole workshop definition. It replaces the three
+      // that used to be here (Builder, Roster, Settings), which presented one act
+      // as three unrelated pages and left a first-time administrator to guess the
+      // order. ADMIN_ROLES because the hub is admin-gated; the sections inside it
+      // are reachable from the hub rather than each holding a nav line.
+      { labelId: 'nav.setup', to: '/admin/setup', roles: ADMIN_ROLES },
       // No `roles`, so it inherits the group's CHIEF_ROLES. That is deliberate
       // and matches report_assignment's write policy, which names the same set:
       // a chief evaluator who may rebalance the rota in the database should see
       // the link to the page that does it.
       { labelId: 'nav.assignments', to: '/admin/assignments', count: (c) => c.underAssigned },
-      { labelId: 'nav.roster', to: '/admin/roster', roles: ADMIN_ROLES },
       { labelId: 'nav.records', to: '/admin/records', roles: ADMIN_ROLES },
       // tl-03: moved out of the capture group, where it was visible to every
       // signed-in user. ADMIN_ROLES, not the group's CHIEF_ROLES, because the page
       // carries a credential field and a chief evaluator has no business holding
       // the routing repo's token.
       { labelId: 'nav.routing', to: '/admin/routing', roles: ADMIN_ROLES },
-      { labelId: 'nav.settings', to: '/admin/settings', roles: ADMIN_ROLES },
       { labelId: 'nav.data', to: '/admin/data', roles: ADMIN_ROLES },
     ],
   },

@@ -1,5 +1,10 @@
 // Shared entity types. Mirror the Postgres schema (supabase/migrations/20260608000100_foundation_schema.sql).
 
+// Type-only, so this stays a leaf module at runtime: the severity and state unions
+// are DEFINED by the classifier (src/setup/impact.ts), and re-declaring them here
+// would let the log's idea of a severity drift from the dialog's.
+import type { SetupEntity, SetupOperation, SetupSeverity, WorkshopState } from '../setup/impact'
+
 // The technical KSA areas of the Psalms Workshop (OBT CDT Workshop 3, Bali 2026).
 // The interpersonal-interaction competency (INTERP, teaching sessions) is authored
 // in the seed data alongside these; this list is not currently referenced elsewhere.
@@ -527,6 +532,38 @@ export interface VerdictTombstone {
   id: string
   workshop_id: string | null
   evaluator_email: string
+  at: string
+  sync_status: SyncStatus
+  sync_error?: string | null
+}
+
+/**
+ * One committed setup change (tl-07). Mirrors `setup_change_log`.
+ *
+ * Written AFTER the change it describes has committed, and best-effort: a logging
+ * failure never rolls back an edit the administrator already confirmed. So a row
+ * here is evidence a change happened, and its absence is not evidence that one
+ * did not — which is why the log carries the severity and the counts the dialog
+ * quoted rather than pretending to be a replayable transaction record.
+ *
+ * `actor_email` is what this device believes; the server overwrites it with the
+ * caller's own address inside log_setup_change(). The two can only differ if a
+ * client tried to attribute an edit to somebody else, and the server's copy wins.
+ */
+export interface SetupChangeLogEntry {
+  id: string
+  workshop_id: string
+  actor_email: string | null
+  entity: SetupEntity
+  entity_id: string | null
+  entity_label: string
+  operation: SetupOperation
+  severity: SetupSeverity
+  workshop_state: WorkshopState
+  /** Compact before/after, keyed by field. Empty for create and delete. */
+  diff: Record<string, { before?: unknown; after?: unknown }>
+  /** The numbers the dialog quoted, kept so the record shows what was decided on. */
+  counts: Record<string, number>
   at: string
   sync_status: SyncStatus
   sync_error?: string | null

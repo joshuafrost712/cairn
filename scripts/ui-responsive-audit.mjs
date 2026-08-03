@@ -82,7 +82,21 @@ const ROUTES = [
   { path: 'observations', label: 'observations', auth: true, owned: true },
   { path: 'reports', label: 'reports', auth: true, owned: true },
   { path: 'conversations', label: 'conversations', auth: true, owned: true },
-  { path: 'admin/roster', label: 'admin-roster', auth: true, owned: true, elevate: true },
+  // tl-07 turned /admin/roster and /admin/settings into sections of one Setup hub,
+  // so the old single-route entry is replaced by the hub and each of its eight
+  // sections. They are separate entries rather than one, because a section is a
+  // separate page as far as overflow is concerned: the participants table and the
+  // question editor fail at 390px for different reasons, and auditing only the hub
+  // would grade the nav rail and none of the editors.
+  { path: 'admin/setup', label: 'admin-setup', auth: true, owned: true, elevate: true },
+  { path: 'admin/setup/basics', label: 'setup-basics', auth: true, owned: true, elevate: true },
+  { path: 'admin/setup/goals', label: 'setup-goals', auth: true, owned: true, elevate: true },
+  { path: 'admin/setup/calendar', label: 'setup-calendar', auth: true, owned: true, elevate: true },
+  { path: 'admin/setup/scale', label: 'setup-scale', auth: true, owned: true, elevate: true },
+  { path: 'admin/setup/participants', label: 'setup-participants', auth: true, owned: true, elevate: true },
+  { path: 'admin/setup/people', label: 'setup-people', auth: true, owned: true, elevate: true },
+  { path: 'admin/setup/ai', label: 'setup-ai', auth: true, owned: true, elevate: true },
+  { path: 'admin/setup/templates', label: 'setup-templates', auth: true, owned: true, elevate: true },
   { path: 'admin/progress', label: 'admin-progress', auth: true, owned: true, elevate: true },
   { path: 'admin/records', label: 'admin-records', auth: true, owned: true, elevate: true },
   // tl-20 adds the assignments board, because the kanban is the one component in

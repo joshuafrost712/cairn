@@ -203,7 +203,7 @@
     },
     {
       "id": "capture.coverage-evaluated",
-      "label": "Evaluated {count}× by {evaluators}"
+      "label": "Evaluated {count}\u00d7 by {evaluators}"
     },
     {
       "id": "capture.coverage-unknown",
@@ -223,7 +223,7 @@
     },
     {
       "id": "capture.answer-placeholder",
-      "label": "Dictate or type what you observed…"
+      "label": "Dictate or type what you observed\u2026"
     },
     {
       "id": "capture.before-submit",
@@ -322,7 +322,7 @@
     },
     {
       "id": "obs.intro",
-      "label": "Per-individual evidence drawn from the day's captures. Each observation needs confirmation by the required number of evaluators before it counts toward a finalized report. Numbers are draft 0–3 designations."
+      "label": "Per-individual evidence drawn from the day's captures. Each observation needs confirmation by the required number of evaluators before it counts toward a finalized report. Numbers are draft 0\u20133 designations."
     },
     {
       "id": "obs.sign-in",
@@ -382,7 +382,7 @@
     },
     {
       "id": "verdictsync.syncing",
-      "label": "Syncing…"
+      "label": "Syncing\u2026"
     },
     {
       "id": "verdictsync.result",
@@ -559,7 +559,7 @@
     },
     {
       "id": "membership.none.rechecking",
-      "label": "Checking…"
+      "label": "Checking\u2026"
     },
     {
       "id": "nav.sync-health",
@@ -611,7 +611,7 @@
     },
     {
       "id": "sync-health.refresh.busy",
-      "label": "Checking…"
+      "label": "Checking\u2026"
     },
     {
       "id": "sync-health.refresh.result",
@@ -992,6 +992,686 @@
     {
       "id": "welcome.nav.skip",
       "label": "Skip to the tour"
+    },
+    {
+      "id": "nav.setup",
+      "label": "Set up workshop"
+    },
+    {
+      "id": "setup.impact.headline.safe",
+      "label": "Saved."
+    },
+    {
+      "id": "setup.impact.headline.affects-future",
+      "label": "This changes what happens from now on."
+    },
+    {
+      "id": "setup.impact.headline.invalidates-evidence",
+      "label": "This changes what work already recorded means."
+    },
+    {
+      "id": "setup.impact.headline.destructive",
+      "label": "This removes work that has already been recorded."
+    },
+    {
+      "id": "setup.severity.safe",
+      "label": "no effect on recorded work"
+    },
+    {
+      "id": "setup.severity.affects-future",
+      "label": "affects future work"
+    },
+    {
+      "id": "setup.severity.invalidates-evidence",
+      "label": "changes recorded evidence"
+    },
+    {
+      "id": "setup.severity.destructive",
+      "label": "destroys recorded work"
+    },
+    {
+      "id": "setup.state.draft",
+      "label": "draft, nothing captured yet"
+    },
+    {
+      "id": "setup.state.in-progress",
+      "label": "in progress"
+    },
+    {
+      "id": "setup.state.closed",
+      "label": "closed"
+    },
+    {
+      "id": "setup.dialog.subject",
+      "label": "You are changing {label}."
+    },
+    {
+      "id": "setup.dialog.cancel",
+      "label": "Cancel"
+    },
+    {
+      "id": "setup.dialog.commit",
+      "label": "Save this change"
+    },
+    {
+      "id": "setup.dialog.commit-destructive",
+      "label": "Delete it anyway"
+    },
+    {
+      "id": "setup.dialog.type-name",
+      "label": "Type {label} to confirm."
+    },
+    {
+      "id": "setup.dialog.local-scope",
+      "label": "These counts are what this device holds. If you have not synced today, the real numbers may be higher, never lower."
+    },
+    {
+      "id": "setup.impact.question.code",
+      "label": "Observations record a question by its code, not by its name. Renaming {before} to {after} detaches {observations} observation(s) across {participants} participant(s): the heatmap and their report rollups will stop finding them until the observations are re-imported under the new code."
+    },
+    {
+      "id": "setup.impact.question.code-clean",
+      "label": "Nothing has been recorded under {before} yet, so renaming it to {after} detaches nothing."
+    },
+    {
+      "id": "setup.impact.question.levels",
+      "label": "{scored} observation(s) across {participants} participant(s) were already scored against the current descriptions of {label}. They keep their designations, and those designations stop meaning what this question now says they mean."
+    },
+    {
+      "id": "setup.impact.question.levels-clean",
+      "label": "Nothing has been scored against {label} yet, so the new descriptions apply to everything from here on."
+    },
+    {
+      "id": "setup.impact.question.prompt",
+      "label": "Evaluators will see the new wording from now on. The {captures} capture(s) already recorded answered the old wording."
+    },
+    {
+      "id": "setup.impact.question.delete",
+      "label": "Deleting {label} orphans {observations} observation(s) across {participants} participant(s), and changes {reports} participant report(s). The observations are not deleted: they stay in the database attached to a question that no longer exists, which is how they disappear from every screen at once."
+    },
+    {
+      "id": "setup.impact.question.delete-verdicts",
+      "label": "It also strands {verdicts} verification verdict(s), which is evaluator time rather than model output."
+    },
+    {
+      "id": "setup.impact.question.delete-clean",
+      "label": "Nothing has been recorded against {label}, so nothing is lost. It is removed from {events} event(s) it was wired to."
+    },
+    {
+      "id": "setup.impact.event.create",
+      "label": "Evaluators will see {label} in their event list from now on. Nothing is asked on it until questions are wired to it."
+    },
+    {
+      "id": "setup.impact.event.delete",
+      "label": "Deleting {label} takes its wiring with it and strands {captures} capture(s) and {observations} observation(s) across {participants} participant(s). The captures stay in the database attached to an event that no longer exists."
+    },
+    {
+      "id": "setup.impact.event.delete-clean",
+      "label": "Nobody has captured anything on {label}, so deleting it loses only the event and its wiring."
+    },
+    {
+      "id": "setup.impact.event.update-unknown",
+      "label": "This edit touches {fields} on {label}, which this app has no impact rule for yet. It is being treated as affecting future work; check it against the evidence already recorded."
+    },
+    {
+      "id": "setup.impact.wiring.future",
+      "label": "Nobody has captured {label} yet, so this only changes what evaluators are asked when they do."
+    },
+    {
+      "id": "setup.impact.wiring.evidence",
+      "label": "{captures} capture(s) on {label} already answered the questions wired to it, producing {observations} observation(s) across {participants} participant(s). Changing the wiring changes which of those answers the event's rollup reads; the answers themselves are untouched and stay in the capture."
+    },
+    {
+      "id": "setup.impact.participant.create",
+      "label": "{label} joins the roster, so evaluators will be asked to watch them from now on, and the review workload per evaluator changes."
+    },
+    {
+      "id": "setup.impact.participant.delete",
+      "label": "{label} has {observations} observation(s) and {verdicts} verdict(s) recorded. Deleting the person does not delete the evidence: those rows stay in the database attributed to somebody who no longer exists, and show as unattributed."
+    },
+    {
+      "id": "setup.impact.participant.delete-clean",
+      "label": "Nothing has been recorded about {label}, so removing them loses only the roster entry."
+    },
+    {
+      "id": "setup.impact.participant.update-unknown",
+      "label": "This edit touches {fields} on {label}, which this app has no impact rule for yet. It is being treated as affecting future work."
+    },
+    {
+      "id": "setup.impact.team.delete",
+      "label": "The {members} member(s) of {label} become unassigned. Nobody is deleted and no evidence moves; team-level breakdowns stop counting them together."
+    },
+    {
+      "id": "setup.impact.team.delete-empty",
+      "label": "Nobody is on {label}, so deleting it changes nothing but the grouping."
+    },
+    {
+      "id": "setup.impact.workshop.delete",
+      "label": "Deleting {label} deletes its events, wiring, teams and roster, and strands {captures} capture(s), {observations} observation(s) and {verdicts} verdict(s) across {participants} participant(s). This is the one change in Setup that cannot be pieced back together from the audit log."
+    },
+    {
+      "id": "setup.impact.workshop.delete-clean",
+      "label": "Nothing has been captured in {label}. Deleting it loses the authoring: {events} event(s), {questions} wired question(s) and {participants} participant(s)."
+    },
+    {
+      "id": "setup.impact.workshop.dates",
+      "label": "Changing {fields} on {label} moves when the workshop reads as finished, which decides whether later edits carry the closed-workshop warning. No evidence moves."
+    },
+    {
+      "id": "setup.impact.workshop.update-unknown",
+      "label": "This edit touches {fields} on {label}, which this app has no impact rule for yet. It is being treated as affecting future work."
+    },
+    {
+      "id": "setup.impact.threshold.raise",
+      "label": "Raising the bar from {before} to {after} confirmations un-verifies {crossing} observation(s) across {participants} participant(s). Reports that were ready become unfinished, because the threshold is applied when a report is read rather than stamped onto the observation."
+    },
+    {
+      "id": "setup.impact.threshold.lower",
+      "label": "Lowering the bar from {before} to {after} confirmations verifies {crossing} observation(s) across {participants} participant(s) that are unconfirmed today. Reports will finalize on evidence fewer evaluators agreed on."
+    },
+    {
+      "id": "setup.impact.threshold.no-effect",
+      "label": "Moving from {before} to {after} confirmations changes no observation's status: none currently sits between the two."
+    },
+    {
+      "id": "setup.impact.scale.clean",
+      "label": "Nothing has been scored yet, so the new scale applies to everything from here on."
+    },
+    {
+      "id": "setup.impact.scale.rescore",
+      "label": "{scored} observation(s) across {participants} participant(s) carry designations recorded on the current scale, and {reports} report(s) read them. A designation is a number whose meaning comes entirely from its scale: change the scale and every stored number means something else, with nothing on screen looking wrong."
+    },
+    {
+      "id": "setup.impact.state.closed",
+      "label": "This workshop is closed. Its reports have already been read, so this edit changes a record people have acted on."
+    },
+    {
+      "id": "setup.impact.state.draft",
+      "label": "Nothing has been captured in this workshop yet, so nothing recorded can be harmed."
+    },
+    {
+      "id": "setup.title",
+      "label": "Set up this workshop"
+    },
+    {
+      "id": "setup.crumb",
+      "label": "Setup"
+    },
+    {
+      "id": "setup.no-workshop",
+      "label": "No workshop selected"
+    },
+    {
+      "id": "setup.no-workshop-detail",
+      "label": "No workshop is selected on this device. Choose one, or create the first, in Workshop basics."
+    },
+    {
+      "id": "setup.unknown-section",
+      "label": "That is not a section of Setup. Use the tabs above."
+    },
+    {
+      "id": "setup.complete",
+      "label": "ready"
+    },
+    {
+      "id": "setup.needs-attention",
+      "label": "needs something"
+    },
+    {
+      "id": "setup.nav.overview",
+      "label": "Overview"
+    },
+    {
+      "id": "setup.nav.basics",
+      "label": "Workshop basics"
+    },
+    {
+      "id": "setup.nav.basics-help",
+      "label": "What this workshop is, when it runs, and where."
+    },
+    {
+      "id": "setup.nav.goals",
+      "label": "Goals and questions"
+    },
+    {
+      "id": "setup.nav.goals-help",
+      "label": "What participants are evaluated against, and what earns each level."
+    },
+    {
+      "id": "setup.nav.calendar",
+      "label": "Calendar and events"
+    },
+    {
+      "id": "setup.nav.calendar-help",
+      "label": "The sessions evaluators capture, and which questions each one asks."
+    },
+    {
+      "id": "setup.nav.scale",
+      "label": "Grading scale"
+    },
+    {
+      "id": "setup.nav.scale-help",
+      "label": "How evidence becomes a designation, and how many evaluators must agree."
+    },
+    {
+      "id": "setup.nav.participants",
+      "label": "Participants"
+    },
+    {
+      "id": "setup.nav.participants-help",
+      "label": "Who is being evaluated, and which team they are on."
+    },
+    {
+      "id": "setup.nav.people",
+      "label": "People and roles"
+    },
+    {
+      "id": "setup.nav.people-help",
+      "label": "Who evaluates, and how much each of them carries."
+    },
+    {
+      "id": "setup.nav.ai",
+      "label": "AI"
+    },
+    {
+      "id": "setup.nav.ai-help",
+      "label": "Where a model helps, and where it does not."
+    },
+    {
+      "id": "setup.nav.templates",
+      "label": "Templates"
+    },
+    {
+      "id": "setup.nav.templates-help",
+      "label": "The wording of the emails and reports this workshop sends out."
+    },
+    {
+      "id": "setup.unset.name",
+      "label": "This workshop has no name."
+    },
+    {
+      "id": "setup.unset.dates",
+      "label": "It has no start and end date, so nothing can tell whether it is running."
+    },
+    {
+      "id": "setup.unset.questions",
+      "label": "No questions are authored, so there is nothing to evaluate against."
+    },
+    {
+      "id": "setup.unset.events",
+      "label": "No events, so evaluators have nothing to capture."
+    },
+    {
+      "id": "setup.unset.wiring",
+      "label": "Some events ask no questions yet."
+    },
+    {
+      "id": "setup.unset.participants",
+      "label": "Nobody is on the roster."
+    },
+    {
+      "id": "setup.unset.evaluators",
+      "label": "Nobody has been added to this workshop to do the evaluating."
+    },
+    {
+      "id": "setup.first-run.title",
+      "label": "Nothing is set up yet, so start at the top"
+    },
+    {
+      "id": "setup.first-run.help",
+      "label": "Each step below is one section. They are in the order that works: the questions before the events that ask them, the events before the people you watch on them. Nothing has to be finished before you move on."
+    },
+    {
+      "id": "setup.first-run.start",
+      "label": "Start with {section}"
+    },
+    {
+      "id": "setup.first-run.ai",
+      "label": "Or draft it from a document"
+    },
+    {
+      "id": "setup.backend.title",
+      "label": "Backend"
+    },
+    {
+      "id": "setup.backend.configured",
+      "label": "Supabase configured, so setup changes are shared with everybody in this workshop."
+    },
+    {
+      "id": "setup.backend.local",
+      "label": "Local only, so setup changes stay on this device."
+    },
+    {
+      "id": "setup.backend.reload",
+      "label": "Reload from the backend"
+    },
+    {
+      "id": "setup.backend.reload-note",
+      "label": "A reload pulls the shared copy over this device's cache. Anything you authored here that has not reached the backend is pushed first, so a reload cannot lose it."
+    },
+    {
+      "id": "setup.rejected.title",
+      "label": "Edits the backend refused"
+    },
+    {
+      "id": "setup.rejected.help",
+      "label": "{count} edit(s) were saved on this device and refused by the backend. They will never reach anybody else, so treat this device's copy of these rows as wrong rather than ahead."
+    },
+    {
+      "id": "setup.rejected.no-reason",
+      "label": "no reason recorded"
+    },
+    {
+      "id": "setup.log.title",
+      "label": "Recent setup changes"
+    },
+    {
+      "id": "setup.log.help",
+      "label": "Every change above 'no effect' is recorded here with the counts the warning quoted, so a report that reads oddly weeks later can be traced back to the edit that caused it. Safe changes are not logged; they would bury the ones that matter."
+    },
+    {
+      "id": "setup.log.empty",
+      "label": "No setup changes recorded on this device."
+    },
+    {
+      "id": "setup.log.unknown-actor",
+      "label": "unknown"
+    },
+    {
+      "id": "setup.log.not-synced",
+      "label": "not shared yet"
+    },
+    {
+      "id": "setup.basics.title",
+      "label": "This workshop"
+    },
+    {
+      "id": "setup.basics.help",
+      "label": "The name is what participants and evaluators see; the dates decide whether the app treats the workshop as running."
+    },
+    {
+      "id": "setup.basics.backend-shared",
+      "label": "Changes are shared with everybody in this workshop."
+    },
+    {
+      "id": "setup.basics.backend-local",
+      "label": "Changes stay on this device."
+    },
+    {
+      "id": "setup.basics.none",
+      "label": "No workshop selected, so there is nothing to edit yet."
+    },
+    {
+      "id": "setup.basics.languages",
+      "label": "Languages (comma separated)"
+    },
+    {
+      "id": "setup.basics.end-date-note",
+      "label": "The end date is read as the end of that day, so a workshop finishing today is still in progress this afternoon."
+    },
+    {
+      "id": "setup.basics.save",
+      "label": "Save these details"
+    },
+    {
+      "id": "setup.basics.switch-title",
+      "label": "Workshops on this device"
+    },
+    {
+      "id": "setup.basics.switch-help",
+      "label": "Switching changes which workshop every screen is about, on this device only. A fuller switcher and a proper create flow land with multi-workshop administration."
+    },
+    {
+      "id": "setup.basics.duplicate",
+      "label": "Duplicate"
+    },
+    {
+      "id": "setup.basics.create",
+      "label": "Create"
+    },
+    {
+      "id": "setup.basics.new-placeholder",
+      "label": "New workshop name"
+    },
+    {
+      "id": "setup.basics.delete",
+      "label": "Delete {label}"
+    },
+    {
+      "id": "setup.events.title",
+      "label": "Events ({count})"
+    },
+    {
+      "id": "setup.events.add",
+      "label": "Add event"
+    },
+    {
+      "id": "setup.events.help",
+      "label": "The sessions an evaluator picks from. Order sets how they appear. These fields save when you click away, because none of them changes what recorded evidence means."
+    },
+    {
+      "id": "setup.events.empty",
+      "label": "No events yet. Add the first one."
+    },
+    {
+      "id": "setup.wiring.title",
+      "label": "Which questions each event asks"
+    },
+    {
+      "id": "setup.wiring.help",
+      "label": "For each event, choose which questions appear and in what order. On an event that has already been captured, this changes which answers the rollup reads, so it asks first."
+    },
+    {
+      "id": "setup.wiring.no-events",
+      "label": "No events to wire yet."
+    },
+    {
+      "id": "setup.wiring.none-wired",
+      "label": "No questions wired yet."
+    },
+    {
+      "id": "setup.wiring.preview-title",
+      "label": "Preview"
+    },
+    {
+      "id": "setup.wiring.preview-help",
+      "label": "Exactly what an evaluator sees on the capture screen for the chosen event."
+    },
+    {
+      "id": "setup.questions.title",
+      "label": "Questions ({count})"
+    },
+    {
+      "id": "setup.questions.add",
+      "label": "Add question"
+    },
+    {
+      "id": "setup.questions.global-warning",
+      "label": "Questions are still shared across every workshop on this deployment: a question's code is global, so editing one edits it everywhere it is wired. Per-workshop questions land with the goals layer."
+    },
+    {
+      "id": "setup.questions.goals-pending",
+      "label": "A goals layer above these questions, so a workshop can state what it is for and not only what it measures, is the next spec in this wave."
+    },
+    {
+      "id": "setup.questions.code-warning",
+      "label": "Observations record the code, not the name. Renaming a code detaches every observation already recorded under the old one; the warning will say how many."
+    },
+    {
+      "id": "setup.questions.save",
+      "label": "Save question"
+    },
+    {
+      "id": "setup.questions.preview-title",
+      "label": "Seeing it as an evaluator does"
+    },
+    {
+      "id": "setup.questions.preview-help",
+      "label": "A question is only asked once it is wired to an event. Wire it in"
+    },
+    {
+      "id": "setup.scale.verification-title",
+      "label": "How many evaluators must agree"
+    },
+    {
+      "id": "setup.scale.verification-help",
+      "label": "Evaluators who must confirm each observation before it counts toward a finalized report."
+    },
+    {
+      "id": "setup.scale.verification-scale",
+      "label": "1 is solo review; 2 is dual review, the default."
+    },
+    {
+      "id": "setup.scale.save",
+      "label": "Save the bar"
+    },
+    {
+      "id": "setup.scale.threshold-label",
+      "label": "the verification bar"
+    },
+    {
+      "id": "setup.scale.read-time",
+      "label": "The bar is applied when a report is read, not stamped onto the observation, so a change here shows immediately on"
+    },
+    {
+      "id": "setup.scale.reports-link",
+      "label": "Reports"
+    },
+    {
+      "id": "setup.scale.and",
+      "label": "and"
+    },
+    {
+      "id": "setup.scale.assignments-link",
+      "label": "Assignments"
+    },
+    {
+      "id": "setup.scale.workshop-not-device",
+      "label": "This belongs to the workshop, not to this device. Other devices pick it up when they next start or reload, so tell people mid-session rather than assuming their phone already knows."
+    },
+    {
+      "id": "setup.scale.scale-title",
+      "label": "The grading scale"
+    },
+    {
+      "id": "setup.scale.scale-pending",
+      "label": "The scale is fixed at 0 to 3 today. Making it configurable from 2 to 6 points, with its own descriptions, is its own spec: changing a scale under recorded evidence is the sharpest warning in this whole layer, and it needs the export, the heatmap and the legend to move with it."
+    },
+    {
+      "id": "setup.scale.descriptors-live-in",
+      "label": "What earns each 0 to 3 is written per question, on all {count} of them, in"
+    },
+    {
+      "id": "setup.people.title",
+      "label": "Who evaluates in this workshop"
+    },
+    {
+      "id": "setup.people.membership-pending",
+      "label": "Adding somebody to a workshop is still done in the backend: the app can read the membership table but has no permission to write it, deliberately. An invitation flow with server-enforced promotion and removal is a later spec in this wave."
+    },
+    {
+      "id": "setup.people.none",
+      "label": "Nobody has been added to this workshop yet."
+    },
+    {
+      "id": "setup.people.board-link-help",
+      "label": "How each of them is doing, and who is carrying nobody, is on"
+    },
+    {
+      "id": "setup.people.board-link",
+      "label": "the evaluators board"
+    },
+    {
+      "id": "setup.people.workload-title",
+      "label": "Review workload"
+    },
+    {
+      "id": "setup.people.workload-help",
+      "label": "How many participants an evaluator is expected to carry. Leave a field blank to use the even split of the cohort, which is currently {share} each across {evaluators} evaluator(s)."
+    },
+    {
+      "id": "setup.people.share-unknown",
+      "label": "unknown (no evaluators yet)"
+    },
+    {
+      "id": "setup.people.review-default",
+      "label": "Default review quota"
+    },
+    {
+      "id": "setup.people.observation-default",
+      "label": "Default observation quota"
+    },
+    {
+      "id": "setup.people.per-evaluator",
+      "label": "Per evaluator"
+    },
+    {
+      "id": "setup.people.two-boxes",
+      "label": "Two boxes per person: review, then observation. Clearing a box drops the override and returns them to the default."
+    },
+    {
+      "id": "setup.people.quota-label",
+      "label": "the quota for {email}"
+    },
+    {
+      "id": "setup.ai.title",
+      "label": "Where a model helps"
+    },
+    {
+      "id": "setup.ai.help",
+      "label": "Today there is one use: drafting a whole scenario from a document you upload, which you then edit. Nothing is scored by a model without an evaluator confirming it."
+    },
+    {
+      "id": "setup.ai.modes-pending",
+      "label": "Choosing a provider, pointing the app at your own AI subscription, toggling which functions use a model, and seeing the token cost of each mode are all later specs in this wave. Until then the one path is the draft-fill below."
+    },
+    {
+      "id": "setup.ai.routing-help",
+      "label": "Captures are sent for processing through the private repository set up on"
+    },
+    {
+      "id": "setup.ai.routing-link",
+      "label": "Routing"
+    },
+    {
+      "id": "setup.templates.title",
+      "label": "Output templates"
+    },
+    {
+      "id": "setup.templates.pending",
+      "label": "The wording of the emails and the final reports is written in code today. A template library, editable here and applied through the proposal queue, is a later spec in this wave."
+    },
+    {
+      "id": "setup.templates.today",
+      "label": "What goes out today is drafted on"
+    },
+    {
+      "id": "setup.templates.day-email",
+      "label": "Day email"
+    },
+    {
+      "id": "setup.templates.and",
+      "label": "and reviewed on"
+    },
+    {
+      "id": "setup.templates.outgoing",
+      "label": "Outgoing"
+    },
+    {
+      "id": "setup.action.delete",
+      "label": "delete"
+    },
+    {
+      "id": "setup.action.delete-continue",
+      "label": "continue"
+    },
+    {
+      "id": "setup.action.cancel",
+      "label": "cancel"
+    },
+    {
+      "id": "setup.action.reset",
+      "label": "Reset"
     }
   ]
 }
