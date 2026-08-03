@@ -1,6 +1,7 @@
 import { getAiConfig, traceAiCall } from '../../db/aiConfig'
 import { aiEnabled } from '../aiEnabled'
 import { githubClaudeProvider } from './githubClaude'
+import { localAgentProvider } from './localAgent'
 import { byoAgentProvider } from './byoAgent'
 import { hostedApiProvider } from './hostedApi'
 import {
@@ -59,6 +60,7 @@ export * from './types'
  */
 const PROVIDERS: Record<AiMode, AiProvider> = {
   'github-claude': githubClaudeProvider,
+  'local-agent': localAgentProvider,
   'byo-agent': byoAgentProvider,
   'hosted-api': hostedApiProvider,
 }
@@ -97,6 +99,10 @@ async function fallbackOutcome(job: AiJob): Promise<AiOutcome> {
       return operatorAction('setup.ai.op.fallback-prompt', { prompt: buildGuidancePrompt(job.brief) })
     case 'observation_routing': {
       if (job.intent === 'push') return refused('setup.ai.error.hosted-fn-not-built')
+      // tl-21: an unattended run is the one intent a hand-off cannot stand in for, so the
+      // fallback refuses it here as the two subscription modes refuse it in their own
+      // files. Returning the copy bundle would report "done" for work nothing has done.
+      if (job.intent === 'run') return refused('setup.ai.error.mode-not-unattended')
       try {
         const { json, count } = await buildExportBundle()
         return operatorAction('setup.ai.op.fallback-prompt', { value: { count }, prompt: json })

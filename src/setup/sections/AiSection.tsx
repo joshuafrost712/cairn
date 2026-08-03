@@ -8,6 +8,7 @@ import { c } from '../../lib/content/chrome'
 import { describeDetail } from '../../ai/traceDetail'
 import { ScenarioDraftPanel } from '../../components/ScenarioDraftPanel'
 import { AiEstimate } from './AiEstimate'
+import { AiRelay } from './AiRelay'
 import {
   AI_FUNCTION_BUILT,
   AI_FUNCTIONS,
@@ -65,6 +66,11 @@ export function AiSection({ workshopId }: { workshopId: string }) {
           directly under the toggles so the price of switching one on is on screen at
           the moment of the decision. */}
       <AiEstimate workshopId={workshopId} config={config} />
+
+      {/* tl-21: the machine that does the work, if the workshop has one. Under the
+          estimate rather than beside the mode, because an administrator configures this
+          after choosing the mode and it is where they come back when something is wrong. */}
+      <AiRelay config={config} />
 
       {/* The draft-fill offer, which is one of the functions above rather than a
           separate feature. It reads the same config and says so when it is off. */}

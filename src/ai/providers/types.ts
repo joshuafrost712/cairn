@@ -80,8 +80,14 @@ export type AiJob =
        * `copy` prepares the bundle for a human to paste; `push` writes it to the
        * routing repo through the stored token. Both are hand-offs; only the
        * transport differs.
+       *
+       * `run` (tl-21) is the third thing, and the reason it is an intent rather than a
+       * fourth function: it asks for the SAME work by the same contract, done here and
+       * now rather than handed to somebody. Only `local-agent` can service it; the other
+       * modes refuse it with a reason naming the limitation ("somebody has to sit down and
+       * do this"), which is more useful than a button that does nothing.
        */
-      intent: 'copy' | 'push'
+      intent: 'copy' | 'push' | 'run'
     }
   | {
       fn: 'scenario_draft'

@@ -22,6 +22,7 @@ import {
   importObservationsText,
 } from '../routing/operations'
 import { runAiJob, type AiOutcome } from '../ai/providers'
+import { drainRelayResults } from '../relay/collect'
 import { aiEnabled, aiUnavailableReason } from '../ai/aiEnabled'
 import { resolveAiConfig } from '../lib/aiConfig'
 
@@ -95,7 +96,7 @@ export function Routing() {
    * mode? trace it) is identical and only the `intent` differs. Two copies of this
    * would be two places to forget the toggle.
    */
-  const handOff = (intent: 'copy' | 'push'): Promise<AiOutcome> =>
+  const handOff = (intent: 'copy' | 'push' | 'run'): Promise<AiOutcome> =>
     runAiJob(
       { fn: 'observation_routing', workshopId: workshopId as string, actorEmail: email, intent },
       { config },
@@ -177,6 +178,13 @@ export function Routing() {
           No routing repo set. Define <code>VITE_ROUTING_REPO</code> (e.g. <code>you/cairn-routing</code>)
           to enable the automated path. The copy/paste path below works without it.
         </div>
+      )}
+
+      {/* tl-21: the workshop's own machine. Only in the mode that has one — the other
+          three refuse an unattended run with a reason, and a button that always refused
+          would be a worse way to learn that. */}
+      {config.mode === 'local-agent' && workshopId && (
+        <LocalAgentCard workshopId={workshopId} routingOn={routingOn} handOff={handOff} />
       )}
 
       <div className="card">
@@ -300,5 +308,135 @@ export function Routing() {
       {msg && <div className="banner">{msg}</div>}
 
     </>
+  )
+}
+
+/**
+ * Route this workshop's captures on the machine in the room (tl-21).
+ *
+ * One button and no terminal: what it replaces is an administrator opening a Claude
+ * session, working through `ROUTING.md` by hand, and pasting the answer back — per batch,
+ * during a workshop day, by the one person who is also supposed to be watching
+ * participants.
+ *
+ * THE DRAIN ON MOUNT IS NOT A REFRESH BUTTON'S JOB. If the tab reloaded while a batch was
+ * running, the relay finished it and is holding the result; without this the administrator
+ * sees nothing and routes the same captures again, spending a second batch of the
+ * subscription's tokens on work that is already done.
+ */
+function LocalAgentCard({
+  workshopId,
+  routingOn,
+  handOff,
+}: {
+  workshopId: string
+  routingOn: boolean
+  handOff: (intent: 'copy' | 'push' | 'run') => Promise<AiOutcome>
+}) {
+  const [busy, setBusy] = useState(false)
+  const [status, setStatus] = useState<string | null>(null)
+  const [jobFile, setJobFile] = useState('')
+
+  // Collect anything the machine finished while this screen was closed.
+  useEffect(() => {
+    let cancelled = false
+    void (async () => {
+      const drained = await drainRelayResults(workshopId)
+      if (cancelled) return
+      if (drained.stored || drained.failed || drained.discarded) {
+        setStatus(
+          c('routing.local.drained', 'label', {
+            stored: drained.stored,
+            files: drained.files,
+            failed: drained.failed,
+            discarded: drained.discarded,
+          }),
+        )
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [workshopId])
+
+  const describe = (outcome: AiOutcome): string => {
+    if (outcome.kind === 'result') {
+      const v = outcome.value as { stored?: number; files?: number; rejected?: number; captures?: number }
+      return c('routing.local.result', 'label', {
+        stored: v.stored ?? 0,
+        captures: v.captures ?? 0,
+        rejected: v.rejected ?? 0,
+        tokens_in: outcome.tokensIn ?? 0,
+        tokens_out: outcome.tokensOut ?? 0,
+      })
+    }
+    if (outcome.kind === 'operator_action') return c(outcome.instructionsId ?? 'setup.ai.op.fallback-prompt')
+    if (outcome.kind === 'refused') return c(outcome.reason ?? 'setup.ai.fn.disabled')
+    return outcome.reason ?? c('setup.ai.fn.disabled')
+  }
+
+  const act = async (intent: 'copy' | 'run') => {
+    setBusy(true)
+    setStatus(c(intent === 'run' ? 'routing.local.working' : 'routing.local.preparing'))
+    try {
+      const outcome = await handOff(intent)
+      if (intent === 'copy' && outcome.kind === 'operator_action' && outcome.prompt) {
+        setJobFile(outcome.prompt)
+      }
+      setStatus(describe(outcome))
+    } catch (err) {
+      setStatus(err instanceof Error ? err.message : String(err))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div className="card form-col">
+      <Copy id="routing.local.title" as="h2" />
+      <Copy id="routing.local.intro" as="p" className="small muted" />
+      <div className="row" style={{ flexWrap: 'wrap', gap: 'var(--s-1)' }}>
+        <button className="primary" disabled={busy || !routingOn} onClick={() => void act('run')}>
+          {c('routing.local.run')}
+        </button>
+        <button className="ghost small" disabled={busy || !routingOn} onClick={() => void act('copy')}>
+          {c('routing.local.prepare-file')}
+        </button>
+        <button
+          className="ghost small"
+          disabled={busy}
+          onClick={() =>
+            void (async () => {
+              setBusy(true)
+              const drained = await drainRelayResults(workshopId)
+              setBusy(false)
+              setStatus(
+                c('routing.local.drained', 'label', {
+                  stored: drained.stored,
+                  files: drained.files,
+                  failed: drained.failed,
+                  discarded: drained.discarded,
+                }),
+              )
+            })()
+          }
+        >
+          {c('routing.local.collect')}
+        </button>
+      </div>
+      {status && <p className="small">{status}</p>}
+      {jobFile && (
+        <>
+          <Copy id="routing.local.file-help" as="p" className="small muted" />
+          <textarea
+            className="mono"
+            readOnly
+            value={jobFile}
+            rows={6}
+            onFocus={(e) => e.currentTarget.select()}
+          />
+        </>
+      )}
+    </div>
   )
 }

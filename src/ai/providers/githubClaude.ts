@@ -29,6 +29,16 @@ export const githubClaudeProvider: AiProvider = {
   async run(job: AiJob) {
     switch (job.fn) {
       case 'observation_routing': {
+        /**
+         * tl-21: this mode's stated limitation, refused rather than approximated.
+         *
+         * A workshop on `github-claude` that asks for an unattended run is asking for the
+         * one thing this mode cannot do, and the refusal says so. Falling back to the
+         * copy hand-off here would have been worse than useless: an administrator would
+         * press "route now", get a bundle on their clipboard, and have no way to tell
+         * that the machine had not done anything.
+         */
+        if (job.intent === 'run') return refused('setup.ai.error.mode-not-unattended')
         if (job.intent === 'push') {
           if (!canPushPull()) return refused('setup.ai.error.routing-not-automated')
           try {

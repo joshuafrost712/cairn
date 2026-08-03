@@ -175,6 +175,33 @@ const GOOGLE_NOTE =
   'On the paid tier Google states prompts and responses within logs are not used for product improvement or development, and that logs are retained for a default maximum period of 55 days, configurable down to 7.'
 
 /**
+ * A SUBSCRIPTION IS NOT THE API, AND THIS IS THE MOST IMPORTANT SENTENCE IN THE FILE
+ * FOR tl-21.
+ *
+ * `ANTHROPIC_NOTE` above cites the API's commercial terms, and it is true of the API. It
+ * is NOT true of a personal Pro or Max subscription, which is exactly what the
+ * `local-agent` mode runs on. Anthropic's own Claude Code page says both halves plainly,
+ * read on 2026-08-03:
+ *
+ *   "We will train new models using data from Free, Pro, and Max accounts when this
+ *    setting is on (including when you use Claude Code from these accounts)."
+ *
+ * and, on retention: five years when that setting is on, thirty days when it is off,
+ * against a flat thirty days for commercial and API use. So the posture of a workshop's
+ * evidence in this mode is decided by a checkbox on somebody's Claude account, at
+ * claude.ai/settings/data-privacy-controls.
+ *
+ * THE APP CANNOT SEE THAT SETTING, which is the same shape as Gemini's free-tier
+ * problem: the honest move is to state the condition and name who can check it, not to
+ * infer a posture the app has no access to. It is stated at the mode (where the account
+ * lives) rather than on each model entry, because it is a property of the account rather
+ * than of the model — and the Claude entries keep the API posture they were given, which
+ * is what applies when those same models are reached any other way.
+ */
+export const SUBSCRIPTION_POSTURE_SOURCE = 'https://code.claude.com/docs/en/data-usage'
+export const SUBSCRIPTION_POSTURE_REVIEWED = '2026-08-03'
+
+/**
  * The free-tier half, and its own page.
  *
  * Google's pricing page is where the tier split is actually stated, in as many words:
@@ -270,7 +297,7 @@ export const MODEL_REGISTRY: ModelEntry[] = [
     free_tier_note: null,
     free_tier_source: null,
     price_note_id: null,
-    reachable_in: ['github-claude', 'byo-agent'],
+    reachable_in: ['github-claude', 'local-agent', 'byo-agent'],
     reviewed: REGISTRY_REVIEWED,
   },
   {
@@ -288,7 +315,7 @@ export const MODEL_REGISTRY: ModelEntry[] = [
     free_tier_note: null,
     free_tier_source: null,
     price_note_id: 'setup.ai.model.price-intro',
-    reachable_in: ['github-claude', 'byo-agent'],
+    reachable_in: ['github-claude', 'local-agent', 'byo-agent'],
     reviewed: REGISTRY_REVIEWED,
   },
   {
@@ -306,7 +333,7 @@ export const MODEL_REGISTRY: ModelEntry[] = [
     free_tier_note: null,
     free_tier_source: null,
     price_note_id: null,
-    reachable_in: ['github-claude', 'byo-agent'],
+    reachable_in: ['github-claude', 'local-agent', 'byo-agent'],
     reviewed: REGISTRY_REVIEWED,
   },
 ]

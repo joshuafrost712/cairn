@@ -33,6 +33,8 @@ export const byoAgentProvider: AiProvider = {
     switch (job.fn) {
       case 'observation_routing': {
         if (job.intent === 'push') return refused('setup.ai.error.byo-never-pushes')
+        // tl-21: unattended routing belongs to the mode that has a machine to do it.
+        if (job.intent === 'run') return refused('setup.ai.error.mode-not-unattended')
         try {
           const { json, count } = await buildExportBundle()
           return operatorAction('setup.ai.op.byo-routing', { value: { count }, prompt: json })

@@ -17,8 +17,19 @@
  * whether to bother making the request.
  */
 
-/** How the workshop's AI work gets done. */
-export const AI_MODES = ['github-claude', 'byo-agent', 'hosted-api'] as const
+/**
+ * How the workshop's AI work gets done.
+ *
+ * `local-agent` arrived with tl-21: a machine at the workshop runs the work itself,
+ * through a locally installed CLI on a subscription that is already paid for. It is the
+ * only mode that is unattended AND free at the point of use AND needs no network.
+ *
+ * THE WORD "RELAY" STAYS OUT OF USER-FACING COPY. The app already has "routing", and two
+ * similar nouns for two different things is how a support conversation goes wrong. The
+ * mode is described by what it is — a machine at the workshop — and the small service that
+ * makes it work is named only in the panel that configures it and in the runbook.
+ */
+export const AI_MODES = ['github-claude', 'local-agent', 'byo-agent', 'hosted-api'] as const
 export type AiMode = (typeof AI_MODES)[number]
 
 export const DEFAULT_AI_MODE: AiMode = 'github-claude'
