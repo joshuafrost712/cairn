@@ -144,13 +144,19 @@ function FunctionToggles({ workshopId, config }: { workshopId: string; config: A
 
   const toggle = async (fn: AiFunction, next: boolean) => {
     const counts = await countsForAiConfig(workshopId)
+    // `before` is the value actually resolved from the store, not `!next`. They agree
+    // almost always, and the exception is the case that matters: a second click while
+    // the first save is in flight would describe a change that is not happening, and
+    // this dialog's whole value is that what it says is true.
+    const before = aiEnabled(fn, config)
+    if (before === next) return
     await request({
       change: {
         entity: 'ai_config',
         operation: 'update',
         entityId: null,
         label: c(`setup.ai.fn.${fn}`),
-        fields: [{ field: fn, before: !next, after: next }],
+        fields: [{ field: fn, before, after: next }],
         counts,
       },
       commit: async () => {

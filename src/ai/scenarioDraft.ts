@@ -13,12 +13,12 @@ import {
   type ScenarioDraft,
 } from './scenarioContract'
 
-/**
- * Whether the one-click AI path is available. It runs through the Supabase Edge
- * Function `draft-scenario` (which holds the Gemini key server-side), so it needs
- * Supabase configured. The copy/paste path always works, with no backend.
- */
-export const canDraftWithAI = isSupabaseConfigured
+// `canDraftWithAI` lived here and is gone (tl-13). It answered "is the one-click
+// path available" with `isSupabaseConfigured`, and that question now has a fuller
+// answer in one place: `hostedApiProvider` checks the backend AND the deployment's
+// hosted-AI switch, and `runAiJob` checks the workshop's toggle before either. A
+// second, simpler answer left exported here would eventually be the one somebody
+// reached for, and it would say yes on a deployment where hosted AI is switched off.
 
 /**
  * How long a document may be. Capped at the boundary rather than at the model
