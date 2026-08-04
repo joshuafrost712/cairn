@@ -124,6 +124,14 @@ describe('extractJsonObject', () => {
     expect(JSON.parse(extractJsonObject(tricky) as string).quote).toContain('{ and }')
   })
 
+  it('skips a non-JSON brace group and finds the real object behind it', () => {
+    // "I routed {this} capture: {...}" — the first balanced group is not JSON,
+    // and an extractor that stops there loses a perfectly good reply.
+    expect(extractJsonObject(`I routed {this} capture: ${obj}`)).toBe(obj)
+    // A fenced non-JSON example followed by the real object outside the fence.
+    expect(extractJsonObject('```\n{not json}\n```\n' + obj)).toBe(obj)
+  })
+
   it('returns null when there is no object to find', () => {
     expect(extractJsonObject('I could not route these captures.')).toBeNull()
     expect(extractJsonObject('')).toBeNull()
@@ -277,6 +285,27 @@ describe('routeCapturesHosted', () => {
     expect(outcome.value).toMatchObject({ captures: 3, routed: 2, failed: 1 })
   })
 
+  it('accepts the bundle-wrapped reply the routing prompt actually instructs', async () => {
+    // relayRoutingSystem tells the model to return {schema, results: [...]} even
+    // for one capture, so the WRAPPER is the expected shape and the bare file is
+    // the tolerated one. The first draft only accepted the bare shape and would
+    // have failed every keyed run while spending the tokens (stage-6 finding #1).
+    const { routeCapturesHosted } = await import('../src/ai/hostedRouting')
+    buildExportBundle.mockResolvedValue({ json: bundleOf('c1'), count: 1 })
+    invoke.mockResolvedValueOnce({
+      data: {
+        observations_file: { schema: 'cairn.observations-bundle/v1', results: [file('c1')] },
+        model: 'claude-sonnet-5',
+      },
+    })
+    importObservationsText.mockResolvedValue({ files: 1, stored: 3, rejected: 0, shared: 3 })
+    const outcome = await routeCapturesHosted('w1')
+    expect(outcome.kind).toBe('result')
+    expect(outcome.value).toMatchObject({ routed: 1, failed: 0, stored: 3 })
+    const imported = JSON.parse(importObservationsText.mock.calls[0][0] as string)
+    expect(imported.results).toEqual([file('c1')])
+  })
+
   it('recovers an observations file the server returned as raw text', async () => {
     const { routeCapturesHosted } = await import('../src/ai/hostedRouting')
     buildExportBundle.mockResolvedValue({ json: bundleOf('c1'), count: 1 })
@@ -363,8 +392,14 @@ describe('hostedApiProvider routing', () => {
     expect(outcome).toEqual({ kind: 'refused', reason: 'setup.ai.hosted.nothing-pending' })
   })
 
-  it('hands the copy intent back as the bundle, the shape the fallback uses', async () => {
+  it('hands the copy intent back as the bundle even when the stored model is Gemini', async () => {
+    // The hand-off calls no model, so the model check must not gate it — the
+    // registry itself recommends Gemini Flash-Lite for routing on unit cost.
     const { hostedApiProvider } = await import('../src/ai/providers/hostedApi')
+    getAiConfig.mockResolvedValue({
+      mode: 'hosted-api',
+      functions: { observation_routing: { enabled: true, model: 'gemini-2.5-flash-lite' } },
+    })
     buildExportBundle.mockResolvedValue({ json: '{"captures":[1]}', count: 1 })
     const outcome = await hostedApiProvider.run(job('copy'))
     expect(outcome.kind).toBe('operator_action')

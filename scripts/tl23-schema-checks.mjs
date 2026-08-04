@@ -128,6 +128,30 @@ assert('999 of 1000 spent (all four columns counted, nulls as zero) → permitte
 assert("exactly 1000 of 1000 → 'tl23.daily_token_ceiling_reached' (refuses AT the boundary)",
   boundary?.[0]?.at_boundary === 'tl23.daily_token_ceiling_reached', JSON.stringify(boundary?.[0]))
 
+// --- 5b. forged rows cannot open or bypass the ceiling ----------------------
+const negRefused = await sqlError(`
+  begin;
+  insert into workshop (id, name) values ('${WS}', 'tl23-sc fixture') on conflict (id) do nothing;
+  insert into ai_call_log (workshop_id, fn, mode, outcome, tokens_in)
+  values ('${WS}', 'observation_routing', 'hosted-api', 'result', -5);
+  rollback;`)
+assert('a negative token count is refused at the table (check constraint)',
+  /ai_call_log_tokens_nonnegative|check constraint/i.test(negRefused), negRefused.slice(0, 60))
+
+const clampHolds = await sql(`
+  begin;
+  alter table ai_call_log drop constraint ai_call_log_tokens_nonnegative;
+  update platform_setting set value = to_jsonb(true) where key = 'hosted_ai_enabled';
+  update platform_setting set value = to_jsonb(10) where key = 'ai_daily_token_ceiling';
+  insert into workshop (id, name) values ('${WS}', 'tl23-sc fixture') on conflict (id) do nothing;
+  insert into ai_call_log (workshop_id, fn, mode, outcome, tokens_in) values
+    ('${WS}', 'observation_routing', 'hosted-api', 'result', -1000000000),
+    ('${WS}', 'observation_routing', 'hosted-api', 'result', 10);
+  select ai_spend_permitted('${WS}') as slug;
+  rollback;`)
+assert('even without the constraint, the sum clamps negatives (ceiling stays shut)',
+  clampHolds?.[0]?.slug === 'tl23.daily_token_ceiling_reached', JSON.stringify(clampHolds?.[0]))
+
 // --- 6. set_platform_setting and the new key --------------------------------
 // Fixture identities: a platform owner and a plain member, minted as app_user rows
 // with throwaway auth ids, addressed via request.jwt.claims exactly as PostgREST

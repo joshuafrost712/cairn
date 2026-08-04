@@ -40,6 +40,16 @@ comment on column ai_call_log.cache_read_tokens is
 comment on column ai_call_log.cache_write_tokens is
   'Prompt-cache write tokens (Anthropic usage.cache_creation_input_tokens). Billed at a premium over the input rate; kept apart from tokens_in for the same reason as cache_read_tokens.';
 
+-- A token count is a quantity: null means "not reported", never a negative.
+-- This matters beyond tidiness because ai_spend_permitted() below SUMS these
+-- columns to enforce the daily ceiling, and workshop admins can insert rows
+-- (the client trace path). An ALTER on tl-13's table, not a re-declaration.
+alter table ai_call_log drop constraint if exists ai_call_log_tokens_nonnegative;
+alter table ai_call_log add constraint ai_call_log_tokens_nonnegative check (
+  coalesce(tokens_in, 0) >= 0 and coalesce(tokens_out, 0) >= 0
+  and coalesce(cache_read_tokens, 0) >= 0 and coalesce(cache_write_tokens, 0) >= 0
+);
+
 -- ---------------------------------------------------------------------------
 -- May money be spent on this deployment right now?
 --
@@ -78,9 +88,17 @@ begin
   from platform_setting where key = 'ai_daily_token_ceiling';
   _ceiling := coalesce(_ceiling, 2000000);
 
+  -- Each column CLAMPED at zero before it is summed. ai_call_log is insertable
+  -- by any workshop admin (the client trace path needs that), so a negative
+  -- token count is a value an admin could write directly — and an unclamped sum
+  -- would let one forged row drive _spent below zero and hold the ceiling open
+  -- all day. The check constraint below refuses such rows at the table; the
+  -- clamp here means the ceiling stays sound even against rows that predate the
+  -- constraint or arrive by a path it does not cover. (Second-AI security
+  -- review finding, 2026-08-04.)
   select coalesce(sum(
-    coalesce(tokens_in, 0) + coalesce(tokens_out, 0)
-    + coalesce(cache_read_tokens, 0) + coalesce(cache_write_tokens, 0)
+    greatest(coalesce(tokens_in, 0), 0) + greatest(coalesce(tokens_out, 0), 0)
+    + greatest(coalesce(cache_read_tokens, 0), 0) + greatest(coalesce(cache_write_tokens, 0), 0)
   ), 0) into _spent
   from ai_call_log
   where mode = 'hosted-api'

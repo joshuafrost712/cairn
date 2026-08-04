@@ -143,22 +143,50 @@ export class AnthropicHttpError extends Error {
 }
 
 /**
- * Pull the JSON object out of a model reply: strip a fence if there is one,
- * otherwise take the first balanced object. The relay's rule, not a new one —
- * tl-21 learned that the fence is a property of one configuration rather than of
- * the model, so neither shape may be assumed. Returns null when the text holds
- * no object; the caller decides whether that is an error or a `{ raw }` reply.
+ * Pull the JSON object out of a model reply: try the fenced block if there is
+ * one, then the surrounding text; within each, try every balanced brace group
+ * until one actually PARSES. The relay's rule, not a new one — tl-21 learned
+ * that the fence is a property of one configuration rather than of the model,
+ * so no shape may be assumed — plus the review's addendum: prose like
+ * "I routed {this} capture: {...}" puts a non-JSON brace group first, and an
+ * extractor that stops there loses a reply whose real object is right behind
+ * it. Returns a parseable JSON string, or null; the caller decides whether
+ * null is an error or a `{ raw }` reply.
  */
 export function extractJsonObject(text: string): string | null {
-  let raw = text.trim()
+  const raw = text.trim()
   const fence = raw.match(/```(?:json)?\s*([\s\S]*?)```/i)
-  if (fence) raw = fence[1].trim()
+  if (fence) {
+    const fromFence = firstParseableObject(fence[1].trim())
+    if (fromFence) return fromFence
+  }
+  return firstParseableObject(raw)
+}
 
-  const start = raw.indexOf('{')
-  if (start < 0) return null
+/** Every balanced brace group in order, until one survives JSON.parse. */
+function firstParseableObject(raw: string): string | null {
+  let from = 0
+  for (;;) {
+    const start = raw.indexOf('{', from)
+    if (start < 0) return null
+    const candidate = balancedFrom(raw, start)
+    if (candidate) {
+      try {
+        JSON.parse(candidate)
+        return candidate
+      } catch {
+        /* balanced but not JSON — keep scanning */
+      }
+    }
+    from = start + 1
+  }
+}
 
-  // Balanced-brace scan that respects strings and escapes, because an
-  // observation's quote can legally contain every brace and bracket there is.
+/**
+ * The balanced group starting at `start`, respecting strings and escapes,
+ * because an observation's quote can legally contain every brace there is.
+ */
+function balancedFrom(raw: string, start: number): string | null {
   let depth = 0
   let inString = false
   let escaped = false

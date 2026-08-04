@@ -267,11 +267,14 @@ Deno.serve(async (req: Request) => {
       return json({ error: message }, status)
     }
 
-    // The real spend, recorded where it is known (see header note 3). Awaited and
-    // reported on failure rather than fired-and-forgotten, because this row is
-    // what the ceiling counts: an unrecorded call is an uncounted one.
+    // The real spend, recorded where it is known (see header note 3). Awaited,
+    // and retried once on failure, because this row is what the ceiling counts:
+    // an unrecorded call is an uncounted one. A SECOND failure is logged loudly
+    // and the result still returns — destroying finished work because the log
+    // broke would be worse — so a persistently failing insert undercounts the
+    // ceiling by design; that residual is recorded in the spec's review record.
     const extracted = extractJsonObject(reply.text)
-    await traceRow(asService, workshopId, authUserId, {
+    const spendRow = {
       outcome: extracted ? 'result' : 'error',
       detail: extracted ? null : 'tl23.reply_was_not_json',
       input_chars: captureJson.length,
@@ -281,7 +284,17 @@ Deno.serve(async (req: Request) => {
       cache_read_tokens: reply.usage.cache_read_tokens,
       cache_write_tokens: reply.usage.cache_write_tokens,
       latency_ms: Date.now() - started,
-    })
+    } as const
+    const recorded =
+      (await traceRow(asService, workshopId, authUserId, spendRow)) ||
+      (await traceRow(asService, workshopId, authUserId, spendRow))
+    if (!recorded) {
+      console.error('SPEND UNRECORDED after retry: the ceiling is undercounting this call', {
+        workshopId,
+        model: reply.model,
+        tokens: reply.usage,
+      })
+    }
 
     const meta = {
       model: reply.model,
@@ -327,7 +340,7 @@ async function traceRow(
     cache_write_tokens?: number | null
     latency_ms?: number | null
   },
-): Promise<void> {
+): Promise<boolean> {
   try {
     const { data } = await service.auth.admin.getUserById(authUserId)
     const { error } = await service.from('ai_call_log').insert({
@@ -337,9 +350,14 @@ async function traceRow(
       actor_email: data?.user?.email ?? null,
       ...row,
     })
-    if (error) console.error('could not record the call', error.message)
+    if (error) {
+      console.error('could not record the call', error.message)
+      return false
+    }
+    return true
   } catch (err) {
     console.error('could not record the call', err instanceof Error ? err.message : err)
+    return false
   }
 }
 

@@ -99,6 +99,15 @@ async function routeThroughServer(
 ): Promise<AiOutcome> {
   if (intent === 'push') return refused('setup.ai.hosted.never-pushes')
 
+  // The hand-off calls no model, so the model check below must not gate it: a
+  // workshop whose stored routing model is Gemini (the registry's own unit-cost
+  // recommendation for routing) still gets its bundle for a human. The stage-6
+  // review caught the check sitting above this branch.
+  if (intent === 'copy') {
+    const { json, count } = await buildExportBundle()
+    return operatorAction('setup.ai.op.fallback-prompt', { value: { count }, prompt: json })
+  }
+
   /**
    * The workshop's chosen model, checked against tl-14's registry — the same
    * refusal shape localAgentProvider uses, and for the same reason: a stored id
@@ -116,11 +125,6 @@ async function routeThroughServer(
     if (!entry || entry.provider !== 'anthropic' || !entry.reachable_in.includes('hosted-api')) {
       return refused('setup.ai.hosted.model-unreachable')
     }
-  }
-
-  if (intent === 'copy') {
-    const { json, count } = await buildExportBundle()
-    return operatorAction('setup.ai.op.fallback-prompt', { value: { count }, prompt: json })
   }
 
   return routeCapturesHosted(workshopId)

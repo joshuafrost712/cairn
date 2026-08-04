@@ -39,10 +39,12 @@ const FAN_OUT_CONCURRENCY = 3
 
 /**
  * The client's ceiling on one call. Above the platform's own wall clock for an
- * Edge Function, so the server's answer (or its death) always arrives first and
- * this only catches a connection that will never produce one.
+ * Edge Function (150s on the free plan, 400s paid — read off Supabase's limits
+ * page 2026-08-04; the Anthropic call inside is capped at 90s anyway), so the
+ * server's answer (or its death) always arrives first and this only catches a
+ * connection that will never produce one.
  */
-const PER_CALL_TIMEOUT_MS = 150_000
+const PER_CALL_TIMEOUT_MS = 160_000
 
 /**
  * Server refusal slugs that end the whole run, mapped to this build's copy.
@@ -63,7 +65,7 @@ interface ObservationsFileShape {
 }
 
 type CaptureResult =
-  | { kind: 'file'; file: ObservationsFileShape; model: string | null }
+  | { kind: 'file'; files: ObservationsFileShape[]; model: string | null }
   | { kind: 'fail'; reason: string }
   | { kind: 'end'; outcome: AiOutcome }
 
@@ -111,7 +113,10 @@ export async function routeCapturesHosted(workshopId: string): Promise<AiOutcome
 
   // One bundle, one pass through the import boundary — exactly the shape it
   // already accepts from every other mode, validation and roster check included.
-  const bundle = JSON.stringify({ schema: OBSERVATIONS_BUNDLE_SCHEMA_ID, results: files.map((f) => f.file) })
+  const bundle = JSON.stringify({
+    schema: OBSERVATIONS_BUNDLE_SCHEMA_ID,
+    results: files.flatMap((f) => f.files),
+  })
   let imported
   try {
     imported = await importObservationsText(bundle)
@@ -163,20 +168,38 @@ async function routeOne(workshopId: string, capture: unknown): Promise<CaptureRe
   const body = data as { observations_file?: unknown; raw?: unknown; model?: unknown }
   const model = typeof body.model === 'string' ? body.model : null
 
-  if (isObservationsFile(body.observations_file)) {
-    return { kind: 'file', file: body.observations_file, model }
-  }
+  const files = observationsFilesFrom(body.observations_file)
+  if (files.length > 0) return { kind: 'file', files, model }
+
   // The server's tolerant extraction missed; one last attempt on the raw text.
   if (typeof body.raw === 'string') {
     try {
-      const parsed = JSON.parse(body.raw)
-      if (isObservationsFile(parsed)) return { kind: 'file', file: parsed, model }
+      const recovered = observationsFilesFrom(JSON.parse(body.raw))
+      if (recovered.length > 0) return { kind: 'file', files: recovered, model }
     } catch {
       /* genuinely not JSON — fall through */
     }
     return { kind: 'fail', reason: 'The model answered, but not with observations this build can read.' }
   }
   return { kind: 'fail', reason: 'The server returned neither observations nor raw text.' }
+}
+
+/**
+ * Both reply shapes the prompt can legally produce, normalized.
+ *
+ * The routing instructions (relayRoutingSystem's transport section) tell the model
+ * to return the BUNDLE WRAPPER — `{schema, results: [...]}` — even for a single
+ * capture, so the wrapper is the expected shape and a bare observations file is
+ * the tolerated one, not the other way round. The first draft of this file had
+ * only the bare shape and would have failed every keyed run while spending the
+ * tokens; the stage-6 review caught it before a key existed to prove it.
+ */
+function observationsFilesFrom(x: unknown): ObservationsFileShape[] {
+  if (isObservationsFile(x)) return [x]
+  if (typeof x === 'object' && x !== null && Array.isArray((x as { results?: unknown }).results)) {
+    return (x as { results: unknown[] }).results.filter(isObservationsFile)
+  }
+  return []
 }
 
 /**
