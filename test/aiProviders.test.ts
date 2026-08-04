@@ -60,10 +60,11 @@ describe('which mode services which function', () => {
     }
   })
 
-  it('gives hosted AI only the function that has a deployed endpoint', () => {
+  it('gives hosted AI exactly the functions that have deployed endpoints', () => {
     expect(hostedApiProvider.handles('scenario_draft')).toBe(true)
+    // tl-23: routing gained a hosted endpoint (route-captures, on the Anthropic key).
+    expect(hostedApiProvider.handles('observation_routing')).toBe(true)
     expect(hostedApiProvider.handles('conversation_guidance')).toBe(false)
-    expect(hostedApiProvider.handles('observation_routing')).toBe(false)
   })
 
   it('falls back to the mode that works when the stored mode is unknown', async () => {
@@ -221,6 +222,12 @@ describe('a trace row says something a person can read', () => {
       'setup.ai.op.byo-guidance',
       'setup.ai.op.fallback-prompt',
       'setup.ai.op.pasted-reply',
+      // tl-23: the hosted routing branch's refusals.
+      'setup.ai.hosted.nothing-pending',
+      'setup.ai.hosted.never-pushes',
+      'setup.ai.hosted.model-unreachable',
+      'setup.ai.hosted.ceiling-reached',
+      'setup.ai.hosted.no-key',
     ]
     for (const id of ids) expect(describeDetail(id), id).not.toBe(id)
   })

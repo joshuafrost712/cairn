@@ -278,10 +278,14 @@ export const MODEL_REGISTRY: ModelEntry[] = [
     reviewed: REGISTRY_REVIEWED,
   },
 
-  // ---- Anthropic. Reachable through the repository hand-off, on a subscription
-  //      rather than per token, which is why the estimator shows these as tokens and
-  //      not as money unless the mode is hosted-api. The prices are still facts worth
-  //      recording: they are what a comparison against Gemini needs.
+  // ---- Anthropic. Reachable through the repository hand-off and the relay on a
+  //      subscription, and — since tl-23 — through `hosted-api` for observation
+  //      routing, metered on the deployment's own key. The API's own identifiers
+  //      for these models are exactly the ids below (no date suffix; verified
+  //      against the API reference on 2026-08-04, prices unchanged from
+  //      REGISTRY_REVIEWED), so the id here IS what route-captures sends on the
+  //      wire, and _shared/anthropic.ts's allowlist is pinned to this list by a
+  //      test rather than kept in step by hand.
   {
     id: 'claude-haiku-4-5',
     display_name: 'Claude Haiku 4.5',
@@ -297,7 +301,7 @@ export const MODEL_REGISTRY: ModelEntry[] = [
     free_tier_note: null,
     free_tier_source: null,
     price_note_id: null,
-    reachable_in: ['github-claude', 'local-agent', 'byo-agent'],
+    reachable_in: ['github-claude', 'local-agent', 'byo-agent', 'hosted-api'],
     reviewed: REGISTRY_REVIEWED,
   },
   {
@@ -315,7 +319,7 @@ export const MODEL_REGISTRY: ModelEntry[] = [
     free_tier_note: null,
     free_tier_source: null,
     price_note_id: 'setup.ai.model.price-intro',
-    reachable_in: ['github-claude', 'local-agent', 'byo-agent'],
+    reachable_in: ['github-claude', 'local-agent', 'byo-agent', 'hosted-api'],
     reviewed: REGISTRY_REVIEWED,
   },
   {
@@ -333,7 +337,7 @@ export const MODEL_REGISTRY: ModelEntry[] = [
     free_tier_note: null,
     free_tier_source: null,
     price_note_id: null,
-    reachable_in: ['github-claude', 'local-agent', 'byo-agent'],
+    reachable_in: ['github-claude', 'local-agent', 'byo-agent', 'hosted-api'],
     reviewed: REGISTRY_REVIEWED,
   },
 ]
@@ -377,6 +381,13 @@ export interface ModelRecommendation {
  * already uses when `GEMINI_MODEL` is unset — recommending anything else would make
  * the registry's advice disagree with the app's own behaviour, which is the kind of
  * quiet contradiction tl-13's D2 was.
+ *
+ * The routing recommendation still names Gemini Flash-Lite, and that is about COST
+ * PER TOKEN, which remains true. Which model a deployment can actually route on is
+ * a different fact — it is about which key the deployment holds, and this one holds
+ * an Anthropic key (tl-23), so `route-captures` defaults to Claude Sonnet 5 when a
+ * workshop names nothing. The advice and the default answer different questions,
+ * and collapsing them would make one of the two quietly wrong.
  */
 export const RECOMMENDATIONS: ModelRecommendation[] = [
   { job: 'routing', model_id: 'gemini-2.5-flash-lite', whyId: 'setup.ai.model.why-routing' },

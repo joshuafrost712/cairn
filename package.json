@@ -15,7 +15,8 @@
     "test": "vitest run",
     "icons": "tsx scripts/gen-icons.ts",
     "relay": "node relay/server.mjs",
-    "relay:wipe": "node relay/wipe.mjs"
+    "relay:wipe": "node relay/wipe.mjs",
+    "bundle:relay-prompts": "node scripts/bundle-relay-prompts.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.108.0",
