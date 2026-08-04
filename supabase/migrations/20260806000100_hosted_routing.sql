@@ -97,8 +97,20 @@ end $$;
 comment on function ai_spend_permitted(uuid) is
   'Whether the deployment may spend metered AI tokens right now (tl-23). Null means yes; a slug names the refusal (hosted AI off, or the daily token ceiling reached). Sums all four token columns on today''s hosted-api ai_call_log rows against platform_setting.ai_daily_token_ceiling. Called by Edge Functions with the service-role key, alongside ai_call_permitted(); execute is granted to service_role alone for the same reason.';
 
-revoke all on function ai_spend_permitted(uuid) from public;
+-- REVOKE FROM THE ROLES BY NAME, not only from public. Supabase's default
+-- privileges grant execute on every new public function to anon and
+-- authenticated EXPLICITLY, and `revoke ... from public` removes none of that:
+-- it strips only the PUBLIC pseudo-role's grant. tl-13's ai_call_permitted shipped
+-- with exactly this gap — its migration revoked from public, and any signed-in
+-- (or anonymous) session could still execute it directly until this file. Same
+-- family as tl-13's own `if not exists` scar: the statement protects less than
+-- it reads like it protects.
+revoke all on function ai_spend_permitted(uuid) from public, anon, authenticated;
 grant execute on function ai_spend_permitted(uuid) to service_role;
+
+-- Close the same gap on tl-13's function. Its comment already promised
+-- "execute is granted to service_role alone"; this makes the promise true.
+revoke all on function ai_call_permitted(uuid, uuid, text) from public, anon, authenticated;
 
 -- ---------------------------------------------------------------------------
 -- The ceiling as a deployment setting. Writes stay behind set_platform_setting()

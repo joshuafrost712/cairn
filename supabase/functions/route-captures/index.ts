@@ -181,16 +181,6 @@ Deno.serve(async (req: Request) => {
       )
     }
 
-    const apiKey = Deno.env.get('ANTHROPIC_API_KEY')
-    if (!apiKey) {
-      await traceRow(asService, workshopId, authUserId, {
-        outcome: 'refused',
-        detail: 'tl23.no_model_key',
-        input_chars: captureJson.length,
-      })
-      return json({ error: REFUSAL_MESSAGES['tl23.no_model_key'], reason: 'tl23.no_model_key' }, 500)
-    }
-
     /**
      * THE MODEL IS READ HERE, from ai_config, never from the request. Null means
      * the default; anything this endpoint cannot call is refused rather than
@@ -217,6 +207,16 @@ Deno.serve(async (req: Request) => {
         { error: REFUSAL_MESSAGES['tl23.model_not_callable_here'], reason: 'tl23.model_not_callable_here' },
         400,
       )
+    }
+
+    const apiKey = Deno.env.get('ANTHROPIC_API_KEY')
+    if (!apiKey) {
+      await traceRow(asService, workshopId, authUserId, {
+        outcome: 'refused',
+        detail: 'tl23.no_model_key',
+        input_chars: captureJson.length,
+      })
+      return json({ error: REFUSAL_MESSAGES['tl23.no_model_key'], reason: 'tl23.no_model_key' }, 500)
     }
 
     // The workshop's own scale, read authoritatively (see header note 1).
