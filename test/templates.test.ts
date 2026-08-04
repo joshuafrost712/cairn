@@ -522,3 +522,26 @@ describe('the editor cannot offer what must stay compiled in', () => {
     expect(templateSpec('instructions.observation_routing.schema')).toBeUndefined()
   })
 })
+
+describe('a browser harness leaves no fake audit record behind', () => {
+  it('guards the applied-edit log on a configured backend', () => {
+    // tl-14's D4 fix, applied to the OTHER logging function. In local-only mode there is
+    // no database, so there is no divergence from seed.ts to record — and a harness that
+    // wrote one left behind a file reading exactly like a genuine record of edits to the
+    // live project. tl-16's own walkthrough produced three before this guard existed.
+    //
+    // A SOURCE TRIPWIRE rather than a call, and the first version of this test is the
+    // reason: it asserted `isSupabaseConfigured === false` under vitest, which is true
+    // only when no `.env` is present. This worktree has one (the build guard tl-18 added
+    // refuses a bundle without it), so the premise was a property of the machine rather
+    // than of the code. The same shape as the tl-12 tripwire that fails if a later spec
+    // quietly reintroduces a column.
+    const source = readFileSync(
+      path.join(__dirname, '..', 'src', 'devfeedback', 'applyEdit.ts'),
+      'utf8',
+    )
+    const fn = source.slice(source.indexOf('export async function logAppliedEdit'))
+    expect(fn).toContain('if (!isSupabaseConfigured) return false')
+    expect(fn.indexOf('if (!isSupabaseConfigured) return false')).toBeLessThan(fn.indexOf('fetch('))
+  })
+})
