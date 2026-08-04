@@ -14,6 +14,9 @@
 // the spec Claude was given.
 
 import type { ResolvedKsa } from '../lib/goals'
+import { defaultBody } from '../templates/defaults'
+import { fillTemplateTokens } from '../templates/interpolate'
+import { bodyFor, getActiveTemplates } from '../templates/resolve'
 import { DEFAULT_SCALE, isValidDesignation, maxValue, minValue, scaleValues, type Scale } from '../lib/scale'
 import type { Participant } from '../lib/types'
 
@@ -27,29 +30,34 @@ import type { Participant } from '../lib/types'
  * answer 1-5 and the instruction will have been a lie the whole time. The
  * default is the app's original scale, so a caller that has not been updated
  * produces exactly the text it produced before.
+ *
+ * AUTHORABLE SINCE tl-16, and the body is now a parameter for one reason the scale
+ * is not: it has to be resolvable in two runtimes. In the browser it defaults to the
+ * ACTIVE workshop's override, on the same rule `getActiveScale()` carries — anything
+ * generating this for a workshop the operator is not in passes it explicitly. In the
+ * Edge Function (via the generated bundle) `getActiveTemplates()` is the empty set, so
+ * this returns the shipped text and `route-captures` passes the workshop's override
+ * that it read from Postgres itself. A server that trusted the client for its prompt
+ * would be a different and worse design.
+ *
+ * `{{range}}` is the same hole this template has had since tl-09, lowercased in tl-16
+ * to match every other token in the library and now filled by the shared scanner
+ * rather than by a `replace()` of its own. The validator REQUIRES it, so an authored
+ * body cannot drop it.
  */
-export function routingRules(scale: Scale = DEFAULT_SCALE): string {
-  return ROUTING_RULES_TEMPLATE.replace(
-    /\{\{RANGE\}\}/g,
-    `${minValue(scale)}-${maxValue(scale)}`,
-  )
+export function routingRules(scale: Scale = DEFAULT_SCALE, body?: string): string {
+  const text = body ?? bodyFor(getActiveTemplates(), 'instructions.observation_routing')
+  return fillTemplateTokens(text, { range: `${minValue(scale)}-${maxValue(scale)}` })
 }
 
-const ROUTING_RULES_TEMPLATE = `You are the routing step of an Oral Bible Translation (OBT) consultant-development workshop evaluation system.
-
-An evaluator dictated or typed free-form observations while watching one or more participants during a workshop activity. Turn that raw text into atomic, individual-level observations.
-
-Rules:
-- Produce one observation per (participant, KSA) claim. Split compound statements.
-- Attribute every observation to a single participant by the name the evaluator used. If the evaluator made a whole-group remark, emit one observation per named participant in scope, each with origin "group".
-- Only use the KSA codes provided in the reference. If a statement does not map to any provided KSA, omit it (do not invent a KSA).
-- Assign evidence_designation {{RANGE}} strictly from that KSA's evidence levels. The evaluator's text is the only evidence; do not infer beyond it.
-- A line like "(Evaluator quick read, prior only: 2/3)" is the evaluator's own optional read, NOT ground truth. Treat it as a weak prior: rate from the observation text, and when the text clearly disagrees with the prior, follow the text and set needs_review true so the gate can reconcile.
-- Quote the relevant span of the source in source_excerpt; put your own concise English summary in text.
-- sentiment_flag: "strong" for clearly strong performance, "weak" for clearly weak, else "neutral".
-- confidence: "high" only when the attribution and designation are clearly supported; "low" when the participant is ambiguous, the KSA mapping is a stretch, or the evidence is too thin to rate.
-- Set needs_review true when confidence is "low", when the participant cannot be matched to the roster, or when you had to guess the designation. Never guess silently.
-- Return only observations grounded in the text. An empty list is a valid answer.`
+/**
+ * The shipped routing rules, as tl-16's library holds them.
+ *
+ * Re-exported rather than declared here: this text was a literal in this file until
+ * tl-16 moved it into `src/templates/defaults.ts`, which is now its one home. Keeping a
+ * copy would be keeping the thing the whole spec exists to prevent.
+ */
+export const ROUTING_RULES_TEMPLATE = defaultBody('instructions.observation_routing')
 
 /**
  * The activity-specific reference: KSA rubric + participant roster, as markdown.

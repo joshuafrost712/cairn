@@ -26,8 +26,18 @@ export interface FeedbackComment {
   updatedAt: string
 }
 
-/** Reference tables whose authored copy can be proposed against. */
-export type ProposalTable = 'ksa' | 'activity' | 'workshop'
+/**
+ * Reference tables whose authored copy can be proposed against.
+ *
+ * `ai_template` (tl-16) is the fourth, and it is here rather than in a second queue
+ * because the spec asked for exactly that: one staging mechanism, one staleness contract,
+ * one applied-edit log. Its `rowId` is `${workshop_id}::${template_key}` and its `field`
+ * is always `body`. The one way it differs from the other three is that the row may not
+ * exist — an unauthored slot resolves to the shipped default — so `oldText` is the
+ * RESOLVED body rather than a column value, and applying reads the resolved body back to
+ * check staleness. See applyProposal.ts.
+ */
+export type ProposalTable = 'ksa' | 'activity' | 'workshop' | 'ai_template'
 
 /**
  * A pending wording change to REFERENCE copy (a KSA question, an activity title).
@@ -70,6 +80,10 @@ class FeedbackDB extends Dexie {
       comments: 'id, status, importance, route, createdAt',
       proposals: 'id, status, table, rowId, createdAt',
     })
+    // No version bump for tl-16's `ai_template` proposals: `table` is already an index
+    // and the new value is data in an existing column, not a new one. Dexie declares
+    // indexes rather than fields — the same reason six specs running found they needed
+    // no bump on the production store.
   }
 }
 

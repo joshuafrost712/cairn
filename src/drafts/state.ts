@@ -191,6 +191,22 @@ export function superseding(
 }
 
 /** Whether a status still allows editing the text. */
+/**
+ * Whether the authored wording has moved since this draft was generated (tl-16).
+ *
+ * Two refusals, both deliberate. It says no for anything that is not still a draft,
+ * because an approved or sent document is a RECORD of what somebody approved and
+ * telling a reader it is out of date invites them to "fix" the audit trail. And it
+ * says no when the draft carries no fingerprint at all, which means it predates this
+ * spec: unknown is not stale, and warning on it would be the classifier crying wolf
+ * on every row in the queue the day this ships.
+ */
+export function templatesMoved(draft: DraftDoc, currentFingerprint: string): boolean {
+  if (draft.status !== 'draft') return false
+  if (!draft.templateFingerprint) return false
+  return draft.templateFingerprint !== currentFingerprint
+}
+
 export function isEditable(status: DraftStatus): boolean {
   return status === 'draft'
 }

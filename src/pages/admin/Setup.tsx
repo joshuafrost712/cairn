@@ -20,7 +20,7 @@ import { WiringSection } from '../../setup/sections/WiringSection'
 import { ScaleSection } from '../../setup/sections/ScaleSection'
 import { PeopleSection } from '../../setup/sections/PeopleSection'
 import { AiSection } from '../../setup/sections/AiSection'
-import { TemplatesSection } from '../../setup/sections/AiAndTemplates'
+import { TemplatesSection } from '../../setup/sections/TemplatesSection'
 import { Roster } from './Roster'
 import type { ReferenceOutboxEntry, SetupChangeLogEntry, Workshop } from '../../lib/types'
 
@@ -236,7 +236,7 @@ function SectionBody({ section, workshop }: { section: string; workshop: Worksho
     case 'ai':
       return <AiSection workshopId={workshop.id} />
     case 'templates':
-      return <TemplatesSection />
+      return <TemplatesSection workshop={workshop} />
     default:
       return <div className="banner warn">{c('setup.unknown-section')}</div>
   }

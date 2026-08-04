@@ -3,6 +3,7 @@ import { supabase, isSupabaseConfigured } from '../lib/supabase'
 import { pushReferenceOutbox } from './referenceWrite'
 import { cacheSettingRows, mirrorActiveWorkshop } from './settings'
 import { cacheScalePoints, mirrorActiveScale, seedDefaultScale } from './scale'
+import { mirrorActiveTemplates, pullTemplates } from './templates'
 import { cacheAssignmentRows } from './assignments'
 import { cacheAiConfigRows, refreshPlatformSettings } from './aiConfig'
 import { getActiveWorkshopId } from '../lib/activeWorkshop'
@@ -140,6 +141,13 @@ export async function loadReferenceData(): Promise<void> {
       // delete this device's cached configuration on the strength of a response that
       // never arrived, which is the exact mistake `inScope` exists to prevent.
       if (!ac.error) await cacheAiConfigRows(ac.data ?? [], inScope)
+      // tl-16's authored templates pull HERE but not in the transaction above, for
+      // the same reason profiles do not: that block clears its tables first, which is
+      // right for reference data the backend owns and wrong for rows holding human
+      // edits. `pullTemplates` is additive and prunes only within `inScope`; it
+      // swallows its own failure, so a device with no network keeps its cached
+      // library and generates the workshop's own wording from it.
+      await pullTemplates(inScope)
       // The deployment switch that decides whether hosted AI is even offerable.
       // Awaited rather than fired so that a caller who has finished loading really
       // has: the Setup AI section renders a mode picker off the mirrored value, and
@@ -153,6 +161,10 @@ export async function loadReferenceData(): Promise<void> {
       // Moves the threshold AND (tl-09) the scale; see that function's header for
       // why both mirrors travel together rather than one call site each.
       await mirrorActiveWorkshop(getActiveWorkshopId())
+      // tl-16. Travels with the other two mirrors rather than in an effect of its own,
+      // so there is no frame in which fresh template rows sit in Dexie while a
+      // generated email still carries the previous workshop's authored wording.
+      await mirrorActiveTemplates(getActiveWorkshopId())
       // People and profiles (tl-12) refresh here so there is one load path, but
       // NOT inside the transaction above and not with a clear: that block wipes
       // its tables first, which is right for reference data the backend owns and
@@ -195,6 +207,9 @@ export async function primeFromSeed(): Promise<void> {
   // to buildScale()'s fallback so the Setup editor has something to edit.
   for (const w of seed.seedWorkshops) await seedDefaultScale(w.id)
   await mirrorActiveScale(getActiveWorkshopId())
+  // The seed carries no authored templates either: local-only mode is the shipped
+  // library, which is what an empty override set resolves to.
+  await mirrorActiveTemplates(getActiveWorkshopId())
 }
 
 /**

@@ -238,13 +238,35 @@ Deno.serve(async (req: Request) => {
       })),
     )
 
+    /**
+     * The workshop's authored routing instructions (tl-16), read here for the same
+     * reason the scale is: a prompt is not the client's to supply.
+     *
+     * The obvious alternative — have the browser send the resolved instructions in the
+     * request body — would work and would hand any signed-in administrator a way to put
+     * arbitrary text into a call this deployment pays for, with no record of what the
+     * workshop had actually authored. So the body arrives from the row, and an absent
+     * row means the shipped default that `relayRoutingSystem` already resolves.
+     *
+     * A read failure is treated as absence rather than as an error. Refusing a whole
+     * day's routing because an override could not be read would be trading the work for
+     * the wording, and the shipped instructions are a correct and complete contract.
+     */
+    const { data: ruleRows } = await asService
+      .from('ai_template')
+      .select('body')
+      .eq('workshop_id', workshopId)
+      .eq('template_key', 'instructions.observation_routing')
+      .maybeSingle()
+    const authoredRules = typeof ruleRows?.body === 'string' ? ruleRows.body : undefined
+
     const started = Date.now()
     let reply
     try {
       reply = await callAnthropic({
         apiKey,
         model,
-        system: relayRoutingSystem(scale),
+        system: relayRoutingSystem(scale, authoredRules),
         prompt: relayRoutingPrompt(captureJson),
       })
     } catch (err) {

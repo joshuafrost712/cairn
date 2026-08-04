@@ -113,8 +113,14 @@ export const outboxPath = (clientId: string) => `${OUTBOX}/${clientId}.json`
 
 // ---- generated workspace docs --------------------------------------------
 
-/** routing/ROUTING.md — the runbook Claude (via Max) follows on the repo. */
-export function renderRoutingDoc(scale: Scale = DEFAULT_SCALE): string {
+/**
+ * routing/ROUTING.md — the runbook Claude (via Max) follows on the repo.
+ *
+ * `rules` (tl-16) is the workshop's authored routing instructions, passed through to
+ * `routingRules`. Left absent by every in-app caller, which resolves the active
+ * workshop's; supplied by the Edge Function, which read the override server-side.
+ */
+export function renderRoutingDoc(scale: Scale = DEFAULT_SCALE, rules?: string): string {
   return `# Routing runbook (for Claude)
 
 This repo is the routing substrate for the Cairn participant-evaluation app. **No
@@ -133,7 +139,7 @@ full picture if you want it; \`reference/schema.json\` is the exact output shape
 
 ## The routing contract
 
-${routingRules(scale)}
+${routingRules(scale, rules)}
 
 ## Output
 

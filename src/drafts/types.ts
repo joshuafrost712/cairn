@@ -132,4 +132,21 @@ export interface DraftDoc {
   approvedBy: string | null
   approvedAt: string | null
   approvedSnapshot: ApprovedSnapshot | null
+  /**
+   * A fingerprint of the authored templates this document was generated from (tl-16),
+   * from `templateFingerprint()` in src/templates/resolve.ts.
+   *
+   * OPTIONAL, and the absence carries meaning rather than being a convenience. A row
+   * written before tl-16 has none, and "generated before the app had templates" is not
+   * the same as "generated from the shipped defaults" (`'default'`): the first cannot
+   * be compared to anything, so the notice stays silent on it rather than telling a
+   * reviewer their draft is stale on the strength of a field that never existed.
+   *
+   * Why this is stamped at all, when `mergeDraft` already flags stale text: that flag
+   * only fires on a segment somebody EDITED, because it compares the override's
+   * baseline. A pending draft nobody has touched carries the old wording with nothing
+   * anywhere to say so, and regenerating it underneath the reviewer is the other thing
+   * this spec was told not to do.
+   */
+  templateFingerprint?: string | null
 }

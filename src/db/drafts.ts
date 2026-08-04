@@ -21,6 +21,9 @@ import {
   eventDigestSubject,
 } from '../reports/eventDigest'
 import { mergeDraft } from '../drafts/merge'
+import { scaleForWorkshop } from './scale'
+import { templatesForWorkshop } from './templates'
+import { templateFingerprint } from '../templates/resolve'
 import { draftId, superseding } from '../drafts/state'
 import type { DraftDoc, DraftRecipient, ApprovedEvidence } from '../drafts/types'
 import type { DocSegment } from '../reports/segments'
@@ -70,7 +73,13 @@ async function upsertDraft(fresh: Omit<DraftDoc, 'overrides' | 'orphans' | 'flag
   }
 
   // Approved, sending, sent, or superseded: leave it alone and make a successor.
-  const next = superseding(existing, merged, fresh.generatedAt)
+  //
+  // The successor's fingerprint has to come from `fresh`, not from the row being
+  // superseded: `superseding()` spreads the approved row, whose fingerprint describes
+  // the templates the APPROVER read. Carrying it forward would have every successor
+  // generated after a wording change announce itself as stale on the moment of its own
+  // creation, which is the opposite of what the notice means.
+  const next = { ...superseding(existing, merged, fresh.generatedAt), templateFingerprint: fresh.templateFingerprint }
   const alreadyThere = await db.docDrafts.get(next.id)
   if (alreadyThere) return alreadyThere
 
@@ -127,6 +136,21 @@ export async function generateParticipantEmails(opts: GenerateOptions): Promise<
       db.workshops.get(opts.workshopId),
     ])
 
+  // RESOLVED FOR `opts.workshopId`, NOT FOR THE ACTIVE WORKSHOP, and both of these
+  // are passed down explicitly for the reason the parameter exists at all. The
+  // builders default to the active workshop's scale and (tl-16) its authored wording,
+  // which is right for every in-app caller and wrong here: this function is the one
+  // place that generates documents for a NAMED workshop, so a batch generated while
+  // the operator is switched elsewhere would otherwise print one organization's scale
+  // and sentences over another's evidence, with nothing on screen looking wrong. The
+  // scale half of that was a latent defect from tl-09/tl-17; it is fixed here rather
+  // than reproduced for templates.
+  const [scale, templates] = await Promise.all([
+    scaleForWorkshop(opts.workshopId),
+    templatesForWorkshop(opts.workshopId),
+  ])
+  const fingerprint = templateFingerprint(templates)
+
   const observations = observationsForWorkshop(allObservations, evaluations, opts.workshopId)
   const workshopName = workshop?.name ?? 'Workshop'
   const sortedKsas = [...ksas].sort((a, b) => a.code.localeCompare(b.code))
@@ -140,6 +164,8 @@ export async function generateParticipantEmails(opts: GenerateOptions): Promise<
     const gate = participantGate(annotated.filter((o) => o.participant_id === report.participant_id))
     const segments = buildParticipantEmailSegments(report, gate, workshopName, opts.dateLabel, {
       fromName: opts.fromName,
+      scale,
+      templates,
     })
 
     out.push(
@@ -164,6 +190,7 @@ export async function generateParticipantEmails(opts: GenerateOptions): Promise<
         approvedBy: null,
         approvedAt: null,
         approvedSnapshot: null,
+        templateFingerprint: fingerprint,
       }),
     )
   }
@@ -195,6 +222,13 @@ export async function generateEventDigests(opts: DigestOptions): Promise<DraftDo
       db.mentoringConversations.where('workshop_id').equals(opts.workshopId).toArray(),
     ])
 
+  // Same rule as generateParticipantEmails above: resolved for the named workshop.
+  const [scale, templates] = await Promise.all([
+    scaleForWorkshop(opts.workshopId),
+    templatesForWorkshop(opts.workshopId),
+  ])
+  const fingerprint = templateFingerprint(templates)
+
   const observations = observationsForWorkshop(allObservations, allEvaluations, opts.workshopId)
   // Captures stay unscoped for the INDEX (an observation is situated by its own
   // capture, whichever workshop that capture is in) but the analytics below see
@@ -218,7 +252,11 @@ export async function generateEventDigests(opts: DigestOptions): Promise<DraftDo
   const out: DraftDoc[] = []
   for (const a of analytics) {
     const convs = conversationsForEvent(a, conversations, obsToActivity)
-    const segments = buildEventDigestSegments(a, convs, { fromName: opts.fromName })
+    const segments = buildEventDigestSegments(a, convs, {
+      fromName: opts.fromName,
+      scale,
+      templates,
+    })
 
     out.push(
       await upsertDraft({
@@ -244,6 +282,7 @@ export async function generateEventDigests(opts: DigestOptions): Promise<DraftDo
         approvedBy: null,
         approvedAt: null,
         approvedSnapshot: null,
+        templateFingerprint: fingerprint,
       }),
     )
   }

@@ -1,11 +1,9 @@
 import { useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { pushReferenceOutbox, upsertActivity, upsertKsa, upsertWorkshop } from '../db/referenceWrite'
-import type { Activity, Ksa, Workshop } from '../lib/types'
 import { isFeedbackEnabled } from './enabled'
 import { fdb, resolveProposal, type ContentProposal } from './db'
-import { logAppliedEdit } from './applyEdit'
-import { loadRefRow, readRefField, refFieldLabel, writeRefField } from './refField'
+import { applyProposal } from './applyProposal'
+import { refFieldLabel } from './refField'
 
 /**
  * Review and approve proposed wording changes to reference copy.
@@ -47,54 +45,40 @@ export function ProposalPanel() {
     setBusy(p.id)
     setNotice('')
     try {
-      const row = await loadRefRow(p.table, p.rowId)
-      if (!row) {
+      // One apply path, shared with the Setup templates section (tl-16). The staleness
+      // check, the offline-first write, the outbox drain and the git log all live in
+      // applyProposal.ts; this handler is the dev-mode surface over it. Keeping a second
+      // copy here is what would have let one of the two lose a fix.
+      const outcome = await applyProposal(p)
+      if (outcome.code === 'missing') {
         setNotice(`That ${p.table} record is no longer on this device. Nothing applied.`)
         return
       }
-      // Staleness guard, the same contract the chrome endpoint enforces with a 409:
-      // if the stored text moved since the proposal was made, refuse rather than
-      // overwrite whatever replaced it.
-      const current = readRefField(row, p.field)
-      if (current !== p.oldText) {
+      if (outcome.code === 'stale') {
         setNotice(
           'This text changed since the proposal was made, so it was not applied. Reject it and redo the edit against the current wording.',
         )
         return
       }
-
-      const next = writeRefField(row, p.field, p.newText)
-      if (p.table === 'ksa') await upsertKsa(next as Ksa)
-      else if (p.table === 'activity') await upsertActivity(next as Activity)
-      else await upsertWorkshop(next as Workshop)
-
-      await resolveProposal(p.id, 'applied')
-
-      // Drain the outbox and report what actually happened. upsertKsa ends in a
-      // fire-and-forget push whose only failure signal is a console warning, so
-      // reporting "queued for sync" unconditionally would repeat the widget's own
-      // invariant #1 mistake (never claim success you did not observe). A stuck
-      // entry matters more here than usual: loadReferenceData() skips its pull
-      // entirely while anything is pending, so a permanently failing push freezes
-      // ALL reference updates on this device until it clears.
-      let sync = ''
-      try {
-        const { pending: stillPending } = await pushReferenceOutbox()
-        sync = stillPending > 0 ? ` ${stillPending} change(s) still waiting to sync.` : ' Synced.'
-      } catch {
-        sync = ' Not synced yet; it stays queued and retries.'
+      if (outcome.code === 'invalid') {
+        setNotice(
+          `This build will not accept that text (${outcome.problem?.code ?? 'refused'}). Reject it and redo the edit.`,
+        )
+        return
       }
 
-      // Best-effort git record; the write above already happened either way.
-      const logged = await logAppliedEdit({
-        table: p.table,
-        rowId: p.rowId,
-        field: p.field,
-        oldText: p.oldText,
-        newText: p.newText,
-      })
+      // Report what actually happened rather than "queued for sync": the push ends in a
+      // fire-and-forget whose only failure signal is a console warning, and a stuck entry
+      // matters more here than usual — loadReferenceData() skips its pull entirely while
+      // anything is pending, so a permanently failing push freezes ALL reference updates
+      // on this device until it clears.
+      const sync = outcome.syncFailed
+        ? ' Not synced yet; it stays queued and retries.'
+        : (outcome.stillPending ?? 0) > 0
+          ? ` ${outcome.stillPending} change(s) still waiting to sync.`
+          : ' Synced.'
       setNotice(
-        (logged
+        (outcome.logged
           ? 'Applied, and recorded in feedback/content-edits/.'
           : 'Applied. No dev server, so it was NOT recorded to file — the before/after is kept below only on this device, and seed.ts needs reconciling by hand.') + sync,
       )

@@ -7,7 +7,16 @@ import { gateForDraft, resolveSnapshotEvidence, saveDraft } from '../db/drafts'
 import { annotateObservations } from '../reports/verification'
 import { segmentsToMarkdown } from '../reports/segments'
 import { applyOverrides, makeOverride, revertOverride } from '../drafts/merge'
-import { approvalBlockers, approveDraft, isEditable, overrideGate, unapproveDraft } from '../drafts/state'
+import {
+  approvalBlockers,
+  approveDraft,
+  isEditable,
+  overrideGate,
+  templatesMoved,
+  unapproveDraft,
+} from '../drafts/state'
+import { templatesForWorkshop } from '../db/templates'
+import { templateFingerprint } from '../templates/resolve'
 import { buildEvidenceContext } from '../workbench/evidenceView'
 import { PageHeader } from '../layout/PageHeader'
 import { DocumentPane } from '../components/workbench/DocumentPane'
@@ -44,6 +53,22 @@ export function Workbench() {
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
   const [drawerOpen, setDrawerOpen] = useState(false)
+  // tl-16. Resolved for the DRAFT's workshop rather than the active one, because a
+  // document is reviewed long after it was generated and the operator may have
+  // switched away by then; comparing against another workshop's fingerprint would
+  // report drift on every draft in the queue.
+  const [currentTemplates, setCurrentTemplates] = useState<string | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    if (!draft) return
+    void templatesForWorkshop(draft.workshopId).then((set) => {
+      if (!cancelled) setCurrentTemplates(templateFingerprint(set))
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [draft])
 
   // The gate is a query, not a subscription: it is read at approval time and
   // shown as context. A live one would let the Approve button flicker between
@@ -166,6 +191,7 @@ export function Workbench() {
 
       <StaleBanner
         draft={draft}
+        templatesMoved={currentTemplates !== null && templatesMoved(draft, currentTemplates)}
         onGoTo={(sid) => {
           setSelectedId(sid)
           setDrawerOpen(true)

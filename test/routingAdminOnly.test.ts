@@ -213,8 +213,20 @@ describe('the evaluator-facing copy names no mechanism', () => {
   // that can do it, and tells an operator where the answers go — and it is behind
   // RequireRole ADMIN_ROLES with its own nav test below asserting that gate. If the gate
   // is ever loosened, that test fails before this exemption becomes a leak.
+  //
+  // tl-16 adds `setup.templates.group.` — and ONLY that, which is the narrowest
+  // exemption in this list and deliberately so. The template library groups its slots by
+  // the AI function they instruct, so those node ids are BUILT from the function names
+  // (`setup.templates.group.observation_routing`), and the offending word is in the id
+  // rather than in any sentence: the labels themselves say "turning captures into
+  // observations" and name no mechanism. Renaming the function would be the alternative,
+  // and `observation_routing` is a stored identifier in `ai_config.functions` and in
+  // `ai_call_permitted()`, so it is exactly the kind of name this project does not rename
+  // (see the display-strings-versus-storage-ids rule in the README). Every other
+  // `setup.templates.` string stays under audit, including all the labels and all the
+  // error sentences, so a string reused on an evaluator's screen would still be caught.
   const ADMIN_ONLY =
-    /^(routing\.|sync-health\.|agent-brief\.|nav\.routing|nav\.sync-health|nav\.agent-brief|nav\.discrepancy-inbox|nav\.builder|setup\.ai\.|setup\.impact\.ai\.)/
+    /^(routing\.|sync-health\.|agent-brief\.|nav\.routing|nav\.sync-health|nav\.agent-brief|nav\.discrepancy-inbox|nav\.builder|setup\.ai\.|setup\.impact\.ai\.|setup\.templates\.group\.)/
 
   const nodes = (chrome as { nodes: Array<Record<string, unknown>> }).nodes
 
