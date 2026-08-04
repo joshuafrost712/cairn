@@ -1,0 +1,152 @@
+/**
+ * What may be saved as a template body (tl-16). Pure.
+ *
+ * The failure this exists to prevent is specific and it is not an exception being
+ * thrown: an admin types `{{particpantName}}`, nothing complains, and a fortnight
+ * later twenty-six people receive an email that opens "Hi {{particpantName}},". By
+ * then the document has been approved, snapshotted and sent, so there is nothing
+ * left to fix. Every rule below is a version of "refuse now rather than render it".
+ *
+ * WHY AN UNDECLARED TOKEN IS AN ERROR RATHER THAN A WARNING. The filler leaves an
+ * unfilled token in place deliberately (a blanked sentence is worse than a visible
+ * one), so nothing downstream will ever notice. This is the only place that can.
+ *
+ * The caps are mirrored in SQL by `ai_template_is_legal()` in
+ * 20260808000100_ai_templates.sql, and test/templates.test.ts reads that file to keep
+ * the two equal — the pairing tl-13 used for `AI_FUNCTION_DEFAULTS` and tl-15 used
+ * for the brief caps, for the same reason: SQL cannot import TypeScript, so a test
+ * that fails on drift is the only thing holding two copies together.
+ */
+
+import { REQUIRED_VARIABLES, templateSpec } from './defaults'
+import { tokensIn } from './interpolate'
+
+/** One template body's ceiling. Generous: the general instructions are ~2,400 chars. */
+export const MAX_TEMPLATE_BODY_CHARS = 20_000
+
+/** A single-line slot's ceiling, so a paragraph cannot be pasted into a greeting. */
+export const MAX_SINGLE_LINE_BODY_CHARS = 2_000
+
+export type TemplateProblem =
+  | { code: 'unknown_key' }
+  | { code: 'empty' }
+  | { code: 'too_long'; limit: number }
+  | { code: 'newline_in_single_line' }
+  | { code: 'undeclared_variable'; variable: string; declared: string[] }
+  | { code: 'missing_required_variable'; variable: string }
+  | { code: 'malformed_interpolation'; found: string }
+
+export type TemplateValidation = { ok: true } | { ok: false; problem: TemplateProblem }
+
+/**
+ * A brace sequence that looks like an interpolation and is not one.
+ *
+ * REWRITTEN AFTER THE SECOND-AI REVIEW, which broke the first version in both
+ * directions at once and is worth recording as a pair rather than as two fixes.
+ *
+ * It REFUSED legitimate bodies. The old rule was "a `}}` with nothing opening it", which
+ * matches every nested JSON object — `{"results": {"observations": []}}` ends in `}}`,
+ * and so does `{{ "0": "not yet", "1": "emerging" }}`, which is the exact shape
+ * interpolate.ts cites as its reason for using double braces at all. The instruction
+ * templates are the one place in this library where JSON examples belong, so the rule was
+ * strictest precisely where it needed to be loosest. The shipped defaults passed only
+ * because none of them happens to contain two adjacent closing braces, which means the
+ * "every shipped body validates" test proved nothing about an authored one.
+ *
+ * And it ACCEPTED two bodies that render stray braces to a participant. `Hi {{name}}},`
+ * and `Hi {{{name}}},` both survived, because stripping the well-formed token first left
+ * a single orphan brace that neither remaining rule could see — `}}`-hunting needs two,
+ * and the single-brace rule needs a letter hugging both sides.
+ *
+ * THE RULE NOW: only a token-SHAPED sequence is judged. A run of braces immediately
+ * around a bare identifier is either a well-formed `{{name}}` or a mistake, and anything
+ * else — JSON, prose, a lone brace, `}}` closing two objects — is left alone. That is
+ * narrower than "balance the braces" on purpose: this validator's job is to catch a typo
+ * in an interpolation, not to be a parser for a syntax templates do not have.
+ */
+
+/** A bare identifier wrapped in at least one brace on each side. `{{name}}` is legal. */
+const TOKEN_SHAPED = /(\{+)\s*([A-Za-z][A-Za-z0-9_]*)\s*(\}+)/g
+
+/** `{{name}` and `{name}}` — an identifier whose braces do not come in a matched pair. */
+const HALF_OPEN = /\{\{\s*[A-Za-z][A-Za-z0-9_]*\s*(?!\}\})|(?<!\{\{)\s*[A-Za-z][A-Za-z0-9_]*\s*\}\}/
+
+function malformed(body: string): string | null {
+  for (const m of body.matchAll(TOKEN_SHAPED)) {
+    const [whole, open, , close] = m
+    if (open.length === 2 && close.length === 2) continue
+    // One brace each side is the chrome syntax (src/lib/content/chrome.ts), which does
+    // nothing here: the text renders with the braces in it. Three or more is a typo on
+    // the way to two. Either way, report what was written so the message can quote it.
+    return whole.trim()
+  }
+  // A `{{name}` or `name}}` never matches TOKEN_SHAPED as a pair, so it is caught here.
+  const half = HALF_OPEN.exec(
+    body.replace(TOKEN_SHAPED, (w, o: string, _n: string, c: string) =>
+      o.length === 2 && c.length === 2 ? ' ' : w,
+    ),
+  )
+  if (half) return half[0].trim()
+  return null
+}
+
+/**
+ * Whether `body` may be stored for `key`.
+ *
+ * Returns a structured problem rather than a sentence, so the editor's wording lives
+ * in chrome.json like every other string and the tests assert on codes rather than
+ * on copy — the same split tl-07's classifier made for the same reason.
+ */
+export function validateTemplateBody(key: string, body: string): TemplateValidation {
+  const spec = templateSpec(key)
+  if (!spec) return { ok: false, problem: { code: 'unknown_key' } }
+
+  if (body.trim().length === 0) return { ok: false, problem: { code: 'empty' } }
+
+  const limit = spec.multiline ? MAX_TEMPLATE_BODY_CHARS : MAX_SINGLE_LINE_BODY_CHARS
+  if (body.length > limit) return { ok: false, problem: { code: 'too_long', limit } }
+
+  if (!spec.multiline && /[\r\n]/.test(body)) {
+    return { ok: false, problem: { code: 'newline_in_single_line' } }
+  }
+
+  const bad = malformed(body)
+  if (bad) return { ok: false, problem: { code: 'malformed_interpolation', found: bad } }
+
+  const declared = spec.variables.map((x) => x.name)
+  const used = tokensIn(body)
+  for (const name of used) {
+    if (!declared.includes(name)) {
+      return { ok: false, problem: { code: 'undeclared_variable', variable: name, declared } }
+    }
+  }
+
+  for (const name of REQUIRED_VARIABLES[key] ?? []) {
+    if (!used.includes(name)) {
+      return { ok: false, problem: { code: 'missing_required_variable', variable: name } }
+    }
+  }
+
+  return { ok: true }
+}
+
+/** The chrome node id for a problem, so the editor never builds a sentence itself. */
+export function problemContentId(problem: TemplateProblem): string {
+  return `setup.templates.error.${problem.code.replace(/_/g, '-')}`
+}
+
+/**
+ * The tokens that problem's sentence needs, kept beside the id that names it.
+ *
+ * One function for the whole union rather than a per-case switch at the call site: the
+ * point of returning a code plus data is that the editor never has to know which fields
+ * a given code carries, and a caller reaching into the union would put that knowledge
+ * back in the component.
+ */
+export function problemTokens(problem: TemplateProblem): Record<string, string | number> {
+  return {
+    variable: 'variable' in problem ? problem.variable : '',
+    limit: 'limit' in problem ? problem.limit : 0,
+    found: 'found' in problem ? problem.found : '',
+  }
+}

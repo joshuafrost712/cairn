@@ -10,6 +10,7 @@
 import type { ParticipantReport, KsaRollup } from './build'
 import type { Gate } from './verification'
 import { getActiveScale, labelFor, maxValue, type Scale } from '../lib/scale'
+import { getActiveTemplates, render, type TemplateSet } from '../templates/resolve'
 import {
   SEGMENT_ID_VERSION,
   claimEvidence,
@@ -43,7 +44,12 @@ export function buildParticipantReportSegments(
   // workshop's scale instead would print one workshop's words on another's
   // numbers the first time somebody generated a report while switched away.
   scale: Scale = getActiveScale(),
+  // Resolved once and passed down like `scale` above, and defaulting the same way.
+  // A caller rendering a report for a workshop the operator is not currently in must
+  // pass both, or it prints one organization's words on another's numbers (tl-16).
+  templates: TemplateSet = getActiveTemplates(),
 ): DocSegment[] {
+  const t = templates
   const pid = report.participant_id
   const root = segId(SEGMENT_ID_VERSION, `pr:${slug(pid)}`)
   const out: DocSegment[] = []
@@ -52,7 +58,7 @@ export function buildParticipantReportSegments(
     id: segId(root, 'title'),
     kind: 'heading',
     level: 1,
-    text: `# Participant evaluation: ${report.participant_name}`,
+    text: `# ${render(t, 'participant_report.title', { participantName: report.participant_name })}`,
     participantId: pid,
   })
   endBlock(out)
@@ -61,7 +67,13 @@ export function buildParticipantReportSegments(
   push(out, {
     id: segId(root, 'intro'),
     kind: 'paragraph',
-    text: `${workshopName}${teamBit}. Draft evidence summary generated ${generatedOn} from facilitator observations. Numbers are draft ${scale.points[0].value}–${maxValue(scale)} designations and the evidence levels behind them are still being finalized, so treat this as input to a human judgment rather than a final score.`,
+    text: render(t, 'participant_report.intro', {
+      workshopName,
+      teamBit,
+      generatedOn,
+      minValue: scale.points[0].value,
+      maxValue: maxValue(scale),
+    }),
     participantId: pid,
   })
   endBlock(out)
@@ -69,8 +81,20 @@ export function buildParticipantReportSegments(
   if (gate) {
     const verdict =
       gate.status === 'ready'
-        ? `Verified: all ${gate.total} observations confirmed by at least ${gate.required} evaluators. This report is cleared to finalize.`
-        : `Not yet verified: ${gate.verified} of ${gate.total} observations confirmed (needs ${gate.required} evaluators each)${gate.pending ? `, ${gate.pending} pending` : ''}${gate.disputed ? `, ${gate.disputed} disputed` : ''}. This report is locked until those are resolved.`
+        ? render(t, 'participant_report.gate-ready', {
+            total: gate.total,
+            required: gate.required,
+          })
+        : render(t, 'participant_report.gate-locked', {
+            verified: gate.verified,
+            total: gate.total,
+            required: gate.required,
+            // Two optional clauses arrive as one already-worded fragment rather than
+            // as two more tokens, because a template that had to spell both
+            // conditionals would need a conditional syntax, and a conditional syntax
+            // is the point at which an authored template becomes a program.
+            extra: `${gate.pending ? `, ${gate.pending} pending` : ''}${gate.disputed ? `, ${gate.disputed} disputed` : ''}`,
+          })
     push(out, {
       id: segId(root, 'gate'),
       kind: 'meta',
@@ -83,12 +107,24 @@ export function buildParticipantReportSegments(
   push(out, {
     id: segId(root, 'totals'),
     kind: 'paragraph',
-    text: `Evidence has been recorded against ${report.totals.evidencedKsas} of ${report.totals.totalKsas} competency areas${report.totals.needsReviewCount ? `, with ${report.totals.needsReviewCount} item(s) flagged for review` : ''}.`,
+    text: render(t, 'participant_report.totals', {
+      evidenced: report.totals.evidencedKsas,
+      total: report.totals.totalKsas,
+      reviewBit: report.totals.needsReviewCount
+        ? `, with ${report.totals.needsReviewCount} item(s) flagged for review`
+        : '',
+    }),
     participantId: pid,
   })
   endBlock(out)
 
-  push(out, { id: segId(root, 'ev', 'h'), kind: 'heading', level: 2, text: '## Evidence by competency area', participantId: pid })
+  push(out, {
+    id: segId(root, 'ev', 'h'),
+    kind: 'heading',
+    level: 2,
+    text: `## ${render(t, 'participant_report.evidence-heading')}`,
+    participantId: pid,
+  })
   endBlock(out)
 
   const evidenced = report.ksaRollups.filter((r) => r.representative !== null)
@@ -98,7 +134,7 @@ export function buildParticipantReportSegments(
     push(out, {
       id: segId(root, 'ev', 'none'),
       kind: 'paragraph',
-      text: 'No counting evidence has been recorded for this participant yet.',
+      text: render(t, 'participant_report.evidence-none'),
       participantId: pid,
     })
     endBlock(out)
@@ -142,14 +178,16 @@ export function buildParticipantReportSegments(
       id: segId(root, 'gap', 'h'),
       kind: 'heading',
       level: 3,
-      text: '### Competency areas without evidence yet',
+      text: `### ${render(t, 'participant_report.unevidenced-heading')}`,
       participantId: pid,
     })
     endBlock(out)
     push(out, {
       id: segId(root, 'gap', 'list'),
       kind: 'paragraph',
-      text: `No observations have been recorded for: ${unevidenced.map((r) => `${r.ksa_code} (${r.goal_title})`).join('; ')}.`,
+      text: render(t, 'participant_report.unevidenced-list', {
+        areas: unevidenced.map((r) => `${r.ksa_code} (${r.goal_title})`).join('; '),
+      }),
       participantId: pid,
     })
     endBlock(out)
@@ -157,12 +195,18 @@ export function buildParticipantReportSegments(
 
   const flagged = report.ksaRollups.flatMap((r) => r.toVerify.map((o) => ({ code: r.ksa_code, o })))
   if (flagged.length) {
-    push(out, { id: segId(root, 'flag', 'h'), kind: 'heading', level: 2, text: '## Items flagged for review', participantId: pid })
+    push(out, {
+      id: segId(root, 'flag', 'h'),
+      kind: 'heading',
+      level: 2,
+      text: `## ${render(t, 'participant_report.flagged-heading')}`,
+      participantId: pid,
+    })
     endBlock(out)
     push(out, {
       id: segId(root, 'flag', 'intro'),
       kind: 'paragraph',
-      text: 'These observations need a human decision before they count toward a designation, because the participant was ambiguous, the competency mapping was a stretch, or the evidence was too thin to rate.',
+      text: render(t, 'participant_report.flagged-intro'),
       participantId: pid,
     })
     endBlock(out)
@@ -180,12 +224,18 @@ export function buildParticipantReportSegments(
     endBlock(out)
   }
 
-  push(out, { id: segId(root, 'cbc', 'h'), kind: 'heading', level: 2, text: '## CBC competency mapping', participantId: pid })
+  push(out, {
+    id: segId(root, 'cbc', 'h'),
+    kind: 'heading',
+    level: 2,
+    text: `## ${render(t, 'participant_report.cbc-heading')}`,
+    participantId: pid,
+  })
   endBlock(out)
   push(out, {
     id: segId(root, 'cbc', 'intro'),
     kind: 'paragraph',
-    text: 'Draft designations grouped by the CBC sub-points each competency area feeds, as a starting point for the eventual CBC submission.',
+    text: render(t, 'participant_report.cbc-intro'),
     participantId: pid,
   })
   endBlock(out)
@@ -218,6 +268,17 @@ export function renderParticipantReportMarkdown(
   workshopName: string,
   generatedOn: string,
   gate?: Gate,
+  scale?: Scale,
+  templates?: TemplateSet,
 ): string {
-  return segmentsToMarkdown(buildParticipantReportSegments(report, workshopName, generatedOn, gate))
+  return segmentsToMarkdown(
+    buildParticipantReportSegments(
+      report,
+      workshopName,
+      generatedOn,
+      gate,
+      scale ?? getActiveScale(),
+      templates ?? getActiveTemplates(),
+    ),
+  )
 }

@@ -1,3 +1,4 @@
+import { instructionFor } from '../../db/templates'
 import { buildExportBundle } from '../../routing/operations'
 import { buildScenarioPrompt } from '../scenarioDraft'
 import { buildGuidancePrompt } from '../guidancePrompt'
@@ -48,11 +49,11 @@ export const byoAgentProvider: AiProvider = {
 
       case 'scenario_draft':
         return operatorAction('setup.ai.op.byo-scenario', {
-          prompt: buildScenarioPrompt(job.document, job.scale),
+          prompt: buildScenarioPrompt(job.document, job.scale, await instructionFor(job.workshopId, 'instructions.scenario_draft')),
         })
 
       case 'conversation_guidance':
-        return operatorAction('setup.ai.op.byo-guidance', { prompt: buildGuidancePrompt(job.brief) })
+        return operatorAction('setup.ai.op.byo-guidance', { prompt: buildGuidancePrompt(job.brief, await instructionFor(job.workshopId, 'instructions.conversation_guidance')) })
     }
   },
 }

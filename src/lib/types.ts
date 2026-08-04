@@ -657,6 +657,11 @@ export type ReferenceTable =
   // device refreshing its reference data forever. A lost trace line is a small
   // loss; a device frozen on stale questions is not. See db/aiConfig.ts.
   | 'ai_config'
+  // tl-16. An authored template body is a setup edit like any other, so it takes the
+  // same road. It is also the first table here whose DELETE is a feature rather than
+  // an administrative act: deleting a row is revert-to-default, so the queue's
+  // existing `delete` op carries it and `matchFromRowKey` splits the pair back apart.
+  | 'ai_template'
 
 export interface ReferenceOutboxEntry {
   /** `${table}:${rowKey}` — repeated edits to the same row collapse to one entry. */

@@ -408,6 +408,38 @@ export async function countsForAiConfig(workshopId: string): Promise<ImpactCount
 }
 
 /**
+ * What a wording change reaches (tl-16).
+ *
+ * Two numbers and no others. `draftsPending` is the documents a reviewer will see the
+ * notice on; `captures` is what the instruction caveat is measured against, and it is
+ * the same quantity `countsForAiConfig` uses so the two dialogs cannot quote the same
+ * word about different things.
+ *
+ * Approved, sending, sent and superseded drafts are excluded on purpose. They are
+ * untouched by a template change — an approved document keeps its `approvedSnapshot`
+ * and a sent one said what it said — so counting them would put a number behind a claim
+ * that is not true.
+ */
+export async function countsForTemplate(workshopId: string): Promise<ImpactCounts> {
+  // `docDrafts` is indexed on status but not on workshopId (see db/local.ts v9), so the
+  // status is the index and the workshop is the filter. Scanning by workshop instead
+  // would need a version bump for an index used in one place.
+  const [drafts, captures] = await Promise.all([
+    db.docDrafts.where('status').equals('draft').toArray(),
+    submittedCaptures(workshopId),
+  ])
+  return {
+    // Only drafts that CAN show the notice. A row written before tl-16 carries no
+    // fingerprint, and `templatesMoved` correctly reads unknown as not-stale — so
+    // counting them would have the dialog say "N draft(s) will say so" over a queue where
+    // none of them will, on the one release where the whole queue predates the field.
+    // Found by the second-AI review.
+    draftsPending: drafts.filter((d) => d.workshopId === workshopId && d.templateFingerprint).length,
+    captures: captures.length,
+  }
+}
+
+/**
  * What a person merge joins together (tl-12).
  *
  * Both sides, summed, because the dialog's question is "how big is the history you

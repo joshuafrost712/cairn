@@ -28,12 +28,20 @@ import {
  */
 export const MAX_SCENARIO_DOCUMENT_CHARS = 120_000
 
-/** The self-contained prompt for the copy/paste path: rules + schema + document. */
+/**
+ * The self-contained prompt for the copy/paste path: rules + schema + document.
+ *
+ * `rules` (tl-16) is the workshop's authored rules body. Absent means "resolve the
+ * active workshop's", which is right for every in-app caller; the brief pack and the
+ * Edge Function each pass the set they resolved for a named workshop. The SCHEMA below
+ * is not a parameter and must never become one.
+ */
 export function buildScenarioPrompt(
   documentText: string,
   scale: DraftScalePoint[] = DEFAULT_DRAFT_SCALE,
+  rules?: string,
 ): string {
-  return `${scenarioRules(scale)}
+  return `${scenarioRules(scale, rules)}
 
 Output must validate against this JSON schema:
 ${JSON.stringify(scenarioSchema(scale), null, 2)}

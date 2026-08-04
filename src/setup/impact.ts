@@ -159,6 +159,25 @@ export type SetupEntity =
    * the dialog has to say so in the plainest words in this file.
    */
   | 'ai_config'
+  /**
+   * The wording the app produces (tl-16): an email or report prose slot, or the
+   * instructions an AI job follows.
+   *
+   * `affects_future` in every direction, and the tier is easy to get wrong in both
+   * directions at once. It is not `safe`: these strings are read live off the database
+   * by every device, so an edit reaches the next document generated anywhere, and the
+   * log of who reworded what is the only record that the database has moved ahead of
+   * the shipped defaults. And it is not `invalidates_evidence`: no observation, verdict
+   * or designation is touched, an approved draft keeps its snapshot, and a document
+   * already sent said what it said.
+   *
+   * The one case worth its own sentence is an INSTRUCTION edited mid-workshop, and it
+   * is a caveat about reading rather than about data: evidence already routed was
+   * produced under the previous instructions, so a report can rest on observations made
+   * under two different contracts with nothing in it saying so. That belongs in the
+   * dialog because nobody would infer it from "you changed some wording".
+   */
+  | 'template'
 
 export type SetupOperation = 'create' | 'update' | 'delete'
 
@@ -270,6 +289,16 @@ export interface ImpactCounts {
   teams?: number
   /** Rows that matched somebody and would change nothing. The idempotence number. */
   unchanged?: number
+  /**
+   * Documents sitting in the review queue as unapproved drafts (tl-16).
+   *
+   * Its own count rather than a fold into `reports`, because it is the only consequence
+   * of a wording change that a reviewer will actually SEE: those drafts keep the
+   * previous wording and get the "the wording was changed after this was written"
+   * notice. Approved and sent documents are deliberately not counted here — they are
+   * untouched, and quoting them would suggest otherwise.
+   */
+  draftsPending?: number
 }
 
 export interface SetupChange {
@@ -550,6 +579,12 @@ function applyState(
    * is exactly the window the blanket would erase.
    */
   if (change.entity === 'ai_config') return lower(severity, 'affects_future')
+  /**
+   * A TEMPLATE EDIT IS EXEMPT TOO (tl-16), on the same half of the argument: the words
+   * that go out to participants are usually written before anybody captures anything,
+   * and `safe` would mean setup/log.ts kept no record of who wrote them.
+   */
+  if (change.entity === 'template') return lower(severity, 'affects_future')
   //
   // tl-12's `person_merge` is exempt for the same reason and it is the sharper
   // case: a merge is `update`, not `delete`, so without this line the discount
@@ -608,7 +643,57 @@ function classify(change: SetupChange): Verdict {
       return classifyPersonMerge(change)
     case 'ai_config':
       return classifyAiConfig(change)
+    case 'template':
+      return classifyTemplate(change)
   }
+}
+
+// ---------------------------------------------------------------------------
+// Output templates (tl-16)
+// ---------------------------------------------------------------------------
+
+/**
+ * An authored wording change, or a revert to the shipped text.
+ *
+ * `delete` is the revert, and it is deliberately NOT cheaper than an edit. Both change
+ * what the next document says; an administrator putting the app's own words back is
+ * making the same size of decision as one taking them away, and the person who wrote
+ * the override is entitled to have somebody read a sentence before it goes.
+ *
+ * EXEMPT FROM THE DRAFT-WORKSHOP BLANKET, on the second half of tl-10's argument rather
+ * than the first. A draft workshop has captured nothing, so an edit genuinely costs no
+ * evidence and `safe` would be right if the dialog were the only consideration. The log
+ * is the other consideration: setup/log.ts skips `safe` changes, and most template
+ * authoring happens BEFORE a workshop starts, which is exactly the window the blanket
+ * would erase — leaving no record of who wrote the wording that then went out to
+ * twenty-six people. See `applyState`.
+ */
+function classifyTemplate(change: SetupChange): Verdict {
+  const c = change.counts
+  const drafts = n(c, 'draftsPending')
+  const captures = n(c, 'captures')
+  const isInstruction = change.entityId?.startsWith('instructions.') === true
+
+  const consequences: Consequence[] = [
+    {
+      id: change.operation === 'delete' ? 'setup.impact.template.revert' : 'setup.impact.template.edit',
+      tokens: { label: change.label },
+    },
+  ]
+
+  // Only said when there is something to say it about. A draft queue of zero makes the
+  // sentence about pending documents a claim with nothing behind it, which is the
+  // count-justifies-the-line rule the rest of this module follows.
+  if (drafts > 0) {
+    consequences.push({ id: 'setup.impact.template.drafts', tokens: { drafts } })
+  }
+  consequences.push({ id: 'setup.impact.template.approved-safe' })
+
+  if (isInstruction && captures > 0) {
+    consequences.push({ id: 'setup.impact.template.instructions', tokens: { captures } })
+  }
+
+  return { severity: 'affects_future', consequences }
 }
 
 // ---------------------------------------------------------------------------

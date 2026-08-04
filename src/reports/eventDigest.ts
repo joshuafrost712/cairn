@@ -21,6 +21,7 @@ import type { MentoringConversation } from '../lib/types'
 import type { ActivityAnalytics } from './analytics'
 import { MIN_N_FOR_MEAN } from './analytics'
 import { firstAdequateValue, getActiveScale, maxValue, type Scale } from '../lib/scale'
+import { getActiveTemplates, render, type TemplateSet } from '../templates/resolve'
 import {
   SEGMENT_ID_VERSION,
   endBlock,
@@ -59,6 +60,8 @@ export interface EventDigestOptions {
    * documents for a workshop the operator is not currently in — those pass it.
    */
   scale?: Scale
+  /** The workshop's authored wording (tl-16). Same cross-workshop rule as `scale`. */
+  templates?: TemplateSet
 }
 
 export interface PatternLine {
@@ -116,6 +119,7 @@ export function buildEventDigestSegments(
   opts: EventDigestOptions = {},
 ): DocSegment[] {
   const scale = opts.scale ?? getActiveScale()
+  const t = opts.templates ?? getActiveTemplates()
   const root = segId(SEGMENT_ID_VERSION, `ed:${slug(a.activity_id)}`)
   const out: DocSegment[] = []
   const dayBit = a.day ? ` (${a.day})` : ''
@@ -131,13 +135,20 @@ export function buildEventDigestSegments(
   push(out, {
     id: segId(root, 'greeting'),
     kind: 'paragraph',
-    text: opts.toName ? `Hi ${opts.toName},` : 'Hi all,',
+    // `toName` defaults to 'all' rather than the greeting having two forms, so the
+    // template is one editable sentence instead of a branch an admin cannot see.
+    text: render(t, 'event_digest.greeting', { toName: opts.toName ?? 'all' }),
   })
   endBlock(out)
 
   // ---- 1. how the group did ------------------------------------------------
 
-  push(out, { id: segId(root, 'grp', 'h'), kind: 'heading', level: 4, text: '**How the group did**' })
+  push(out, {
+    id: segId(root, 'grp', 'h'),
+    kind: 'heading',
+    level: 4,
+    text: `**${render(t, 'event_digest.group-heading')}**`,
+  })
 
   const scope = `${a.participantsObserved} participant${a.participantsObserved === 1 ? '' : 's'} observed, ${a.observationCount} observation${a.observationCount === 1 ? '' : 's'}, ${a.evaluators.length} evaluator${a.evaluators.length === 1 ? '' : 's'}`
 
@@ -145,14 +156,18 @@ export function buildEventDigestSegments(
     push(out, {
       id: segId(root, 'grp', 'none'),
       kind: 'bullet',
-      text: '- No observations have been routed for this event yet, so there is nothing to summarize.',
+      text: `- ${render(t, 'event_digest.no-observations')}`,
     })
   } else {
     push(out, {
       id: segId(root, 'grp', 'mean'),
       kind: 'bullet',
       // Say which mean this is. The dashboard carries two and they differ.
-      text: `- Average across all observations in this event: **${fmt(a.overall.reportableMean ?? a.overall.mean)}/${maxValue(scale)}** (${scope}).`,
+      text: `- ${render(t, 'event_digest.mean', {
+        mean: fmt(a.overall.reportableMean ?? a.overall.mean),
+        maxValue: maxValue(scale),
+        scope,
+      })}`,
       note:
         a.overall.reportableMean === null
           ? `Below ${MIN_N_FOR_MEAN} observations, so this average is shown for completeness only.`
@@ -165,14 +180,20 @@ export function buildEventDigestSegments(
     push(out, {
       id: segId(root, 'grp', 'no-pattern'),
       kind: 'bullet',
-      text: `- No competency area had a quarter or more of the group below competent.`,
+      text: `- ${render(t, 'event_digest.no-pattern')}`,
     })
   }
   for (const p of patterns) {
     push(out, {
       id: segId(root, 'grp', `k:${slug(p.ksa_code)}`),
       kind: 'bullet',
-      text: `- ${p.goal_title}: ${p.below} of ${p.observed} observed scored below competent (average ${fmt(p.mean)}/${maxValue(scale)}).`,
+      text: `- ${render(t, 'event_digest.pattern', {
+        goalTitle: p.goal_title,
+        below: p.below,
+        observed: p.observed,
+        mean: fmt(p.mean),
+        maxValue: maxValue(scale),
+      })}`,
       ksaCode: p.ksa_code,
       evidence: p.observationIds,
       note: `A pattern line appears when at least ${Math.round(PATTERN_SHARE * 100)}% of the participants observed on this area scored below ${firstAdequateValue(scale)}/${maxValue(scale)}.`,
@@ -182,13 +203,18 @@ export function buildEventDigestSegments(
 
   // ---- 2. conversations ----------------------------------------------------
 
-  push(out, { id: segId(root, 'conv', 'h'), kind: 'heading', level: 4, text: '**Conversations**' })
+  push(out, {
+    id: segId(root, 'conv', 'h'),
+    kind: 'heading',
+    level: 4,
+    text: `**${render(t, 'event_digest.conversations-heading')}**`,
+  })
 
   if (conversations.length === 0) {
     push(out, {
       id: segId(root, 'conv', 'none'),
       kind: 'bullet',
-      text: '- Nobody from this event needed a one-to-one conversation.',
+      text: `- ${render(t, 'event_digest.no-conversations')}`,
     })
   }
 
@@ -231,13 +257,17 @@ export function buildEventDigestSegments(
     push(out, {
       id: segId(root, 'unrouted'),
       kind: 'meta',
-      text: `_${a.unroutedCaptures} capture(s) from this event have not been routed into observations yet, so the numbers above are incomplete._`,
+      text: `_${render(t, 'event_digest.unrouted', { captures: a.unroutedCaptures })}_`,
     })
     endBlock(out)
   }
 
   if (opts.fromName) {
-    push(out, { id: segId(root, 'signoff'), kind: 'paragraph', text: `Thanks,\n${opts.fromName}` })
+    push(out, {
+      id: segId(root, 'signoff'),
+      kind: 'paragraph',
+      text: render(t, 'event_digest.signoff', { fromName: opts.fromName }),
+    })
   }
   return out
 }

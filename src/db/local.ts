@@ -31,6 +31,7 @@ import { planBackfill } from './backfill'
 import { planGoalBackfill } from './goalBackfill'
 import { defaultScalePoints, type ScalePoint } from '../lib/scale'
 import type { AiConfigRow } from '../lib/aiConfig'
+import type { AiTemplateRow } from '../templates/defaults'
 import { getActiveWorkshopId } from '../lib/activeWorkshop'
 
 /**
@@ -70,6 +71,7 @@ class CairnDB extends Dexie {
   personCards!: EntityTable<PersonCard, 'person_id'>
   aiConfigs!: EntityTable<AiConfigRow, 'workshop_id'>
   aiCallLog!: EntityTable<AiCallLogEntry, 'id'>
+  aiTemplates!: EntityTable<AiTemplateRow, 'pk'>
 
   constructor() {
     super('cairn')
@@ -361,6 +363,25 @@ class CairnDB extends Dexie {
       aiConfigs: 'workshop_id',
       aiCallLog: 'id, workshop_id, fn, sync_status, at',
     })
+    // v19 (tl-16): the authored output templates.
+    //
+    // VERSION CLAIM: v19 has been claimed and handed forward since tl-14, by seven
+    // specs in a row (see D5 in 00-program-throughline.md). Each of them found it
+    // needed no bump, because `stores()` declares INDEXES and each stored its data
+    // as an unindexed field on a row that already existed. This spec is the one
+    // that spends it: `ai_template` is a genuinely new table with a genuinely new
+    // index, which is what tl-15's record predicted.
+    //
+    // Cached so document generation works offline, which is the whole point of the
+    // caching: an administrator writing the evening's emails on a hotel wifi that
+    // has dropped must get their own workshop's authored wording, not silently fall
+    // back to the shipped defaults with nothing on screen saying so.
+    //
+    // `pk` is `${workshop_id}::${template_key}`, matching every other
+    // composite-keyed cache in this file. Purely additive, so no upgrade function.
+    this.version(19).stores({
+      aiTemplates: 'pk, workshop_id, template_key',
+    })
   }
 }
 
@@ -388,6 +409,10 @@ export const activityKsaPk = (activity_id: string, ksa_id: string) => `${activit
  * the field ORDER here must stay identical to `TABLE_SPEC[...].keyFields` there.
  */
 export const workshopSettingPk = (workshop_id: string, key: string) => `${workshop_id}::${key}`
+
+/** tl-16. A template key contains dots and dashes but never `::`. */
+export const aiTemplatePk = (workshop_id: string, template_key: string) =>
+  `${workshop_id}::${template_key}`
 
 export const assignmentPk = (
   workshop_id: string,

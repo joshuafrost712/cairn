@@ -31,11 +31,18 @@ const WORKER_PREAMBLE = `You are running as an unattended worker inside an evalu
 
 Return exactly what the instructions below ask for and nothing else — no preamble, no explanation of what you did, no questions. If the material you are given is not sufficient, follow the instructions' own rule for that case rather than asking.`
 
-/** The routing runbook, with its file-writing step replaced by this transport's. */
-export function relayRoutingSystem(scale: Scale): string {
+/**
+ * The routing runbook, with its file-writing step replaced by this transport's.
+ *
+ * `rules` (tl-16) carries the workshop's authored routing instructions. The relay does
+ * not pass it — it runs in the browser, where `routingRules` resolves the active
+ * workshop's own — and `route-captures` does, because an Edge Function has no mirror to
+ * read and must not take its prompt from the client.
+ */
+export function relayRoutingSystem(scale: Scale, rules?: string): string {
   return `${WORKER_PREAMBLE}
 
-${renderRoutingDoc(scale)}
+${renderRoutingDoc(scale, rules)}
 
 ## Transport for this run (overrides the "Output" section above)
 

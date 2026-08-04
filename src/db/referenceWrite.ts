@@ -94,6 +94,16 @@ const TABLE_SPEC: Record<ReferenceTable, { order: number; keyFields: string[] }>
   // 12 is next and the wave has no concurrent session left to collide with (the
   // remaining specs are a dependency chain — see D5 in 00-program-throughline.md).
   ai_config: { order: 12, keyFields: ['workshop_id'] },
+  // tl-16. Order 13 was claimed for tl-15 and handed forward seven times without
+  // being spent (see D5 in 00-program-throughline.md); this is the spec that spends
+  // it, because it is the one that adds a table. Depends only on its workshop, so
+  // anywhere below `workshop` would do.
+  //
+  // `keyFields` is the pair the unique constraint names, in the same order
+  // `aiTemplatePk()` joins them — that agreement is what makes both the `onConflict`
+  // string and the `::`-split delete `.match()` correct, and test/referenceOutbox.test.ts
+  // pins the round trip.
+  ai_template: { order: 13, keyFields: ['workshop_id', 'template_key'] },
 }
 
 /** The columns forming a table's primary key, in the order `rowKey` joins them. */

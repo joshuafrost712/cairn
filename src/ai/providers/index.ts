@@ -1,3 +1,4 @@
+import { instructionFor } from '../../db/templates'
 import { getAiConfig, traceAiCall } from '../../db/aiConfig'
 import { aiEnabled } from '../aiEnabled'
 import { githubClaudeProvider } from './githubClaude'
@@ -95,10 +96,10 @@ async function fallbackOutcome(job: ProviderJob): Promise<AiOutcome> {
   switch (job.fn) {
     case 'scenario_draft':
       return operatorAction('setup.ai.op.fallback-prompt', {
-        prompt: buildScenarioPrompt(job.document, job.scale),
+        prompt: buildScenarioPrompt(job.document, job.scale, await instructionFor(job.workshopId, 'instructions.scenario_draft')),
       })
     case 'conversation_guidance':
-      return operatorAction('setup.ai.op.fallback-prompt', { prompt: buildGuidancePrompt(job.brief) })
+      return operatorAction('setup.ai.op.fallback-prompt', { prompt: buildGuidancePrompt(job.brief, await instructionFor(job.workshopId, 'instructions.conversation_guidance')) })
     case 'observation_routing': {
       if (job.intent === 'push') return refused('setup.ai.error.hosted-fn-not-built')
       // tl-21: an unattended run is the one intent a hand-off cannot stand in for, so the

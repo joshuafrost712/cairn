@@ -1,5 +1,5 @@
 /**
- * Bundle the routing-prompt chain for the Edge Function (tl-23).
+ * Bundle the shared prompt chain for the Edge Functions (tl-23; extended by tl-16).
  *
  * WHY A GENERATED BUNDLE RATHER THAN A DIRECT IMPORT. The spec's intent is that
  * `route-captures` builds its system prompt from THE SAME `relayRoutingSystem()`
@@ -19,6 +19,15 @@
  * `relayPrompts.ts` (or any file in its chain) that is not followed by
  * `npm run bundle:relay-prompts` fails the suite instead of quietly forking the
  * prompt.
+ *
+ * WHY `scenarioRules` RIDES ALONG (tl-16). `draft-scenario` held its own copy of the
+ * drafting rules with a comment telling the reader to keep them in sync with
+ * `scenarioRules()`. They had already drifted — the server's version described the output
+ * as "a JSON object with these keys" while the client's used a four-part numbered list —
+ * so the comment was documenting a discipline nobody was keeping. Now that an
+ * administrator can author that text, a second copy is not merely untidy: the workshop's
+ * authored rules would reach the copy/paste path and the brief pack while the hosted path
+ * went on using a paragraph nobody can see or edit. One text, one tripwire.
  *
  * WHY `buildScale` RIDES ALONG. The function reads `scale_point` rows and must
  * turn them into the `Scale` the prompt builders take. `lib/scale.ts` is already
@@ -44,6 +53,7 @@ export const BUNDLE_PATH = path.join(
 const ENTRY = `
 export { relayRoutingSystem, relayRoutingPrompt } from './src/ai/relayPrompts'
 export { buildScale, defaultScalePoints, DEFAULT_SCALE } from './src/lib/scale'
+export { scenarioRules, DEFAULT_DRAFT_SCALE } from './src/ai/scenarioContract'
 `
 
 const BANNER = `// GENERATED FILE — do not edit. Built from src/ai/relayPrompts.ts and its

@@ -10,6 +10,8 @@
  *             applied only on approval (see ProposalPanel).
  */
 
+import { isSupabaseConfigured } from '../lib/supabase'
+
 export interface ChromeEdit {
   nodeId: string
   field: string
@@ -46,6 +48,18 @@ export async function applyChromeEdit(edit: ChromeEdit): Promise<ChromeEditResul
  * can be reconciled and the change is visible in git. Best-effort by design: the
  * database write has already happened and must not be undone because logging
  * failed, so this never throws and its result is advisory.
+ *
+ * NOT IN LOCAL-ONLY MODE, which is tl-14's D4 fix applied to the OTHER logging
+ * function. The condition falls out of this log's own reason for existing: an entry
+ * records that the database has moved ahead of `src/data/seed.ts`. With no backend
+ * configured there is no database, the edit reached one machine's Dexie and nowhere
+ * else, and there is no divergence to record — so a browser harness (every one of
+ * which runs with both Supabase variables blank, which is what makes them runnable
+ * with nobody's password) was leaving behind a file that reads exactly like a genuine
+ * audit record of edits to the live project. tl-16's own walkthrough produced three
+ * such entries before this guard existed.
+ *
+ * A real dev session against the real project still logs exactly as before.
  */
 export async function logAppliedEdit(entry: {
   table: string
@@ -55,6 +69,7 @@ export async function logAppliedEdit(entry: {
   newText: string
 }): Promise<boolean> {
   if (!import.meta.env.DEV) return false
+  if (!isSupabaseConfigured) return false
   const now = new Date()
   const date = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(
     now.getDate(),

@@ -17,6 +17,7 @@
 import type { ParticipantReport } from './build'
 import type { AnnotatedObservation, Gate } from './verification'
 import { getActiveScale, isLowTrigger, labelFor, maxValue, type Scale } from '../lib/scale'
+import { getActiveTemplates, render, type TemplateSet } from '../templates/resolve'
 import { strongestEvidence } from './dayEmail'
 import {
   SEGMENT_ID_VERSION,
@@ -50,6 +51,13 @@ export interface ParticipantEmailOptions {
    * documents for a workshop the operator is not currently in — those pass it.
    */
   scale?: Scale
+  /**
+   * The workshop's authored wording (tl-16). Defaults to the ACTIVE workshop's, on
+   * exactly the rule `scale` above states and for the same reason: a job generating
+   * documents for a workshop the operator is not currently in must pass this, or it
+   * will print one organization's authored sentences into another's email.
+   */
+  templates?: TemplateSet
 }
 
 /**
@@ -68,6 +76,7 @@ export function buildParticipantEmailSegments(
   opts: ParticipantEmailOptions = {},
 ): DocSegment[] {
   const scale = opts.scale ?? getActiveScale()
+  const t = opts.templates ?? getActiveTemplates()
   const pid = report.participant_id
   const root = segId(SEGMENT_ID_VERSION, `pe:${slug(pid)}`)
   const maxHighlights = opts.maxHighlights ?? 3
@@ -78,7 +87,7 @@ export function buildParticipantEmailSegments(
   push(out, {
     id: segId(root, 'greeting'),
     kind: 'paragraph',
-    text: `Hi ${firstName},`,
+    text: render(t, 'participant_email.greeting', { firstName }),
     participantId: pid,
   })
   endBlock(out)
@@ -89,12 +98,16 @@ export function buildParticipantEmailSegments(
     push(out, {
       id: segId(root, 'none'),
       kind: 'paragraph',
-      text: `We did not record observations for you on ${dateLabel}. That is not a judgment about your work; it means none of the facilitators wrote notes covering you today.`,
+      text: render(t, 'participant_email.no-evidence', { dateLabel }),
       participantId: pid,
     })
     endBlock(out)
     if (opts.fromName) {
-      push(out, { id: segId(root, 'signoff'), kind: 'paragraph', text: `Thanks,\n${opts.fromName}` })
+      push(out, {
+        id: segId(root, 'signoff'),
+        kind: 'paragraph',
+        text: render(t, 'participant_email.signoff', { fromName: opts.fromName }),
+      })
     }
     return out
   }
@@ -102,7 +115,12 @@ export function buildParticipantEmailSegments(
   push(out, {
     id: segId(root, 'intro'),
     kind: 'paragraph',
-    text: `Here is what the facilitators noted about your work at ${workshopName} on ${dateLabel}. The ${scale.points[0].value}–${maxValue(scale)} numbers are draft designations against the competency areas, and each one is followed by the evidence it came from so you can see exactly what it is based on. Treat them as a read on one day's work, not a final assessment.`,
+    text: render(t, 'participant_email.intro', {
+      workshopName,
+      dateLabel,
+      minValue: scale.points[0].value,
+      maxValue: maxValue(scale),
+    }),
     participantId: pid,
   })
   endBlock(out)
@@ -117,7 +135,9 @@ export function buildParticipantEmailSegments(
       id: segId(root, 'hl', 'h'),
       kind: 'heading',
       level: 4,
-      text: '**What went well**',
+      // The `**` is structure and stays here; the words are the template's. An
+      // authored body carrying its own asterisks would double them.
+      text: `**${render(t, 'participant_email.highlights-heading')}**`,
       participantId: pid,
     })
     for (const k of highlights) {
@@ -126,7 +146,12 @@ export function buildParticipantEmailSegments(
       push(out, {
         id: segId(kRoot, 'claim'),
         kind: 'bullet',
-        text: `- ${k.goal_title}: ${word} (${k.representative}/${maxValue(scale)}).`,
+        text: `- ${render(t, 'participant_email.claim', {
+          goalTitle: k.goal_title,
+          label: word,
+          value: k.representative as number,
+          maxValue: maxValue(scale),
+        })}`,
         participantId: pid,
         ksaCode: k.ksa_code,
         evidence: claimEvidence(k),
@@ -157,7 +182,7 @@ export function buildParticipantEmailSegments(
       id: segId(root, 'gr', 'h'),
       kind: 'heading',
       level: 4,
-      text: '**Where to keep working**',
+      text: `**${render(t, 'participant_email.growth-heading')}**`,
       participantId: pid,
     })
     for (const k of growth) {
@@ -166,7 +191,12 @@ export function buildParticipantEmailSegments(
       push(out, {
         id: segId(kRoot, 'claim'),
         kind: 'bullet',
-        text: `- ${k.goal_title}: ${word} (${k.representative}/${maxValue(scale)}).`,
+        text: `- ${render(t, 'participant_email.claim', {
+          goalTitle: k.goal_title,
+          label: word,
+          value: k.representative as number,
+          maxValue: maxValue(scale),
+        })}`,
         participantId: pid,
         ksaCode: k.ksa_code,
         evidence: claimEvidence(k),
@@ -199,7 +229,7 @@ export function buildParticipantEmailSegments(
     push(out, {
       id: segId(root, 'fu'),
       kind: 'paragraph',
-      text: 'One of us will find you for a short conversation about the area above. It is a working conversation, not a review: the aim is to agree what to try next.',
+      text: render(t, 'participant_email.followup'),
       participantId: pid,
       evidence: low.map((o) => o.id),
       note: `Triggered by ${low.length} confirmed observation${low.length === 1 ? '' : 's'} on a point this workshop treats as a growth signal.`,
@@ -212,14 +242,19 @@ export function buildParticipantEmailSegments(
     push(out, {
       id: segId(root, 'gate'),
       kind: 'meta',
-      text: '_These designations are still being confirmed by a second facilitator, so any of them may change._',
+      // The italic markers are structure, like the bullet dashes above.
+      text: `_${render(t, 'participant_email.gate')}_`,
       participantId: pid,
     })
     endBlock(out)
   }
 
   if (opts.fromName) {
-    push(out, { id: segId(root, 'signoff'), kind: 'paragraph', text: `Thanks,\n${opts.fromName}` })
+    push(out, {
+      id: segId(root, 'signoff'),
+      kind: 'paragraph',
+      text: render(t, 'participant_email.signoff', { fromName: opts.fromName }),
+    })
   }
   return out
 }

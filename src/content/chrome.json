@@ -1758,12 +1758,12 @@
       "label": "Output templates"
     },
     {
-      "id": "setup.templates.pending",
-      "label": "The wording of the emails and the final reports is written in code today. A template library, editable here and applied through the proposal queue, is a later spec in this wave."
+      "id": "setup.templates.intro",
+      "label": "The wording of everything this workshop sends out, and the instructions the AI follows. A slot you have not touched uses the wording Honest Eval ships with; editing one proposes a change, and approving it is what applies it — because these words are read live by every device, so applying on save would reword an email underneath whoever is reviewing it."
     },
     {
       "id": "setup.templates.today",
-      "label": "What goes out today is drafted on"
+      "label": "What goes out is drafted on"
     },
     {
       "id": "setup.templates.day-email",
@@ -1776,6 +1776,190 @@
     {
       "id": "setup.templates.outgoing",
       "label": "Outgoing"
+    },
+    {
+      "id": "setup.templates.contract-note",
+      "label": "Wording only. The JSON shapes the AI must return, the checks that reject a bad answer, and the rules an evaluator attests to at capture are not editable here and are not meant to be: an editable contract is an app that can be edited into accepting invalid data."
+    },
+    {
+      "id": "setup.templates.group.participant_email",
+      "label": "The participant's evaluation email"
+    },
+    {
+      "id": "setup.templates.group.event_digest",
+      "label": "The facilitator digest"
+    },
+    {
+      "id": "setup.templates.group.participant_report",
+      "label": "The participant report"
+    },
+    {
+      "id": "setup.templates.group.general",
+      "label": "General AI instructions"
+    },
+    {
+      "id": "setup.templates.group.observation_routing",
+      "label": "AI: turning captures into observations"
+    },
+    {
+      "id": "setup.templates.group.scenario_draft",
+      "label": "AI: drafting a scenario from a document"
+    },
+    {
+      "id": "setup.templates.group.conversation_guidance",
+      "label": "AI: drafting conversation guidance"
+    },
+    {
+      "id": "setup.templates.group-default",
+      "label": "{total} slots, all using the shipped wording"
+    },
+    {
+      "id": "setup.templates.group-default-one",
+      "label": "one slot, using the shipped wording"
+    },
+    {
+      "id": "setup.templates.group-edited",
+      "label": "{edited} of {total} slots reworded"
+    },
+    {
+      "id": "setup.templates.badge.default",
+      "label": "Shipped"
+    },
+    {
+      "id": "setup.templates.badge.edited",
+      "label": "Yours"
+    },
+    {
+      "id": "setup.templates.badge.pending",
+      "label": "Waiting for approval"
+    },
+    {
+      "id": "setup.templates.variables",
+      "label": "You can use:"
+    },
+    {
+      "id": "setup.templates.propose",
+      "label": "Propose this change"
+    },
+    {
+      "id": "setup.templates.revert",
+      "label": "Revert to shipped"
+    },
+    {
+      "id": "setup.templates.preview",
+      "label": "Preview"
+    },
+    {
+      "id": "setup.templates.proposals-title",
+      "label": "Waiting for approval ({n})"
+    },
+    {
+      "id": "setup.templates.proposals-intro",
+      "label": "Nothing here has changed what anyone receives yet. Approving is what applies it, and what records it in the change log."
+    },
+    {
+      "id": "setup.templates.approve",
+      "label": "Approve"
+    },
+    {
+      "id": "setup.templates.reject",
+      "label": "Reject"
+    },
+    {
+      "id": "setup.templates.proposed",
+      "label": "Proposed. It changes nothing until you approve it below."
+    },
+    {
+      "id": "setup.templates.no-change",
+      "label": "That is the wording it already has, so there is nothing to propose."
+    },
+    {
+      "id": "setup.templates.applied",
+      "label": "Applied. Documents generated from now on will use it."
+    },
+    {
+      "id": "setup.templates.reverted",
+      "label": "Reverted to the shipped wording."
+    },
+    {
+      "id": "setup.templates.stale",
+      "label": "Somebody changed this wording after the proposal was made, so it was not applied. Reject it and redo the edit against the current text."
+    },
+    {
+      "id": "setup.templates.sync-done",
+      "label": "Synced."
+    },
+    {
+      "id": "setup.templates.sync-pending",
+      "label": "{n} change(s) still waiting to sync."
+    },
+    {
+      "id": "setup.templates.sync-queued",
+      "label": "Not synced yet; it stays queued and retries."
+    },
+    {
+      "id": "setup.templates.logged",
+      "label": "The before-and-after is recorded in feedback/content-edits/."
+    },
+    {
+      "id": "setup.templates.not-logged",
+      "label": "The before-and-after is kept in the applied list on this device only; this build cannot write it to a file."
+    },
+    {
+      "id": "setup.templates.error.unknown-key",
+      "label": "This build does not have a template by that name. Nothing was changed."
+    },
+    {
+      "id": "setup.templates.error.empty",
+      "label": "A template cannot be empty. Revert it to the shipped wording if you want the default back."
+    },
+    {
+      "id": "setup.templates.error.too-long",
+      "label": "That is longer than {limit} characters, which is more than any of these slots is for."
+    },
+    {
+      "id": "setup.templates.error.newline-in-single-line",
+      "label": "This slot is one line inside a paragraph, so a line break here would show up as a broken sentence."
+    },
+    {
+      "id": "setup.templates.error.undeclared-variable",
+      "label": "There is no value called {variable} to fill in, so it would appear in the document exactly as you typed it. The ones you can use are listed under the box."
+    },
+    {
+      "id": "setup.templates.error.missing-required-variable",
+      "label": "This one needs {variable}: without it the AI is told nothing about this workshop’s grading scale and will invent its own range."
+    },
+    {
+      "id": "setup.templates.error.malformed-interpolation",
+      "label": "“{found}” is not a value this app will fill in. Values look like two braces around a name, as in the list under the box."
+    },
+    {
+      "id": "workbench.templates-moved.title",
+      "label": "The wording was changed after this was written."
+    },
+    {
+      "id": "workbench.templates-moved.body",
+      "label": "An administrator edited this workshop’s templates since this document was generated, so it still carries the previous wording. Regenerating the batch on Outgoing rewrites the generated lines and keeps your own edits; sending this as it stands is fine too."
+    },
+    {
+      "id": "setup.impact.template.edit",
+      "label": "Rewords “{label}” in every document generated from now on. Nothing already generated changes by itself."
+    },
+    {
+      "id": "setup.impact.template.revert",
+      "label": "Puts the shipped wording back for “{label}”, in every document generated from now on."
+    },
+    {
+      "id": "setup.impact.template.drafts",
+      "label": "{drafts} unapproved draft(s) in the review queue keep the previous wording and will say so, rather than being rewritten underneath whoever is reviewing them."
+    },
+    {
+      "id": "setup.impact.template.approved-safe",
+      "label": "Approved and sent documents are untouched: an approved document keeps the exact text its approver read."
+    },
+    {
+      "id": "setup.impact.template.instructions",
+      "label": "This is an instruction the AI follows, and {captures} capture(s) have already been routed under the previous version. Evidence gathered before now was produced under different instructions, which is worth remembering when a report rests on both."
     },
     {
       "id": "setup.action.delete",

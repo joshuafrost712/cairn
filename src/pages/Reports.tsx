@@ -4,13 +4,17 @@ import { useResolvedKsas } from '../hooks/useResolvedKsas'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '../db/local'
+import { scaleForWorkshop } from '../db/scale'
+import { templatesForWorkshop } from '../db/templates'
+import { DEFAULT_SCALE } from '../lib/scale'
+import { DEFAULT_TEMPLATES } from '../templates/resolve'
 import { buildAllReports, unattributedObservations, type ParticipantReport } from '../reports/build'
 import { renderParticipantReportMarkdown } from '../reports/markdown'
 import { annotateObservations, participantGate, type AnnotatedObservation, type Gate } from '../reports/verification'
 import { PageHeader } from '../layout/PageHeader'
 import { EmptyState } from '../components/data/EmptyState'
 import { DesignationChip } from '../components/data/DesignationChip'
-import { ADMIN_ROLES, useHasWorkshopRole } from '../layout/roles'
+import { ADMIN_ROLES, useHasWorkshopRole, useScopedWorkshopId } from '../layout/roles'
 import { c } from '../lib/content/chrome'
 import { Copy } from '../components/Copy'
 import type { ObservationRecord, Participant, Team, VerificationVerdict } from '../lib/types'
@@ -29,12 +33,49 @@ export function Reports() {
   const navigate = useNavigate()
   const isAdmin = useHasWorkshopRole(ADMIN_ROLES)
 
-  const participants = useLiveQuery(() => db.participants.toArray(), [], [] as Participant[])
+  /**
+   * SCOPED TO THE ACTIVE WORKSHOP (tl-16, from the second-AI review).
+   *
+   * This page read `db.participants.toArray()` and took `db.workshops.toCollection()
+   * .first()` as the workshop — the same `workshops[0]` defect tl-17 fixed in
+   * src/db/drafts.ts and did not reach here. On a one-workshop deployment it is correct;
+   * with two it lists the other workshop's participants and heads their report with
+   * whichever workshop Dexie happened to insert first.
+   *
+   * tl-16 is what made it worth fixing rather than noting, because the report renderer now
+   * resolves AUTHORED WORDING as well as a scale: without this, a report for a Crash
+   * Course participant would carry Bali's name, Bali's scale and Bali's authored prose,
+   * all three plausible and all three wrong. It is a visible behaviour change — an admin
+   * of two workshops now sees one workshop's participants here — and it is the change
+   * tl-17 made everywhere else.
+   */
+  const workshopId = useScopedWorkshopId()
+  const participants = useLiveQuery(
+    () => (workshopId ? db.participants.where('workshop_id').equals(workshopId).toArray() : db.participants.toArray()),
+    [workshopId],
+    [] as Participant[],
+  )
   const ksas = useResolvedKsas()
-  const teams = useLiveQuery(() => db.teams.toArray(), [], [] as Team[])
+  const teams = useLiveQuery(
+    () => (workshopId ? db.teams.where('workshop_id').equals(workshopId).toArray() : db.teams.toArray()),
+    [workshopId],
+    [] as Team[],
+  )
   const observations = useLiveQuery(() => db.observations.toArray(), [], [] as ObservationRecord[])
   const verdicts = useLiveQuery(() => db.verifications.toArray(), [], [] as VerificationVerdict[])
-  const workshop = useLiveQuery(() => db.workshops.toCollection().first(), [])
+  const workshop = useLiveQuery(
+    () => (workshopId ? db.workshops.get(workshopId) : db.workshops.toCollection().first()),
+    [workshopId],
+  )
+  // Resolved for the workshop this page is scoped to, not read off the mirror. The
+  // renderer defaults both to the active workshop's, which is the same thing here today
+  // and stops being so the moment somebody renders a report from a background job.
+  const scale = useLiveQuery(() => scaleForWorkshop(workshopId), [workshopId], DEFAULT_SCALE)
+  const templates = useLiveQuery(
+    () => templatesForWorkshop(workshopId),
+    [workshopId],
+    DEFAULT_TEMPLATES,
+  )
 
   const sortedKsas = useMemo(() => [...(ksas ?? [])].sort((a, b) => a.code.localeCompare(b.code)), [ksas])
   const annotated = useMemo(() => annotateObservations(observations ?? [], verdicts ?? []), [observations, verdicts])
@@ -61,7 +102,14 @@ export function Reports() {
   const [msg, setMsg] = useState<string | null>(null)
 
   const copyMarkdown = async (report: ParticipantReport<AnnotatedObservation>, gate?: Gate) => {
-    const md = renderParticipantReportMarkdown(report, workshop?.name ?? 'Workshop', generatedOn, gate)
+    const md = renderParticipantReportMarkdown(
+      report,
+      workshop?.name ?? 'Workshop',
+      generatedOn,
+      gate,
+      scale,
+      templates,
+    )
     try {
       await navigator.clipboard.writeText(md)
       setMsg(

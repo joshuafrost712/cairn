@@ -15,6 +15,7 @@
 import { db } from '../db/local'
 import { activitiesForWorkshop, ksasForActivity, ksasForWorkshop } from '../db/reference'
 import { scaleForWorkshop } from '../db/scale'
+import { templatesForWorkshop } from '../db/templates'
 import { captureFileFor, listPendingCaptures } from '../routing/operations'
 import { renderRubricDoc, renderRosterDoc, renderSchemaJson } from './workspace'
 import {
@@ -72,6 +73,10 @@ export async function buildBriefPack(options: BuildPackOptions): Promise<BriefPa
     db.teams.where('workshop_id').equals(workshopId).toArray(),
     scaleForWorkshop(workshopId),
   ])
+  // tl-16. Resolved for THIS workshop like everything above it, not for the active one:
+  // a pack whose rubric came from one workshop and whose instructions came from another
+  // would be the most confusing artifact this app could hand a stranger.
+  const templates = await templatesForWorkshop(workshopId)
 
   const pending = fn === 'observation_routing' ? await listPendingCaptures() : []
   const captureFiles = await Promise.all(pending.map(captureFileFor))
@@ -90,6 +95,7 @@ export async function buildBriefPack(options: BuildPackOptions): Promise<BriefPa
     pendingCount: captureFiles.length,
     localFiles,
     generatedAt,
+    templates,
   }
 
   // The calendar with each activity's wired questions, resolved through the one
