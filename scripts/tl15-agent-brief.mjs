@@ -306,7 +306,10 @@ await page.screenshot({ path: `${SHOTS}/01-desktop.png`, fullPage: true })
 
   // 3. The brief is this workshop's, not the app's defaults.
   const brief = zipRead(path, 'brief.md')
-  check(brief.includes('They run from'), '3. brief.md states the workshop’s own scale range')
+  check(
+    /This workshop's points run from \d+ to \d+/.test(brief),
+    '3. brief.md states the workshop’s own scale range',
+  )
   check(/\*\*\d\*\* — /.test(brief), '3. and lists its points with their labels')
   check(brief.includes('shipped defaults'), '3. and says the instructions are the shipped defaults')
   const parsed = JSON.parse(zipRead(path, 'input/tl15-cap-1.json'))
