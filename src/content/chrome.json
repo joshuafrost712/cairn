@@ -4516,6 +4516,214 @@
     {
       "id": "routing.hosted.result",
       "label": "Routed {routed} of {captures} capture(s): {stored} observation(s) imported, {rejected} rejected, shared {shared}. {failed} failed and stay pending — Route now again retries just those."
+    },
+    {
+      "id": "setup.ai.brief.title",
+      "label": "Your own course materials"
+    },
+    {
+      "id": "setup.ai.brief.help",
+      "label": "If your AI tool can read files on this computer, it can read your course documents alongside the workshop's questions — the activity's real intent, the vocabulary the course uses, what a competency means in this curriculum. Record where they are, one location per line."
+    },
+    {
+      "id": "setup.ai.brief.not-checked",
+      "label": "Throughline never opens these. It cannot see this computer's disk, so it copies what you type into the pack and your own tool does the reading. A location that has moved will be reported by your tool, not by this screen."
+    },
+    {
+      "id": "setup.ai.brief.paths-label",
+      "label": "Locations, one per line"
+    },
+    {
+      "id": "setup.ai.brief.note-label",
+      "label": "What your tool should take from them (optional)"
+    },
+    {
+      "id": "setup.ai.brief.save",
+      "label": "Save locations"
+    },
+    {
+      "id": "setup.ai.brief.saved",
+      "label": "Saved. The next pack you generate will carry them."
+    },
+    {
+      "id": "setup.ai.brief.generate-link",
+      "label": "Generate a pack →"
+    },
+    {
+      "id": "setup.ai.brief.last-pack",
+      "label": "Last pack generated {at}."
+    },
+    {
+      "id": "setup.ai.brief.too-many",
+      "label": "That is more than {max} locations. Point at the folders rather than the files inside them."
+    },
+    {
+      "id": "setup.ai.brief.path-too-long",
+      "label": "One of those lines is longer than {max} characters, which is longer than any real path."
+    },
+    {
+      "id": "setup.ai.brief.note-too-long",
+      "label": "That note is longer than {max} characters. Your tool reads it as guidance, so a paragraph is plenty."
+    },
+    {
+      "id": "setup.ai.op.pack-ready",
+      "label": "A brief pack has been built and downloaded. Hand it to your own AI tool, then bring its answers back."
+    },
+    {
+      "id": "nav.agent-brief",
+      "label": "Your own AI"
+    },
+    {
+      "id": "agent-brief.title",
+      "label": "Use your own AI subscription"
+    },
+    {
+      "id": "agent-brief.intro",
+      "label": "If you already pay for Claude, ChatGPT, Codex or anything like them, it can do this workshop's routing. Throughline packs up the work and everything needed to understand it; your tool does the work; you bring the answers back. Nothing leaves this device except the file you carry there yourself, and there is no per-use cost to the workshop."
+    },
+    {
+      "id": "agent-brief.pending",
+      "label": "capture(s) waiting to be turned into observations."
+    },
+    {
+      "id": "agent-brief.pack-title",
+      "label": "1. Generate the pack"
+    },
+    {
+      "id": "agent-brief.pack-help",
+      "label": "A zip holding the brief, the workshop's questions and grading scale, the roster, the exact shape an answer must take, and one file per waiting capture. It downloads to this device."
+    },
+    {
+      "id": "agent-brief.generate",
+      "label": "Generate pack"
+    },
+    {
+      "id": "agent-brief.generating",
+      "label": "Building the pack…"
+    },
+    {
+      "id": "agent-brief.generated",
+      "label": "{filename} downloaded, carrying {captures} capture(s)."
+    },
+    {
+      "id": "agent-brief.pack-failed",
+      "label": "The pack could not be built. Nothing was exported."
+    },
+    {
+      "id": "agent-brief.paths-link",
+      "label": "Course-material locations →"
+    },
+    {
+      "id": "agent-brief.paths-included",
+      "label": "{n} course-material location(s) will be named in the pack for your tool to read."
+    },
+    {
+      "id": "agent-brief.paths-absent",
+      "label": "No course-material locations are recorded, so the pack will tell your tool to skip that step. You can add them in Setup → AI."
+    },
+    {
+      "id": "agent-brief.tools-title",
+      "label": "2. Hand it to your tool"
+    },
+    {
+      "id": "agent-brief.tools-fs",
+      "label": "A tool that can read and write files (Codex, Claude Code, Gemini CLI):"
+    },
+    {
+      "id": "agent-brief.tools-fs-steps",
+      "label": "Unzip the pack into a folder and point your tool at it: “read brief.md and do what it says.” It will read the questions and the roster, read your course materials if you recorded any, work through the files in input/, and write one answer per capture into output/. Then upload that output folder below."
+    },
+    {
+      "id": "agent-brief.tools-chat",
+      "label": "A chat subscription with no file access (ChatGPT, Claude on the web):"
+    },
+    {
+      "id": "agent-brief.tools-chat-steps",
+      "label": "Open brief.md and paste it into a new conversation. Then paste the contents of the files in input/. Ask for the single JSON object the brief describes, and paste that answer back — either below, or in the box on the Routing page."
+    },
+    {
+      "id": "agent-brief.tools-caveat",
+      "label": "Your tool is not Throughline and does not always get this right. Every answer is checked on the way in: an invented quotation, a participant who is not on the roster, a question code that does not exist, or a rating outside this workshop's scale is refused and named, and the rest of the batch still lands."
+    },
+    {
+      "id": "agent-brief.return-title",
+      "label": "3. Bring the answers back"
+    },
+    {
+      "id": "agent-brief.return-help",
+      "label": "Select the JSON files your tool wrote (the whole output folder is fine — anything that is not JSON is ignored). Each one is checked item by item before anything is stored."
+    },
+    {
+      "id": "agent-brief.return-paste",
+      "label": "Pasting a single JSON reply instead? Use the import box on the"
+    },
+    {
+      "id": "agent-brief.return-paste-link",
+      "label": "Routing page"
+    },
+    {
+      "id": "agent-brief.no-json",
+      "label": "None of those files was JSON, so there was nothing to import."
+    },
+    {
+      "id": "agent-brief.importing",
+      "label": "Checking the answers…"
+    },
+    {
+      "id": "agent-brief.imported",
+      "label": "{stored} observation(s) stored, {rejected} rejected, {skipped} file(s) skipped. Shared {shared} with the other devices."
+    },
+    {
+      "id": "agent-brief.report-title",
+      "label": "What happened to each file"
+    },
+    {
+      "id": "agent-brief.file.imported",
+      "label": "imported"
+    },
+    {
+      "id": "agent-brief.file.already_routed",
+      "label": "already done"
+    },
+    {
+      "id": "agent-brief.file.unknown_capture",
+      "label": "not this workshop's"
+    },
+    {
+      "id": "agent-brief.file.malformed",
+      "label": "unreadable"
+    },
+    {
+      "id": "agent-brief.file.counts",
+      "label": "{stored} stored, {rejected} rejected"
+    },
+    {
+      "id": "agent-brief.item.rejected",
+      "label": "#{index} about {participant} — {reason} {detail}"
+    },
+    {
+      "id": "agent-brief.item.no-participant",
+      "label": "nobody named"
+    },
+    {
+      "id": "agent-brief.reason.shape",
+      "label": "the answer is missing something it must have:"
+    },
+    {
+      "id": "agent-brief.reason.unknown_participant",
+      "label": "names a participant who is not in this workshop:"
+    },
+    {
+      "id": "agent-brief.reason.unknown_question",
+      "label": "uses a question code this workshop does not have:"
+    },
+    {
+      "id": "agent-brief.reason.off_scale",
+      "label": "rates it outside this workshop's scale:"
+    },
+    {
+      "id": "agent-brief.reason.unsupported_quotation",
+      "label": "quotes something that is not in what the evaluator said:"
     }
   ]
 }

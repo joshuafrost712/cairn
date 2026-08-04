@@ -152,6 +152,15 @@ describe('the routing surface is administrator-only', () => {
     expect(routing.roles).toEqual(ADMIN_ROLES)
   })
 
+  it('gates the brief pack on ADMIN_ROLES too', () => {
+    // Load-bearing for the copy audit below, which exempts every `agent-brief.` string
+    // from the no-mechanism rule. That page explains routing in as many words, so the
+    // exemption is only honest while no evaluator can open it.
+    const brief = items.find((i) => i.to === '/admin/agent-brief')!
+    expect(brief).toBeDefined()
+    expect(brief.roles).toEqual(ADMIN_ROLES)
+  })
+
   it('gates sync health on ADMIN_ROLES too', () => {
     // Load-bearing for the copy audit below, which exempts every `sync-health.`
     // string from the no-mechanism rule on the grounds that no evaluator can
@@ -198,8 +207,14 @@ describe('the evaluator-facing copy names no mechanism', () => {
   // behind RequireRole ADMIN_ROLES) — so no evaluator can reach these strings. The
   // rest of `setup.impact.` stays under audit, for the reason the paragraph above
   // gives: exempting a whole branch is how the audit stops noticing.
+  //
+  // tl-15 adds `agent-brief.` and `nav.agent-brief`, on the same earned footing. That
+  // page's whole subject is the mechanism — it explains what routing is, names the tools
+  // that can do it, and tells an operator where the answers go — and it is behind
+  // RequireRole ADMIN_ROLES with its own nav test below asserting that gate. If the gate
+  // is ever loosened, that test fails before this exemption becomes a leak.
   const ADMIN_ONLY =
-    /^(routing\.|sync-health\.|nav\.routing|nav\.sync-health|nav\.discrepancy-inbox|nav\.builder|setup\.ai\.|setup\.impact\.ai\.)/
+    /^(routing\.|sync-health\.|agent-brief\.|nav\.routing|nav\.sync-health|nav\.agent-brief|nav\.discrepancy-inbox|nav\.builder|setup\.ai\.|setup\.impact\.ai\.)/
 
   const nodes = (chrome as { nodes: Array<Record<string, unknown>> }).nodes
 

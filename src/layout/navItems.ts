@@ -141,6 +141,11 @@ export const NAV_GROUPS: NavGroup[] = [
       // carries a credential field and a chief evaluator has no business holding
       // the routing repo's token.
       { labelId: 'nav.routing', to: '/admin/routing', roles: ADMIN_ROLES },
+      // tl-15: the brief pack. ADMIN_ROLES for tl-03's reason — it names the routing
+      // mechanism and exports the workshop's captures — and beside routing rather than
+      // inside Setup, because generating a pack is an action and the paths it carries
+      // are the setting.
+      { labelId: 'nav.agent-brief', to: '/admin/agent-brief', roles: ADMIN_ROLES },
       { labelId: 'nav.data', to: '/admin/data', roles: ADMIN_ROLES },
     ],
   },

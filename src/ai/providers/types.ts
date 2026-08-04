@@ -71,6 +71,8 @@ export const failed = (reason: string): AiOutcome => ({ kind: 'error', reason })
  * failure mode the tool-contract half of the protocol (§2) is about: a vague
  * contract invites invention.
  */
+export type RoutingIntent = 'copy' | 'push' | 'run' | 'pack'
+
 export type AiJob =
   | {
       fn: 'observation_routing'
@@ -86,8 +88,13 @@ export type AiJob =
        * now rather than handed to somebody. Only `local-agent` can service it; the other
        * modes refuse it with a reason naming the limitation ("somebody has to sit down and
        * do this"), which is more useful than a button that does nothing.
+       *
+       * `pack` (tl-15) is the fourth, on the same rule: the same captures under the same
+       * contract, handed over as a folder an operator's own agent can read rather than as
+       * a prompt somebody pastes. It is an intent and not a function precisely so that it
+       * passes the toggle and the trace like every other way of moving this work.
        */
-      intent: 'copy' | 'push' | 'run'
+      intent: RoutingIntent
     }
   | {
       fn: 'scenario_draft'
@@ -105,12 +112,29 @@ export type AiJob =
       brief: string
     }
 
+/**
+ * What a provider may be handed: every job except the pack (tl-15).
+ *
+ * The exclusion is in the TYPE rather than in a comment because it is a claim worth
+ * making provable. `pack` is the one intent that is the same in every mode — it moves the
+ * work rather than doing it, calls no model, holds no credential and touches no network —
+ * so `runAiJob` serves it centrally, and a provider that tried to handle it would be
+ * adding a fourth answer to a question with one. Getting this wrong would not have been
+ * loud: `github-claude` would have fallen through to its copy hand-off and given an
+ * administrator a clipboard bundle when they asked for a folder, and `hosted-api` would
+ * have refused a pack for want of a deployment key it does not need.
+ */
+export type ProviderJob =
+  | (Extract<AiJob, { fn: 'observation_routing' }> & { intent: Exclude<RoutingIntent, 'pack'> })
+  | Extract<AiJob, { fn: 'scenario_draft' }>
+  | Extract<AiJob, { fn: 'conversation_guidance' }>
+
 /** What a provider must be able to do. One object per mode. */
 export interface AiProvider {
   mode: AiMode
   /** Which functions this mode can actually service in this build. */
   handles(fn: AiFunction): boolean
-  run(job: AiJob): Promise<AiOutcome>
+  run(job: ProviderJob): Promise<AiOutcome>
 }
 
 /** How much text may be sent in one job. */

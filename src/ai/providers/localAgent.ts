@@ -15,7 +15,7 @@ import {
   type RelayJobRequest,
 } from '../../relay/client'
 import { relayConfigured } from '../../relay/config'
-import { failed, operatorAction, refused, result, type AiJob, type AiOutcome, type AiProvider } from './types'
+import { failed, operatorAction, refused, result, type ProviderJob, type AiOutcome, type AiProvider } from './types'
 import type { AiFunction } from '../../lib/aiConfig'
 
 /**
@@ -58,7 +58,7 @@ export const localAgentProvider: AiProvider = {
     return fn === 'observation_routing' || fn === 'scenario_draft' || fn === 'conversation_guidance'
   },
 
-  async run(job: AiJob): Promise<AiOutcome> {
+  async run(job: ProviderJob): Promise<AiOutcome> {
     if (!relayConfigured()) return refused('setup.ai.relay.not-configured')
 
     /**

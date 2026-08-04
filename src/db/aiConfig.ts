@@ -2,9 +2,11 @@ import { db, newId } from './local'
 import { supabase, isSupabaseConfigured } from '../lib/supabase'
 import { enqueueReferenceWrite, pushReferenceOutbox } from './referenceWrite'
 import {
+  briefValue,
   defaultAiConfig,
   functionsValue,
   resolveAiConfig,
+  type AiBrief,
   type AiConfig,
   type AiConfigRow,
   type AiFunction,
@@ -71,6 +73,8 @@ export async function saveAiConfig(
      * stored overrides alone, which is what every tl-13 caller does.
      */
     assumptions?: Record<string, number>
+    /** The brief pack's settings (tl-15). Omit to leave them alone. */
+    brief?: AiBrief
   },
   updatedBy: string | null,
 ): Promise<AiConfig> {
@@ -81,6 +85,7 @@ export async function saveAiConfig(
     mode: next.mode ?? current.mode,
     functions: next.functions ?? current.functions,
     assumptions: next.assumptions ?? current.assumptions,
+    brief: next.brief ?? current.brief,
     updated_by: updatedBy,
     updated_at: new Date().toISOString(),
   }
@@ -89,6 +94,7 @@ export async function saveAiConfig(
     mode: merged.mode,
     functions: functionsValue(merged),
     assumptions: merged.assumptions,
+    brief: briefValue(merged.brief),
     updated_by: merged.updated_by,
     updated_at: merged.updated_at,
   }
@@ -124,6 +130,50 @@ export async function setAiFunctionModel(
     { functions: { ...current.functions, [fn]: { ...current.functions[fn], model } } },
     updatedBy,
   )
+}
+
+/**
+ * Record where the operator's course materials live (tl-15).
+ *
+ * Separate writer from `saveAiConfig` for the same reason `setAiAssumptions` is: the
+ * caller has one thing in hand and should not have to reconstruct the rest of the
+ * configuration to save it. The `pack_generated_at` stamp is deliberately NOT set here —
+ * see `stampPackGenerated`, which is a different act by a different screen.
+ */
+export async function setAiLocalFiles(
+  workshopId: string,
+  localFiles: string[],
+  localFilesNote: string | null,
+  updatedBy: string | null,
+): Promise<AiConfig> {
+  const current = await getAiConfig(workshopId)
+  return saveAiConfig(
+    workshopId,
+    { brief: { ...current.brief, localFiles, localFilesNote } },
+    updatedBy,
+  )
+}
+
+/**
+ * Record that a pack was generated, so the screen can say when.
+ *
+ * Best-effort and deliberately not part of the pack's own success: the download has
+ * already happened by the time this runs, and a failed stamp must not report a failed
+ * pack. It also does not route through tl-07's dialog, because generating a pack is an
+ * action rather than a setting — the same distinction tl-14 drew between changing a model
+ * (dialog) and changing an assumption (no dialog).
+ */
+export async function stampPackGenerated(
+  workshopId: string,
+  generatedAt: string,
+  updatedBy: string | null,
+): Promise<void> {
+  try {
+    const current = await getAiConfig(workshopId)
+    await saveAiConfig(workshopId, { brief: { ...current.brief, packGeneratedAt: generatedAt } }, updatedBy)
+  } catch {
+    /* the pack is downloaded; a missing timestamp is not worth an error on screen */
+  }
 }
 
 /** Replace the estimator's assumption overrides (tl-14). `{}` resets to the defaults. */

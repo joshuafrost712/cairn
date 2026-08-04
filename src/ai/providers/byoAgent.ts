@@ -1,7 +1,7 @@
 import { buildExportBundle } from '../../routing/operations'
 import { buildScenarioPrompt } from '../scenarioDraft'
 import { buildGuidancePrompt } from '../guidancePrompt'
-import { failed, operatorAction, refused, type AiJob, type AiProvider } from './types'
+import { failed, operatorAction, refused, type AiProvider, type ProviderJob } from './types'
 import type { AiFunction } from '../../lib/aiConfig'
 
 /**
@@ -17,10 +17,17 @@ import type { AiFunction } from '../../lib/aiConfig'
  * did not carry it", so `intent: 'push'` is REFUSED here rather than quietly falling
  * back to the repo.
  *
- * tl-15 builds the full brief pack. What exists here is the same prompt the
- * copy/paste path already produces, which is the honest minimum: a mode that
- * pretended to have a richer brief than it does would be worse than one that says
- * what it has.
+ * tl-15 IS the brief pack, and it arrives here as a fourth `observation_routing`
+ * intent rather than as a function of its own: `pack` is the same captures under the
+ * same contract, handed over as a folder instead of as a prompt. Routing it through
+ * the intent keeps it behind `runAiJob`'s toggle check and inside the trace, which a
+ * download button wired straight to `buildBriefPack` would not be.
+ *
+ * THE PACK IS AVAILABLE IN EVERY MODE, NOT ONLY THIS ONE, and that is deliberate. An
+ * administrator on `github-claude` who happens to have Codex in front of them should not
+ * have to change their workshop's provider setting to use it once; `fallbackOutcome` in
+ * ./index.ts serves the same pack with its own instruction id, so the trace says which
+ * mode it actually happened in.
  */
 export const byoAgentProvider: AiProvider = {
   mode: 'byo-agent',
@@ -29,7 +36,7 @@ export const byoAgentProvider: AiProvider = {
     return fn === 'observation_routing' || fn === 'scenario_draft' || fn === 'conversation_guidance'
   },
 
-  async run(job: AiJob) {
+  async run(job: ProviderJob) {
     switch (job.fn) {
       case 'observation_routing': {
         if (job.intent === 'push') return refused('setup.ai.error.byo-never-pushes')

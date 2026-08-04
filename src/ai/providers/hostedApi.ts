@@ -4,7 +4,7 @@ import { buildExportBundle } from '../../routing/operations'
 import { draftScenarioWithAI } from '../scenarioDraft'
 import { routeCapturesHosted } from '../hostedRouting'
 import { modelById } from '../models'
-import { failed, operatorAction, refused, result, type AiJob, type AiOutcome, type AiProvider } from './types'
+import { failed, operatorAction, refused, result, type ProviderJob, type AiOutcome, type AiProvider } from './types'
 import type { AiFunction } from '../../lib/aiConfig'
 
 /**
@@ -44,7 +44,7 @@ export const hostedApiProvider: AiProvider = {
     return fn === 'scenario_draft' || fn === 'observation_routing'
   },
 
-  async run(job: AiJob): Promise<AiOutcome> {
+  async run(job: ProviderJob): Promise<AiOutcome> {
     // The three guards, in order: a backend to call, the deployment's permission
     // to spend, then the workshop's toggle — which `runAiJob` has already checked
     // before any provider is chosen.

@@ -10,6 +10,7 @@
 import { db } from '../db/local'
 import { ksasForActivity } from '../db/reference'
 import { isOnScale, validateObservation } from '../ai/contract'
+import { excerptIsGrounded } from '../ai/provenance'
 import { scaleForWorkshop } from '../db/scale'
 import {
   buildCaptureFile,
@@ -25,6 +26,56 @@ import type { EvaluationRecord, ObservationRecord } from '../lib/types'
 
 export const CAPTURE_BUNDLE_SCHEMA_ID = 'cairn.capture-bundle/v1'
 export const OBSERVATIONS_BUNDLE_SCHEMA_ID = 'cairn.observations-bundle/v1'
+
+/**
+ * Why one item of a returned file was not kept (tl-15).
+ *
+ * Chrome ids rather than sentences, because a per-item reason is a sentence somebody
+ * reads on a screen and the app's copy lives in one file. `shape` carries the
+ * validator's own English along with it, since "missing/invalid ksa_code" is more
+ * useful to whoever has to fix the agent than a generic id.
+ */
+export type ImportRejection =
+  | 'shape'
+  | 'unknown_participant'
+  | 'unknown_question'
+  | 'off_scale'
+  | 'unsupported_quotation'
+
+export interface ImportItemReport {
+  index: number
+  participant: string | null
+  ksaCode: string | null
+  status: 'stored' | 'rejected'
+  rejection?: ImportRejection
+  /** The validator's own words, for `shape` only. */
+  detail?: string
+}
+
+export type ImportFileStatus = 'imported' | 'already_routed' | 'unknown_capture' | 'malformed'
+
+export interface ImportFileReport {
+  /** The file's own name where there was one (the pack path), else the capture id. */
+  name: string
+  capture: string | null
+  status: ImportFileStatus
+  stored: number
+  rejected: number
+  items: ImportItemReport[]
+}
+
+export interface ImportReport {
+  files: ImportFileReport[]
+  stored: number
+  rejected: number
+  /** Items in files that were skipped whole: already routed, unknown, malformed. */
+  skipped: number
+  shared: number
+}
+
+/** Per-file caps on an upload, which is arbitrary text from outside the app. */
+export const MAX_IMPORT_FILE_BYTES = 2_000_000
+export const MAX_IMPORT_FILES = 500
 
 /**
  * Submitted captures not yet routed back. (routing_status 'routed' = done.)
@@ -46,8 +97,14 @@ export async function listPendingCaptures(): Promise<EvaluationRecord[]> {
     .sort((a, b) => a.created_at.localeCompare(b.created_at))
 }
 
-/** Assemble the self-contained capture file for one evaluation from the local cache. */
-async function captureFileFor(e: EvaluationRecord): Promise<CaptureFile> {
+/**
+ * Assemble the self-contained capture file for one evaluation from the local cache.
+ *
+ * Exported since tl-15, which writes the same file into a pack's `input/` folder. One
+ * builder for every transport is the point: a pack whose captures were assembled
+ * differently from the repo's would be a second contract nobody had noticed writing.
+ */
+export async function captureFileFor(e: EvaluationRecord): Promise<CaptureFile> {
   const workshop = e.workshop_id ? (await db.workshops.get(e.workshop_id)) ?? null : null
   const activity = e.activity_id ? (await db.activities.get(e.activity_id)) ?? null : null
   const ksasInScope = e.activity_id ? await ksasForActivity(e.activity_id) : []
@@ -178,6 +235,81 @@ export async function importObservationsText(text: string): Promise<{
   return { files, stored, rejected, shared }
 }
 
+/**
+ * Ingest an agent's `output/` folder (tl-15): a set of uploaded files, per-item verdicts.
+ *
+ * THREE THINGS THIS DOES THAT THE PASTE PATH DOES NOT, and each is in the spec's
+ * acceptance list rather than invented here.
+ *
+ * **Round-trip identity.** Every item is matched to a capture by the id the pack handed
+ * out. A file naming a capture this device does not hold is `unknown_capture`; one naming
+ * a capture already routed is `already_routed` and is not written, so a stale pack from
+ * last week cannot overwrite work that has since been done properly. Neither is an
+ * exception thrown: both are reported per file, because an operator uploading twenty
+ * files needs to know which two were ignored.
+ *
+ * **Nothing partially imports, and nothing all-or-nothings either.** One invalid item
+ * rejects that item, names it, and the rest of its file proceeds — which is what
+ * `importObservationsText` already did and what this reports properly for the first time.
+ *
+ * **Caps at the boundary.** A file over 2MB, or more than 500 of them, is refused before
+ * anything is parsed: this is arbitrary content from a tool the app does not control.
+ */
+export async function importObservationsPack(
+  uploads: { name: string; text: string }[],
+): Promise<ImportReport> {
+  if (uploads.length > MAX_IMPORT_FILES) {
+    throw new Error(`That is more than ${MAX_IMPORT_FILES} files. Upload the output folder only.`)
+  }
+  const reports: ImportFileReport[] = []
+  let stored = 0
+  let rejected = 0
+  let skipped = 0
+
+  for (const upload of uploads) {
+    const name = upload.name.split('/').pop() || upload.name
+    if (upload.text.length > MAX_IMPORT_FILE_BYTES) {
+      reports.push({ name, capture: null, status: 'malformed', stored: 0, rejected: 0, items: [] })
+      skipped++
+      continue
+    }
+    let parsed: unknown
+    try {
+      parsed = JSON.parse(upload.text)
+    } catch {
+      reports.push({ name, capture: null, status: 'malformed', stored: 0, rejected: 0, items: [] })
+      skipped++
+      continue
+    }
+    const files = extractObservationsFiles(parsed)
+    if (files.length === 0) {
+      reports.push({ name, capture: null, status: 'malformed', stored: 0, rejected: 0, items: [] })
+      skipped++
+      continue
+    }
+    for (const file of files) {
+      const r = await storeObservationsFile(file, {
+        refuseUnknownCapture: true,
+        refuseAlreadyRouted: true,
+      })
+      reports.push({
+        name,
+        capture: file.capture_client_id,
+        status: r.status,
+        stored: r.stored,
+        rejected: r.rejected,
+        items: r.items,
+      })
+      stored += r.stored
+      rejected += r.rejected
+      if (r.status !== 'imported') skipped++
+    }
+  }
+
+  const shared = await shareImported()
+  return { files: reports, stored, rejected, skipped, shared }
+}
+
 // ---- shared ingest --------------------------------------------------------
 
 async function ingestObservationsFile(text: string): Promise<{ stored: number; rejected: number }> {
@@ -259,10 +391,39 @@ async function resolveWorkshopId(
   return pickWorkshopId(local?.workshop_id, fromParticipants, getActiveWorkshopId())
 }
 
+/**
+ * How strictly to read a returned file (tl-15).
+ *
+ * The pack path is the strict one, and the asymmetry is the whole point rather than an
+ * inconsistency. A pack is generated FROM this device's pending queue, so a capture id
+ * it does not recognize is a stale or forged pack rather than a colleague's work, and a
+ * capture already routed must not be overwritten by a pack somebody generated last
+ * week. The repo path is the loose one because both of those are legitimate there: it
+ * pulls captures this device never recorded, and re-reading `outbox/` after a
+ * correction is how a router fixes a bad batch. That escape hatch survives on the paste
+ * path too, which keeps its replace semantics.
+ */
+interface StoreOptions {
+  /** Refuse a capture this device holds no evaluation for. */
+  refuseUnknownCapture?: boolean
+  /** Refuse a capture already marked routed rather than replacing its observations. */
+  refuseAlreadyRouted?: boolean
+}
+
 /** Replace any prior observations for this capture with the validated set. */
-async function storeObservationsFile(file: ObservationsFile): Promise<{ stored: number; rejected: number }> {
+async function storeObservationsFile(
+  file: ObservationsFile,
+  options: StoreOptions = {},
+): Promise<{ stored: number; rejected: number; items: ImportItemReport[]; status: ImportFileStatus }> {
   const captureId = file.capture_client_id
   const importedAt = new Date().toISOString()
+  const local = await db.evaluations.get(captureId)
+  if (options.refuseUnknownCapture && !local) {
+    return { stored: 0, rejected: 0, items: [], status: 'unknown_capture' }
+  }
+  if (options.refuseAlreadyRouted && local?.routing_status === 'routed') {
+    return { stored: 0, rejected: 0, items: [], status: 'already_routed' }
+  }
   const evaluatorEmail = await resolveEvaluatorEmail(captureId)
   const validated = file.observations.map((raw) => validateObservation(raw))
   const workshopId = await resolveWorkshopId(
@@ -298,27 +459,73 @@ async function storeObservationsFile(file: ObservationsFile): Promise<{ stored: 
   const roster = new Set(
     (workshopId ? await db.participants.where('workshop_id').equals(workshopId).toArray() : []).map((p) => p.id),
   )
+  /**
+   * THE FOURTH PART OF THE IMPORT BOUNDARY (tl-15): a question code the workshop does
+   * not define.
+   *
+   * The same silent failure as the participant check and found the same way — by
+   * writing the negative test the spec asks for. Reports roll up BY question code, so an
+   * observation carrying an invented code lands in the store, appears in no report, and
+   * nothing anywhere says a word about it. `ksa_code` is a string on the record and
+   * nothing has ever checked it against the workshop's own questions.
+   *
+   * Guarded like the roster check: only when this device actually holds questions for
+   * the workshop, because a device that has not pulled reference data yet knows none of
+   * them and rejecting real work against an empty set would be the worse failure.
+   */
+  const questionCodes = new Set(
+    (workshopId ? await db.ksas.where('workshop_id').equals(workshopId).toArray() : []).map((k) => k.code),
+  )
   const records: ObservationRecord[] = []
+  const items: ImportItemReport[] = []
   let rejected = 0
+  const reject = (i: number, rejection: ImportRejection, raw: unknown, detail?: string) => {
+    rejected++
+    const o = (raw ?? {}) as Record<string, unknown>
+    items.push({
+      index: i,
+      participant: typeof o.participant_name === 'string' ? o.participant_name : null,
+      ksaCode: typeof o.ksa_code === 'string' ? o.ksa_code : null,
+      status: 'rejected',
+      rejection,
+      detail,
+    })
+    console.warn(`[honest-eval] routed observation ${captureId}::${i} rejected: ${rejection}${detail ? ` (${detail})` : ''}`)
+  }
   validated.forEach((v, i) => {
+    const raw = file.observations[i]
     if (!v.ok) {
-      rejected++
+      reject(i, 'shape', raw, v.reason)
       return
     }
     if (v.value.participant_id && roster.size > 0 && !roster.has(v.value.participant_id)) {
-      rejected++
-      console.warn(
-        `[honest-eval] routed observation ${captureId}::${i} rejected: participant ${v.value.participant_id} is not in this workshop`,
-      )
+      reject(i, 'unknown_participant', raw, v.value.participant_id)
+      return
+    }
+    if (questionCodes.size > 0 && !questionCodes.has(v.value.ksa_code)) {
+      reject(i, 'unknown_question', raw, v.value.ksa_code)
       return
     }
     if (!isOnScale(v.value, scale)) {
-      rejected++
-      console.warn(
-        `[honest-eval] routed observation ${captureId}::${i} rejected: designation ${v.value.evidence_designation} is not a point on this workshop's scale`,
-      )
+      reject(i, 'off_scale', raw, String(v.value.evidence_designation))
       return
     }
+    /**
+     * THE FIFTH PART OF THE IMPORT BOUNDARY (tl-15): a quotation that is not in the
+     * source. See ai/provenance.ts for why this is the check that matters most and why
+     * it is deliberately generous. It runs only where this device holds the capture's
+     * own text, which is every path that generated the work locally.
+     */
+    if (!excerptIsGrounded(v.value.source_excerpt, local?.source_text)) {
+      reject(i, 'unsupported_quotation', raw, v.value.source_excerpt.slice(0, 60))
+      return
+    }
+    items.push({
+      index: i,
+      participant: v.value.participant_name,
+      ksaCode: v.value.ksa_code,
+      status: 'stored',
+    })
     records.push({
       id: `${captureId}::${i}`,
       capture_client_id: captureId,
@@ -338,7 +545,7 @@ async function storeObservationsFile(file: ObservationsFile): Promise<{ stored: 
     const ev = await db.evaluations.get(captureId)
     if (ev) await db.evaluations.update(captureId, { routing_status: 'routed' })
   })
-  return { stored: records.length, rejected }
+  return { stored: records.length, rejected, items, status: 'imported' as const }
 }
 
 export function getObservationsForCapture(captureId: string) {

@@ -2,7 +2,7 @@ import { buildExportBundle, pushPendingCaptures } from '../../routing/operations
 import { canPushPull } from '../../routing/config'
 import { buildScenarioPrompt } from '../scenarioDraft'
 import { buildGuidancePrompt } from '../guidancePrompt'
-import { failed, operatorAction, refused, type AiJob, type AiProvider } from './types'
+import { failed, operatorAction, refused, type ProviderJob, type AiProvider } from './types'
 import type { AiFunction } from '../../lib/aiConfig'
 
 /**
@@ -26,7 +26,7 @@ export const githubClaudeProvider: AiProvider = {
     return fn === 'observation_routing' || fn === 'scenario_draft' || fn === 'conversation_guidance'
   },
 
-  async run(job: AiJob) {
+  async run(job: ProviderJob) {
     switch (job.fn) {
       case 'observation_routing': {
         /**
