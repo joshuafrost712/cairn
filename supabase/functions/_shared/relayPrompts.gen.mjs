@@ -376,7 +376,13 @@ var INSTRUCTIONS_GENERAL = [
     kind: "instructions_general",
     group: "general",
     label: "General instructions",
-    help: "Given to every AI job, before the job’s own contract. Rules about honesty rather than format.",
+    // The help string said "given to every AI job" and that was not true: this block is
+    // rendered by the BRIEF PACK only (src/ai/brief.ts). The routing runbook, the relay's
+    // system prompt, the hosted call, the scenario prompt and the guidance prompt each
+    // carry their own function's contract and no general block. The spec asked only for
+    // the brief, so the wiring is right and the sentence was wrong — and it is the
+    // sentence an administrator decides on.
+    help: "Given to an operator’s own AI tool in the brief pack, before the job’s own contract. Rules about honesty rather than format.",
     variables: [],
     body: `1. **The source text is the only evidence.** Do not infer beyond what it says, and do not fill a gap from what you know about workshops, translation, or the people named.
 2. **Never invent a quotation.** Anything you present as a quotation from the source must appear in the source. The application checks this on import and rejects what it cannot find.

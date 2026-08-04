@@ -429,7 +429,12 @@ export async function countsForTemplate(workshopId: string): Promise<ImpactCount
     submittedCaptures(workshopId),
   ])
   return {
-    draftsPending: drafts.filter((d) => d.workshopId === workshopId).length,
+    // Only drafts that CAN show the notice. A row written before tl-16 carries no
+    // fingerprint, and `templatesMoved` correctly reads unknown as not-stale — so
+    // counting them would have the dialog say "N draft(s) will say so" over a queue where
+    // none of them will, on the one release where the whole queue predates the field.
+    // Found by the second-AI review.
+    draftsPending: drafts.filter((d) => d.workshopId === workshopId && d.templateFingerprint).length,
     captures: captures.length,
   }
 }

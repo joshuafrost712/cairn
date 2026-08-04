@@ -45,6 +45,12 @@
  *  - **Chrome.** App labels stay in src/content/chrome.json on the file-backed
  *    transport. These are database-backed and read live by every device, which is why
  *    they go through the proposal queue and chrome does not.
+ *  - **The end-of-day email** (src/reports/dayEmail.ts). Its greeting, sign-off and gate
+ *    line are still literals. It is not a `DocKind` and does not go through the draft
+ *    queue, so it has no segment ids and none of the review machinery; templating it is
+ *    the same shape of work as the digest and is simply not in this spec. The Setup page
+ *    links to it, so say so there rather than letting an administrator reword a greeting
+ *    and wonder why that page did not change.
  *  - **The discrepancy email** (src/reports/discrepancyEmail.ts). The one `DocKind`
  *    left on shipped code, and not for want of time: it is a line-array builder with
  *    no segment ids, and it hardcodes `/3` in six places, so on a 5-point workshop it
@@ -555,7 +561,13 @@ const INSTRUCTIONS_GENERAL: TemplateSpec[] = [
     kind: 'instructions_general',
     group: 'general',
     label: 'General instructions',
-    help: 'Given to every AI job, before the job’s own contract. Rules about honesty rather than format.',
+    // The help string said "given to every AI job" and that was not true: this block is
+    // rendered by the BRIEF PACK only (src/ai/brief.ts). The routing runbook, the relay's
+    // system prompt, the hosted call, the scenario prompt and the guidance prompt each
+    // carry their own function's contract and no general block. The spec asked only for
+    // the brief, so the wiring is right and the sentence was wrong — and it is the
+    // sentence an administrator decides on.
+    help: 'Given to an operator’s own AI tool in the brief pack, before the job’s own contract. Rules about honesty rather than format.',
     variables: [],
     body: `1. **The source text is the only evidence.** Do not infer beyond what it says, and do not fill a gap from what you know about workshops, translation, or the people named.
 2. **Never invent a quotation.** Anything you present as a quotation from the source must appear in the source. The application checks this on import and rejects what it cannot find.

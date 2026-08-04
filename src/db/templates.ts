@@ -120,6 +120,32 @@ export async function pullTemplates(workshopIds: string[]): Promise<{ pulled: nu
   return { pulled: data.length }
 }
 
+/**
+ * Re-point the mirror only when the workshop written to is the ACTIVE one.
+ *
+ * The unconditional version was a defect the second-AI review found: `ProposalPanel` (the
+ * dev surface) applies any pending proposal with no workshop filter, so approving a
+ * leftover proposal for workshop A while working in B pointed the pure layer at A and left
+ * it there until the next `loadReferenceData`. Every document generated in B afterwards
+ * would have carried A's wording. The settings and scale mirrors avoid this only by
+ * being called with the resolved active id and nothing else; this one is called from a
+ * writer, so it has to check.
+ *
+ * NO STORED SELECTION COUNTS AS A MATCH, and the first version of this guard getting that
+ * wrong is why the condition is spelled out rather than written as `!==`. `getActiveWorkshopId()`
+ * returns null until somebody has explicitly switched workshop — which is the normal state
+ * of a one-workshop deployment and of every fresh device — so a strict inequality skipped
+ * the mirror on exactly the devices where there is only one workshop it could mean. The
+ * browser walkthrough caught it: a freshly generated draft was reported stale, because the
+ * mirror still held the empty set while the draft carried the override's fingerprint.
+ */
+async function mirrorIfActive(workshopId: string): Promise<void> {
+  const { getActiveWorkshopId } = await import('../lib/activeWorkshop')
+  const active = getActiveWorkshopId()
+  if (active !== null && active !== workshopId) return
+  await mirrorActiveTemplates(workshopId)
+}
+
 export type SaveTemplateResult =
   | { ok: true; reverted: boolean }
   | { ok: false; problem: TemplateProblem }
@@ -174,7 +200,7 @@ export async function saveTemplate(
   })
   void pushReferenceOutbox()
 
-  await mirrorActiveTemplates(workshopId)
+  await mirrorIfActive(workshopId)
   return { ok: true, reverted: false }
 }
 
@@ -204,6 +230,47 @@ export async function revertTemplate(
   })
   void pushReferenceOutbox()
 
-  await mirrorActiveTemplates(workshopId)
+  await mirrorIfActive(workshopId)
   return { ok: true, reverted: true }
+}
+
+/**
+ * One instruction body, resolved for a NAMED workshop rather than the active one.
+ *
+ * The helper the AI providers use, and it exists because the second-AI review found all
+ * four of them relying on the mirror. A provider is handed a job carrying a
+ * `workshopId`; the operator may have switched away between queueing the work and its
+ * running, and in `local-agent` mode a batch can run minutes later on a machine nobody
+ * is sitting at. `localAgent.ts` already resolved the SCALE explicitly for exactly this
+ * reason and its comment argues the case — then passed no instruction body, so a
+ * five-point workshop got its own rubric with another workshop's contract beside it.
+ *
+ * Async, which is why it is here and not in the pure layer: a provider is already async
+ * and has no reason not to be, unlike the segment builders.
+ *
+ * IT FAILS SOFT, AND THAT IS NOT DEFENSIVE PADDING. Putting a Dexie read on the path to
+ * a prompt makes the hand-off depend on IndexedDB, and tl-13 already wrote down why that
+ * is a live hazard rather than a theoretical one: a blocked upgrade is "an ordinary event
+ * for an installed PWA with a second tab open on the previous version", which is exactly
+ * why the trace is fired and not awaited. An unreadable store must not stop an operator
+ * being handed their prompt, so it degrades to the SHIPPED body — the behaviour of every
+ * build before tl-16 — rather than throwing. It warns, because silently ignoring a
+ * workshop's authored instructions is worth a line in a console even when it is the right
+ * thing to do.
+ */
+export async function instructionFor(
+  workshopId: string,
+  key:
+    | 'instructions.general'
+    | 'instructions.observation_routing'
+    | 'instructions.scenario_draft'
+    | 'instructions.conversation_guidance',
+): Promise<string> {
+  const { bodyFor, DEFAULT_TEMPLATES: SHIPPED } = await import('../templates/resolve')
+  try {
+    return bodyFor(await templatesForWorkshop(workshopId), key)
+  } catch (err) {
+    console.warn(`[honest-eval] could not read the authored ${key}; using the shipped text`, err)
+    return bodyFor(SHIPPED, key)
+  }
 }

@@ -161,8 +161,18 @@ export function TemplatesSection({ workshop }: { workshop: Workshop }) {
           : (outcome.stillPending ?? 0) > 0
             ? c('setup.templates.sync-pending', 'label', { n: outcome.stillPending ?? 0 })
             : c('setup.templates.sync-done')
+        // `outcome.logged` is REPORTED, not dropped, and the second-AI review is why. The
+        // git-tracked before/after only ever gets written by a dev server pointed at a real
+        // backend, so from a deployed build — which is the only build an administrator will
+        // ever be on — it can never be true. Saying nothing would leave the spec's own
+        // "every applied edit appears in the git-tracked log" quietly unmet AND break the
+        // widget's first invariant: never claim a success you did not observe. So the
+        // sentence names where the record does exist instead.
+        const record = outcome.logged
+          ? c('setup.templates.logged')
+          : c('setup.templates.not-logged')
         setNotice(
-          `${outcome.reverted ? c('setup.templates.reverted') : c('setup.templates.applied')} ${sync}`,
+          `${outcome.reverted ? c('setup.templates.reverted') : c('setup.templates.applied')} ${sync} ${record}`,
         )
       },
     })

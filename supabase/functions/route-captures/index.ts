@@ -252,12 +252,19 @@ Deno.serve(async (req: Request) => {
      * day's routing because an override could not be read would be trading the work for
      * the wording, and the shipped instructions are a correct and complete contract.
      */
-    const { data: ruleRows } = await asService
+    const { data: ruleRows, error: ruleError } = await asService
       .from('ai_template')
       .select('body')
       .eq('workshop_id', workshopId)
       .eq('template_key', 'instructions.observation_routing')
       .maybeSingle()
+    if (ruleError) {
+      // Treated as absence, per the paragraph above, but NOT silently: a deployment whose
+      // `ai_template` read is broken would otherwise route every workshop on shipped
+      // defaults forever with no signal anywhere. The analogous `ai_config` read in
+      // loadReferenceData warns for the same reason.
+      console.warn('[honest-eval] could not read the authored routing instructions', ruleError.message)
+    }
     const authoredRules = typeof ruleRows?.body === 'string' ? ruleRows.body : undefined
 
     const started = Date.now()

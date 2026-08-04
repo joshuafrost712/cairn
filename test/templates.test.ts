@@ -37,6 +37,20 @@ import { templatesMoved } from '../src/drafts/state'
 import { classifySetupChange, type SetupChange } from '../src/setup/impact'
 import { parseTemplateRowId } from '../src/devfeedback/applyProposal'
 import { DEFAULT_SCALE, defaultScalePoints } from '../src/lib/scale'
+import { buildAllReports } from '../src/reports/build'
+import { annotateObservations, participantGate } from '../src/reports/verification'
+import { renderParticipantEmailMarkdown } from '../src/reports/participantEmail'
+import { renderParticipantReportMarkdown } from '../src/reports/markdown'
+import { renderEventDigestMarkdown } from '../src/reports/eventDigest'
+import { activityAnalytics, buildCaptureIndex, situate } from '../src/reports/analytics'
+import {
+  activity as activityFixture,
+  evaluation as evaluationFixture,
+  ksa as ksaFixture,
+  obs as obsFixture,
+  participant as participantFixture,
+  team as teamFixture,
+} from './factories'
 import type { DraftDoc } from '../src/drafts/types'
 
 const MIGRATION = path.join(
@@ -543,5 +557,67 @@ describe('a browser harness leaves no fake audit record behind', () => {
     const fn = source.slice(source.indexOf('export async function logAppliedEdit'))
     expect(fn).toContain('if (!isSupabaseConfigured) return false')
     expect(fn.indexOf('if (!isSupabaseConfigured) return false')).toBeLessThan(fn.indexOf('fetch('))
+  })
+})
+
+describe('every generator supplies every variable its slot declares', () => {
+  it('renders all three documents with no unfilled token', () => {
+    // The check `declaredVariables`'s comment promised and the first draft did not have —
+    // the second-AI review found the claim unbacked. It is the one that catches a variable
+    // renamed in the spec and not in the generator (or the reverse), which no other test
+    // here can see: the shipped bodies and the generators are edited in different files
+    // and a mismatch renders as a literal `{{token}}` in somebody's email.
+    //
+    // The method: override every slot with a body that ECHOES its own declared tokens,
+    // then render each document and assert nothing is left unfilled. `fillTemplateTokens`
+    // deliberately leaves an unsupplied token in place, so a surviving `{{` is proof the
+    // generator did not pass it.
+    const overrides: Record<string, string> = {}
+    for (const spec of TEMPLATE_SPECS) {
+      if (spec.variables.length === 0) continue
+      overrides[spec.key] = spec.variables.map((v) => `{{${v.name}}}`).join(' ')
+    }
+    const templates = { workshopId: 'echo', overrides }
+
+    const ksas = [ksaFixture('GENRE', { goal_title: 'Genre Theory' })]
+    const people = [participantFixture({ id: 'p-0', name: 'Amos Khokhar' })]
+    const teams = [teamFixture()]
+    const observations = [
+      obsFixture({
+        id: 'e-1',
+        capture_client_id: 'cap-1',
+        participant_id: 'p-0',
+        participant_name: 'Amos Khokhar',
+        ksa_code: 'GENRE',
+        evidence_designation: 1,
+        text: 'read it as prose',
+        source_excerpt: 'as prose',
+      }),
+    ]
+    const annotated = annotateObservations(observations, [])
+    const report = buildAllReports(people, ksas, annotated, teams)[0]
+    const gate = participantGate(annotated)
+
+    const rendered = [
+      renderParticipantEmailMarkdown(report, gate, 'W', '2026-08-26', {
+        fromName: 'Josh',
+        templates,
+      }),
+      renderParticipantReportMarkdown(report, 'W', '2026-08-26', gate, undefined, templates),
+      renderEventDigestMarkdown(
+        activityAnalytics(
+          activityFixture({ id: 'a-1', title: 'A', day: '2026-08-26' }),
+          ksas,
+          situate(annotated, buildCaptureIndex([evaluationFixture({ client_id: 'cap-1', activity_id: 'a-1' })])),
+          [evaluationFixture({ client_id: 'cap-1', activity_id: 'a-1' })],
+        ),
+        [],
+        { fromName: 'Josh', toName: 'facilitators', templates },
+      ),
+    ]
+
+    for (const doc of rendered) {
+      expect(doc, doc.slice(0, 200)).not.toContain('{{')
+    }
   })
 })

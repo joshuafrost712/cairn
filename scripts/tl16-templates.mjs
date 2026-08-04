@@ -372,22 +372,36 @@ try {
   const drift = await page.evaluate(async (workshopId) => {
     const state = await import('/src/drafts/state.ts')
     const res = await import('/src/templates/resolve.ts')
+    const tmpl = await import('/src/db/templates.ts')
     const dbmod = await import('/src/db/local.ts')
     const all = await dbmod.db.docDrafts.toArray()
     const draft = all.find((d) => d.workshopId === workshopId && d.status === 'draft')
     if (!draft) return { found: false }
-    const now = res.templateFingerprint(res.getActiveTemplates())
+    // Resolved from the WORKSHOP'S ROWS, which is what src/pages/Workbench.tsx does, and
+    // NOT from `getActiveTemplates()`. Reading the module mirror from inside
+    // `page.evaluate` compares a different module instance from the one the app loaded —
+    // Vite dev serves versioned module URLs, so a dynamic import here can get its own
+    // copy of resolve.ts with its own empty `active`. The first version of this
+    // assertion did that and failed with `now=default` over a mirror the app had
+    // correctly filled, which is a harness artifact wearing a bug's clothes.
+    const now = res.templateFingerprint(await tmpl.templatesForWorkshop(workshopId))
     // Pretend the wording moved after this draft was written.
     const stale = { ...draft, templateFingerprint: 'tSOMETHINGELSE' }
     return {
       found: true,
+      now,
+      stamped: draft.templateFingerprint,
       quietWhenCurrent: state.templatesMoved(draft, now) === false,
       loudWhenMoved: state.templatesMoved(stale, now) === true,
       quietWhenApproved: state.templatesMoved({ ...stale, status: 'approved' }, now) === false,
       id: draft.id,
     }
   }, seeded.workshopId)
-  check(drift.found && drift.quietWhenCurrent, 'a freshly generated draft is not called stale')
+  check(
+    drift.found && drift.quietWhenCurrent,
+    'a freshly generated draft is not called stale',
+    `stamped=${drift.stamped} now=${drift.now}`,
+  )
   check(drift.found && drift.loudWhenMoved, 'a draft written before the change IS called stale')
   check(drift.found && drift.quietWhenApproved, 'an approved document is never called stale')
 

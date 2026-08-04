@@ -201,6 +201,81 @@ Draft designations grouped by the CBC sub-points each competency area feeds, as 
 - **Sub A**: GENRE 1/3, CHECK (no evidence)
 
 
+===== event digest no pattern =====
+## Psalm 1 workshop (2026-08-26)
+
+Hi all,
+
+**How the group did**
+- Average across all observations in this event: **3.0/3** (2 participants observed, 2 observations, 1 evaluator).
+- No competency area had a quarter or more of the group below competent.
+
+**Conversations**
+- Nobody from this event needed a one-to-one conversation.
+
+Thanks,
+Josh
+
+===== participant report gate ready =====
+# Participant evaluation: Amos Khokhar
+
+Psalms Workshop, Team A. Draft evidence summary generated 2026-08-26 from facilitator observations. Numbers are draft 0–3 designations and the evidence levels behind them are still being finalized, so treat this as input to a human judgment rather than a final score.
+
+**Verification status.** Verified: all 1 observations confirmed by at least 2 evaluators. This report is cleared to finalize.
+
+Evidence has been recorded against 1 of 2 competency areas.
+
+## Evidence by competency area
+
+### GENRE: Genre Theory
+
+**Designation: 3/3 (strong).**
+
+- 3/3: seen twice
+  > "seen twice"
+
+### Competency areas without evidence yet
+
+No observations have been recorded for: CHECK (Checking).
+
+## CBC competency mapping
+
+Draft designations grouped by the CBC sub-points each competency area feeds, as a starting point for the eventual CBC submission.
+
+- **Sub A**: GENRE 3/3, CHECK (no evidence)
+
+
+===== participant report gate disputed =====
+# Participant evaluation: Amos Khokhar
+
+Psalms Workshop, Team A. Draft evidence summary generated 2026-08-26 from facilitator observations. Numbers are draft 0–3 designations and the evidence levels behind them are still being finalized, so treat this as input to a human judgment rather than a final score.
+
+**Verification status.** Not yet verified: 0 of 1 observations confirmed (needs 2 evaluators each), 1 disputed. This report is locked until those are resolved.
+
+Evidence has been recorded against 0 of 2 competency areas, with 1 item(s) flagged for review.
+
+## Evidence by competency area
+
+No counting evidence has been recorded for this participant yet.
+
+### Competency areas without evidence yet
+
+No observations have been recorded for: GENRE (Genre Theory); CHECK (Checking).
+
+## Items flagged for review
+
+These observations need a human decision before they count toward a designation, because the participant was ambiguous, the competency mapping was a stretch, or the evidence was too thin to rate.
+
+- **GENRE**: seen twice (high confidence)
+  > "seen twice"
+
+## CBC competency mapping
+
+Draft designations grouped by the CBC sub-points each competency area feeds, as a starting point for the eventual CBC submission.
+
+- **Sub A**: GENRE (no evidence), CHECK (no evidence)
+
+
 ===== participant email empty =====
 Hi Nobody,
 

@@ -1,3 +1,4 @@
+import { instructionFor } from '../../db/templates'
 import { getAiConfig } from '../../db/aiConfig'
 import { scaleForWorkshop } from '../../db/scale'
 import { buildExportBundle, importObservationsText } from '../../routing/operations'
@@ -88,7 +89,7 @@ export const localAgentProvider: AiProvider = {
           workshopId: job.workshopId,
           fn: 'scenario_draft',
           system: relayWorkerSystem(),
-          prompt: buildScenarioPrompt(job.document, job.scale),
+          prompt: buildScenarioPrompt(job.document, job.scale, await instructionFor(job.workshopId, 'instructions.scenario_draft')),
           model,
           expect: 'json',
         }
@@ -103,7 +104,7 @@ export const localAgentProvider: AiProvider = {
           workshopId: job.workshopId,
           fn: 'conversation_guidance',
           system: relayWorkerSystem(),
-          prompt: buildGuidancePrompt(job.brief),
+          prompt: buildGuidancePrompt(job.brief, await instructionFor(job.workshopId, 'instructions.conversation_guidance')),
           model,
           // Prose, not JSON. The runner strips a fence if the model added one, and
           // `validateGuidanceReply` rejects anything that still looks like code.
@@ -160,11 +161,20 @@ async function routeCaptures(
   // carries a `DEFAULT_SCALE` fallback for callers that have none, and relying on it here
   // would hand a five-point workshop a 0-3 rubric — the same bug tl-13 fixed in the Edge
   // Function, in a file where nothing would have complained.
-  const scale = await scaleForWorkshop(workshopId)
+  //
+  // AND (tl-16) THE WORKSHOP'S OWN INSTRUCTIONS, for exactly the argument above. The
+  // first draft of that spec passed the scale here and left the instruction body to
+  // resolve from the active-workshop mirror, so a batch run after the operator switched
+  // away would have carried this workshop's rubric beside another one's contract. That
+  // is the half of this comment's own reasoning it had not applied.
+  const [scale, rules] = await Promise.all([
+    scaleForWorkshop(workshopId),
+    instructionFor(workshopId, 'instructions.observation_routing'),
+  ])
   const request: RelayJobRequest = {
     workshopId,
     fn: 'observation_routing',
-    system: relayRoutingSystem(scale),
+    system: relayRoutingSystem(scale, rules),
     prompt: relayRoutingPrompt(json),
     model,
     expect: 'json',

@@ -1898,6 +1898,14 @@
       "label": "Not synced yet; it stays queued and retries."
     },
     {
+      "id": "setup.templates.logged",
+      "label": "The before-and-after is recorded in feedback/content-edits/."
+    },
+    {
+      "id": "setup.templates.not-logged",
+      "label": "The before-and-after is kept in the applied list on this device only; this build cannot write it to a file."
+    },
+    {
       "id": "setup.templates.error.unknown-key",
       "label": "This build does not have a template by that name. Nothing was changed."
     },

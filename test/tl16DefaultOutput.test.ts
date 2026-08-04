@@ -59,6 +59,55 @@ for (const r of reports) {
   section(`participant report ${r.participant_id}`, renderParticipantReportMarkdown(r, 'Psalms Workshop', '2026-08-26', gate))
   section(`participant report ${r.participant_id} no-gate`, renderParticipantReportMarkdown(r, 'Psalms Workshop', '2026-08-26'))
 }
+/**
+ * THREE RENDERINGS THE FIRST VERSION OF THIS FIXTURE NEVER TOOK, found by the second-AI
+ * review counting occurrences in the file rather than trusting the header.
+ *
+ * `event_digest.no-pattern` needs a cohort where nobody scored low; both gate sentences in
+ * `participant_report` need a gate that CLEARS, which needs enough confirmations; and the
+ * `disputed` half of the locked gate's `extra` fragment needs a rejecting verdict. An
+ * uncovered default is exactly where a silent rewording would hide, and the header claimed
+ * to render "the empty-state variants of each".
+ */
+const clean = [
+  obs({ id: 'oc-1', capture_client_id: 'cap-1', participant_id: 'p-0', participant_name: 'Amos Khokhar', ksa_code: 'GENRE', evidence_designation: 3, text: 'clean', source_excerpt: 'clean' }),
+  obs({ id: 'oc-2', capture_client_id: 'cap-1', participant_id: 'p-1', participant_name: 'Ruth Verghese', ksa_code: 'GENRE', evidence_designation: 3, text: 'clean too', source_excerpt: 'clean too' }),
+]
+section(
+  'event digest no pattern',
+  renderEventDigestMarkdown(
+    activityAnalytics(act, ksas, situate(annotateObservations(clean, []), buildCaptureIndex([cap])), [cap]),
+    [],
+    { fromName: 'Josh' },
+  ),
+)
+
+const verifiedObs = [obs({ id: 'ov-1', capture_client_id: 'cap-1', participant_id: 'p-0', participant_name: 'Amos Khokhar', ksa_code: 'GENRE', evidence_designation: 3, text: 'seen twice', source_excerpt: 'seen twice' })]
+const twoConfirms = [
+  verdict({ observation_id: 'ov-1', evaluator_email: 'a@sil.org' }),
+  verdict({ observation_id: 'ov-1', evaluator_email: 'b@sil.org' }),
+]
+const verifiedAnnotated = annotateObservations(verifiedObs, twoConfirms)
+const verifiedReport = buildAllReports([people[0]], ksas, verifiedAnnotated, teams)[0]
+section(
+  'participant report gate ready',
+  renderParticipantReportMarkdown(verifiedReport, 'Psalms Workshop', '2026-08-26', participantGate(verifiedAnnotated)),
+)
+
+const disputedAnnotated = annotateObservations(verifiedObs, [
+  verdict({ observation_id: 'ov-1', evaluator_email: 'a@sil.org' }),
+  verdict({ observation_id: 'ov-1', evaluator_email: 'b@sil.org', decision: 'reject' }),
+])
+section(
+  'participant report gate disputed',
+  renderParticipantReportMarkdown(
+    buildAllReports([people[0]], ksas, disputedAnnotated, teams)[0],
+    'Psalms Workshop',
+    '2026-08-26',
+    participantGate(disputedAnnotated),
+  ),
+)
+
 const empty = buildAllReports([participant({ id: 'p-9', name: 'Nobody Observed' })], ksas, [], teams)[0]
 section('participant email empty', renderParticipantEmailMarkdown(empty, undefined, 'Psalms Workshop', '2026-08-26', { fromName: 'Josh' }))
 section('participant report empty', renderParticipantReportMarkdown(empty, 'Psalms Workshop', '2026-08-26'))

@@ -2,6 +2,7 @@ import { db, workshopSettingPk } from './local'
 import { enqueueReferenceWrite, pushReferenceOutbox } from './referenceWrite'
 import { setRequiredConfirmations } from '../reports/verification'
 import { mirrorActiveScale } from './scale'
+import { mirrorActiveTemplates } from './templates'
 import { resolveSettings, settingValue, SETTINGS_DEFAULTS } from '../lib/settings'
 import { SETTING_KEYS } from '../lib/types'
 import type { SettingKey, WorkshopSettings, WorkshopSettingRow } from '../lib/types'
@@ -171,11 +172,21 @@ export async function cacheSettingRows(
  * page that labels this workshop's numbers with the previous workshop's words,
  * and every number on it would still look plausible. One function moves them both
  * or neither.
+ *
+ * tl-16 ADDED THE THIRD MIRROR AND, IN ITS FIRST DRAFT, DID NOT PUT IT HERE — which is
+ * this comment's own prediction coming true one spec later. `mirrorActiveTemplates` was
+ * called only from `loadReferenceData`, which runs on an auth-state change and not on a
+ * workshop switch, so switching from a workshop with authored wording to one without it
+ * left the pure layer resolving the FIRST workshop's sentences for the rest of the
+ * session. Every generated document would have read plausibly and named the wrong
+ * organization's words. Found by the second-AI review, not by any test, because no test
+ * switches workshops.
  */
 export async function mirrorActiveWorkshop(workshopId: string | null): Promise<WorkshopSettings> {
   const settings = await getSettings(workshopId)
   mirrorToDevice(settings)
   await mirrorActiveScale(workshopId)
+  await mirrorActiveTemplates(workshopId)
   return settings
 }
 
