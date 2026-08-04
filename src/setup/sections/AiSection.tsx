@@ -9,6 +9,7 @@ import { describeDetail } from '../../ai/traceDetail'
 import { ScenarioDraftPanel } from '../../components/ScenarioDraftPanel'
 import { AiEstimate } from './AiEstimate'
 import { AiRelay } from './AiRelay'
+import { AiBrief } from './AiBrief'
 import {
   AI_FUNCTION_BUILT,
   AI_FUNCTIONS,
@@ -66,6 +67,24 @@ export function AiSection({ workshopId }: { workshopId: string }) {
           directly under the toggles so the price of switching one on is on screen at
           the moment of the decision. */}
       <AiEstimate workshopId={workshopId} config={config} />
+
+      {/* tl-15: where the operator's own course materials live, which is configuration
+          rather than an action and so belongs here rather than on the pack screen.
+
+          KEYED ON THE STORED VALUES, and the reason is a harness failure rather than a
+          preference. The panel's textareas hold local state seeded from the config, and
+          `useLiveQuery` returns an empty array on its first render — so on a fresh load the
+          panel captured "" before Dexie answered and then showed an empty field over saved
+          paths, for good. A remount key fixes it by construction, which the Web App Build
+          Protocol prefers to syncing state in an effect: it cannot be half-applied. Keyed
+          on the brief's own values rather than on `updated_at`, so flipping an unrelated
+          toggle elsewhere on this screen does not discard what somebody is mid-way through
+          typing. */}
+      <AiBrief
+        key={`${workshopId}:${config.brief.localFiles.join('|')}:${config.brief.localFilesNote ?? ''}`}
+        workshopId={workshopId}
+        config={config}
+      />
 
       {/* tl-21: the machine that does the work, if the workshop has one. Under the
           estimate rather than beside the mode, because an administrator configures this

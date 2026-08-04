@@ -90,6 +90,41 @@ export const AI_FUNCTION_DEFAULTS: Record<AiFunction, boolean> = {
   conversation_guidance: false,
 }
 
+/**
+ * The brief pack's own settings (tl-15): where the operator's course files live, and
+ * when a pack was last generated.
+ *
+ * ON `ai_config` RATHER THAN IN A TABLE OF ITS OWN, for tl-14's reason repeated: this is
+ * one row per workshop, edited on the same screen by the same roles, and a second table
+ * would need its own policies and its own outbox order to hold three fields nobody reads
+ * without also reading the mode.
+ *
+ * THE PATHS ARE NEVER VALIDATED AS PATHS. They describe a filesystem the app cannot see.
+ * What IS checked is that they are strings of a sane length and that there are not
+ * hundreds of them, which is a check about storage rather than a claim about the disk.
+ */
+export interface AiBrief {
+  /** Course-material locations, as the administrator typed them. */
+  localFiles: string[]
+  /** What to take from them, in the administrator's own words. */
+  localFilesNote: string | null
+  /** When a pack was last generated for this workshop. */
+  packGeneratedAt: string | null
+}
+
+export const EMPTY_AI_BRIEF: AiBrief = { localFiles: [], localFilesNote: null, packGeneratedAt: null }
+
+/**
+ * Storage limits, mirrored in SQL by `ai_brief_is_legal()` in
+ * 20260807000100_ai_brief.sql. `test/brief.test.ts` reads that migration and asserts the
+ * numbers agree, the same pairing tl-13 used for `AI_FUNCTION_DEFAULTS`: SQL cannot
+ * import TypeScript, so a test that fails on drift is the only thing holding the copies
+ * together.
+ */
+export const MAX_LOCAL_FILE_PATHS = 20
+export const MAX_LOCAL_FILE_PATH_CHARS = 500
+export const MAX_LOCAL_FILES_NOTE_CHARS = 2000
+
 /** One function's settings. `model` is null until tl-14's registry names any. */
 export interface AiFunctionConfig {
   enabled: boolean
@@ -117,6 +152,8 @@ export interface AiConfig {
    * into this module would make the two files circular.
    */
   assumptions: Record<string, number>
+  /** The brief pack's settings (tl-15), fully resolved. */
+  brief: AiBrief
   updated_by: string | null
   updated_at: string | null
 }
@@ -129,6 +166,8 @@ export interface AiConfigRow {
   functions: unknown
   /** jsonb: a partial map of estimator assumption -> number (tl-14). */
   assumptions?: unknown
+  /** jsonb: the brief pack's settings (tl-15). */
+  brief?: unknown
   updated_by?: string | null
   updated_at?: string | null
 }
@@ -146,8 +185,44 @@ export function defaultAiConfig(workshopId: string | null = null): AiConfig {
     mode: DEFAULT_AI_MODE,
     functions: defaultFunctions(),
     assumptions: {},
+    brief: EMPTY_AI_BRIEF,
     updated_by: null,
     updated_at: null,
+  }
+}
+
+/**
+ * Read the stored brief settings: known-shaped entries only, over-long ones dropped.
+ *
+ * DROPPED RATHER THAN TRUNCATED, which is the same choice tl-13 made for the scale
+ * descriptors it could not place. A path silently cut at 500 characters is a path that
+ * points somewhere else, and an agent told to read it would report a missing file for a
+ * reason nobody could see on screen; an absent path at least reads as absent.
+ */
+export function readAiBrief(stored: unknown): AiBrief {
+  if (!stored || typeof stored !== 'object' || Array.isArray(stored)) return EMPTY_AI_BRIEF
+  const o = stored as Record<string, unknown>
+  const paths = Array.isArray(o.local_files)
+    ? o.local_files
+        .filter((p): p is string => typeof p === 'string')
+        .map((p) => p.trim())
+        .filter((p) => p.length > 0 && p.length <= MAX_LOCAL_FILE_PATH_CHARS)
+        .slice(0, MAX_LOCAL_FILE_PATHS)
+    : []
+  const note =
+    typeof o.local_files_note === 'string' && o.local_files_note.trim()
+      ? o.local_files_note.trim().slice(0, MAX_LOCAL_FILES_NOTE_CHARS)
+      : null
+  const generated = typeof o.pack_generated_at === 'string' && o.pack_generated_at.trim() ? o.pack_generated_at : null
+  return { localFiles: paths, localFilesNote: note, packGeneratedAt: generated }
+}
+
+/** The jsonb `brief` value to store. Sparse in the same spirit as `assumptions`. */
+export function briefValue(brief: AiBrief): Record<string, unknown> {
+  return {
+    local_files: brief.localFiles,
+    local_files_note: brief.localFilesNote,
+    pack_generated_at: brief.packGeneratedAt,
   }
 }
 
@@ -226,6 +301,7 @@ export function resolveAiConfig(
     mode: isMode(row.mode) ? row.mode : DEFAULT_AI_MODE,
     functions,
     assumptions: readAssumptions(row.assumptions),
+    brief: readAiBrief(row.brief),
     updated_by: row.updated_by ?? null,
     updated_at: row.updated_at ?? null,
   }

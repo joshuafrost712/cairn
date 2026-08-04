@@ -161,11 +161,32 @@ synced between devices) and is not part of routing.
 `
 }
 
-/** routing/reference/rubric.md — the full KSA rubric. */
-export function renderRubricDoc(ksas: ResolvedKsa[], scale: Scale = DEFAULT_SCALE): string {
+/**
+ * routing/reference/rubric.md — the full question rubric.
+ *
+ * PARAMETERIZED BY WORKSHOP SINCE tl-15, and it had to be. The heading and the intro
+ * sentence named the Psalms Workshop in Bali outright, and the per-question heading said
+ * every descriptor was a draft placeholder — both hardcoded, both written when this app had
+ * one workshop. tl-08 gave questions a workshop and tl-17 gave the deployment several, so
+ * this document was telling every other workshop's router that it was reading Bali's rubric
+ * and that its authored descriptors were placeholders. tl-15's brief pack is what surfaced
+ * it: a pack generated for the OBT Crash Course carried that sentence.
+ *
+ * The placeholder caveat is now per question and conditional, so it says the true thing:
+ * a question with every descriptor authored no longer calls them drafts, and one with gaps
+ * still warns. Defaults reproduce the old behaviour for a caller that passes nothing except
+ * the name, which is what keeps `scripts/routing-prepare.ts` honest without a rewrite.
+ */
+export function renderRubricDoc(
+  ksas: ResolvedKsa[],
+  scale: Scale = DEFAULT_SCALE,
+  workshop: { name?: string | null; goalLabel?: string } = {},
+): string {
+  const goalWord = workshop.goalLabel ?? 'question group'
   const body = ksas
     .map((k) => {
       const levels = k.evidence_levels ?? {}
+      const missing = scale.points.filter((p) => !levels[String(p.value)])
       const levelText = scale.points
         .map((p) => `- **${p.value}** (${p.label}) — ${levels[String(p.value)] ?? '(unspecified)'}`)
         .join('\n')
@@ -175,17 +196,15 @@ export function renderRubricDoc(ksas: ResolvedKsa[], scale: Scale = DEFAULT_SCAL
 
 **Rubric:** ${k.ai_facing_rubric ?? ''}
 
-**Evidence levels (${minValue(scale)}–${maxValue(scale)}, DRAFT placeholders):**
+**Evidence levels (${minValue(scale)}–${maxValue(scale)}${missing.length ? ', some still unwritten' : ''}):**
 ${levelText}
-
+${missing.length ? `\n> ${missing.length} of these ${scale.points.length} points has no descriptor yet. Where a level is too thin to rate confidently, set \`needs_review\` rather than guessing.\n` : ''}
 **CBC sub-points:** ${k.cbc_subpoint_refs.join('; ')}`
     })
     .join('\n\n')
-  return `# KSA rubric (reference)
+  return `# Question rubric (reference)
 
-The KSA areas for the Psalms Workshop (OBT CDT Workshop 3, Bali 2026), including the
-interpersonal-interaction competency observed in the teaching sessions. Evidence
-levels are draft placeholders pending facilitator authoring.
+Every question ${workshop.name ? `**${workshop.name}**` : 'this workshop'} assesses, grouped by ${goalWord.toLowerCase()}, with the wording an evaluator sees and the rubric a router works from.
 
 ${body}
 `

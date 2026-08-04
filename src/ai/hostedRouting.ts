@@ -137,6 +137,8 @@ export async function routeCapturesHosted(workshopId: string): Promise<AiOutcome
       stored: imported.stored,
       rejected: imported.rejected,
       shared: imported.shared,
+      // tl-15: which rules did the rejecting, so the card can say more than a count.
+      rejections: imported.rejections,
     },
     {
       model: files[0].model,

@@ -20,11 +20,24 @@ import {
   listPendingCaptures,
   pullObservationsFromRepo,
   importObservationsText,
+  rejectionNoteTokens,
+  type RejectionCounts,
 } from '../routing/operations'
 import { runAiJob, type AiOutcome } from '../ai/providers'
 import { drainRelayResults } from '../relay/collect'
 import { aiEnabled, aiUnavailableReason } from '../ai/aiEnabled'
 import { resolveAiConfig } from '../lib/aiConfig'
+
+/**
+ * tl-15's two new rejection rules apply on every import path, including the three on this
+ * page, and none of them shows a per-item report. So each result sentence gains the reason
+ * when one of those rules fired: "2 rejected" with nothing else is precisely the silence
+ * this spec would otherwise have introduced into paths that were working before it.
+ */
+const rejectionNote = (rejections: RejectionCounts | undefined): string => {
+  const tokens = rejectionNoteTokens(rejections ?? {})
+  return tokens ? ' ' + c('routing.rejection-note', 'label', tokens) : ''
+}
 
 // Routing screen: send submitted captures to the routing repo, route them with
 // Claude (Max — no metered API), and bring the per-individual observations back.
@@ -249,7 +262,7 @@ export function Routing() {
             run(async () => {
               const r = await importObservationsText(paste)
               setPaste('')
-              return `Imported ${r.stored} observation${r.stored === 1 ? '' : 's'} from ${r.files} capture${r.files === 1 ? '' : 's'}${r.rejected ? ` (${r.rejected} rejected)` : ''}. Shared ${r.shared} with the other devices.`
+              return `Imported ${r.stored} observation${r.stored === 1 ? '' : 's'} from ${r.files} capture${r.files === 1 ? '' : 's'}${r.rejected ? ` (${r.rejected} rejected)` : ''}. Shared ${r.shared} with the other devices.${rejectionNote(r.rejections)}`
             })
           }
         >
@@ -301,7 +314,7 @@ export function Routing() {
             disabled={busy || !automated}
             onClick={() => run(async () => {
               const r = await pullObservationsFromRepo()
-              return `Pulled ${r.files} file${r.files === 1 ? '' : 's'}, ${r.observations} observation${r.observations === 1 ? '' : 's'}${r.rejected ? ` (${r.rejected} rejected)` : ''}. Shared ${r.shared} with the other devices.`
+              return `Pulled ${r.files} file${r.files === 1 ? '' : 's'}, ${r.observations} observation${r.observations === 1 ? '' : 's'}${r.rejected ? ` (${r.rejected} rejected)` : ''}. Shared ${r.shared} with the other devices.${rejectionNote(r.rejections)}`
             })}
           >
             Pull observations ← repo
@@ -358,15 +371,18 @@ function HostedApiCard({
         stored?: number
         rejected?: number
         shared?: number
+        rejections?: RejectionCounts
       }
-      return c('routing.hosted.result', 'label', {
-        captures: v.captures ?? 0,
-        routed: v.routed ?? 0,
-        failed: v.failed ?? 0,
-        stored: v.stored ?? 0,
-        rejected: v.rejected ?? 0,
-        shared: v.shared ?? 0,
-      })
+      return (
+        c('routing.hosted.result', 'label', {
+          captures: v.captures ?? 0,
+          routed: v.routed ?? 0,
+          failed: v.failed ?? 0,
+          stored: v.stored ?? 0,
+          rejected: v.rejected ?? 0,
+          shared: v.shared ?? 0,
+        }) + rejectionNote(v.rejections)
+      )
     }
     if (outcome.kind === 'operator_action') return c(outcome.instructionsId ?? 'setup.ai.op.fallback-prompt')
     if (outcome.kind === 'refused') return c(outcome.reason ?? 'setup.ai.fn.disabled')
@@ -440,14 +456,22 @@ function LocalAgentCard({
 
   const describe = (outcome: AiOutcome): string => {
     if (outcome.kind === 'result') {
-      const v = outcome.value as { stored?: number; files?: number; rejected?: number; captures?: number }
-      return c('routing.local.result', 'label', {
-        stored: v.stored ?? 0,
-        captures: v.captures ?? 0,
-        rejected: v.rejected ?? 0,
-        tokens_in: outcome.tokensIn ?? 0,
-        tokens_out: outcome.tokensOut ?? 0,
-      })
+      const v = outcome.value as {
+        stored?: number
+        files?: number
+        rejected?: number
+        captures?: number
+        rejections?: RejectionCounts
+      }
+      return (
+        c('routing.local.result', 'label', {
+          stored: v.stored ?? 0,
+          captures: v.captures ?? 0,
+          rejected: v.rejected ?? 0,
+          tokens_in: outcome.tokensIn ?? 0,
+          tokens_out: outcome.tokensOut ?? 0,
+        }) + rejectionNote(v.rejections)
+      )
     }
     if (outcome.kind === 'operator_action') return c(outcome.instructionsId ?? 'setup.ai.op.fallback-prompt')
     if (outcome.kind === 'refused') return c(outcome.reason ?? 'setup.ai.fn.disabled')

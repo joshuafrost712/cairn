@@ -28,6 +28,7 @@ import { Export } from './pages/Export'
 import { AdminOverview } from './pages/admin/AdminOverview'
 import { WorkshopHealth } from './pages/admin/WorkshopHealth'
 import { SyncHealth } from './pages/admin/SyncHealth'
+import { AgentBrief } from './pages/admin/AgentBrief'
 import { Progress } from './pages/admin/Progress'
 import { EventList } from './pages/admin/EventList'
 import { EventDetail } from './pages/admin/EventDetail'
@@ -297,6 +298,9 @@ function Shell() {
               an evaluator's phone ended up holding a token with write access to a
               private repo. */}
           <Route path="/admin/routing" element={<Routing />} />
+          {/* tl-15: point your own subscription at the work. Same gate as routing,
+              for the same reason: it names the mechanism and it exports captures. */}
+          <Route path="/admin/agent-brief" element={<AgentBrief />} />
           {/* tl-18: the pipeline gauge. Admin, not chief: it lists other
               evaluators' stuck work and links to routing. */}
           <Route path="/admin/sync-health" element={<SyncHealth />} />

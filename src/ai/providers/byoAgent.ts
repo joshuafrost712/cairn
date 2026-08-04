@@ -1,7 +1,7 @@
 import { buildExportBundle } from '../../routing/operations'
 import { buildScenarioPrompt } from '../scenarioDraft'
 import { buildGuidancePrompt } from '../guidancePrompt'
-import { failed, operatorAction, refused, type AiJob, type AiProvider } from './types'
+import { failed, operatorAction, refused, type AiProvider, type ProviderJob } from './types'
 import type { AiFunction } from '../../lib/aiConfig'
 
 /**
@@ -17,10 +17,13 @@ import type { AiFunction } from '../../lib/aiConfig'
  * did not carry it", so `intent: 'push'` is REFUSED here rather than quietly falling
  * back to the repo.
  *
- * tl-15 builds the full brief pack. What exists here is the same prompt the
- * copy/paste path already produces, which is the honest minimum: a mode that
- * pretended to have a richer brief than it does would be worse than one that says
- * what it has.
+ * tl-15's brief pack is NOT here, and the omission is the design. `pack` is a fourth
+ * `observation_routing` intent — the same captures under the same contract, handed over as a
+ * folder instead of as a prompt — and `runAiJob` serves it centrally, before any provider is
+ * chosen, because it is the one intent that does not depend on the mode: it moves the work
+ * rather than doing it, so it calls no model, holds no credential and touches no network.
+ * `ProviderJob` excludes the intent from this signature, so this file cannot receive it even
+ * by accident. See the note above `runAiJob` in ./index.ts for what that buys.
  */
 export const byoAgentProvider: AiProvider = {
   mode: 'byo-agent',
@@ -29,7 +32,7 @@ export const byoAgentProvider: AiProvider = {
     return fn === 'observation_routing' || fn === 'scenario_draft' || fn === 'conversation_guidance'
   },
 
-  async run(job: AiJob) {
+  async run(job: ProviderJob) {
     switch (job.fn) {
       case 'observation_routing': {
         if (job.intent === 'push') return refused('setup.ai.error.byo-never-pushes')

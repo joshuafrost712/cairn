@@ -13,9 +13,11 @@ import {
   type AiJob,
   type AiOutcome,
   type AiProvider,
+  type ProviderJob,
 } from './types'
 import { buildScenarioPrompt } from '../scenarioDraft'
 import { buildGuidancePrompt } from '../guidancePrompt'
+import { packOutcome } from './briefPack'
 import { buildExportBundle } from '../../routing/operations'
 import type { AiConfig, AiMode } from '../../lib/aiConfig'
 
@@ -89,7 +91,7 @@ function providerFor(mode: AiMode): AiProvider {
  * `push` is still refused, because it is not "do this another way" but "use the
  * repository", which is a different mode's mechanism.
  */
-async function fallbackOutcome(job: AiJob): Promise<AiOutcome> {
+async function fallbackOutcome(job: ProviderJob): Promise<AiOutcome> {
   switch (job.fn) {
     case 'scenario_draft':
       return operatorAction('setup.ai.op.fallback-prompt', {
@@ -162,11 +164,30 @@ export async function runAiJob(job: AiJob, options: RunAiJobOptions = {}): Promi
     return finish(refused('setup.ai.error.input-too-large'))
   }
 
+  /**
+   * THE PACK IS SERVED HERE, IN EVERY MODE (tl-15).
+   *
+   * It is the one intent that does not depend on the provider: it moves the work rather
+   * than doing it, so it calls no model, holds no credential and touches no network.
+   * Handing it to a provider would have given four answers to a question with one — and
+   * quietly wrong ones, since `github-claude` would have fallen through to its clipboard
+   * bundle and `hosted-api` would have refused for want of a key a pack does not use.
+   *
+   * It still passes everything above: the toggle, because a workshop with routing switched
+   * off should not be exporting its captures, and the trace, which records the mode the
+   * workshop is actually in rather than the mode a pack implies. `ProviderJob` excludes
+   * this intent, so the cast below is discharged by this branch rather than asserted.
+   */
+  if (job.fn === 'observation_routing' && job.intent === 'pack') {
+    return finish(await packOutcome(job.workshopId, 'setup.ai.op.pack-ready'))
+  }
+  const providerJob = job as ProviderJob
+
   const provider = providerFor(config.mode)
-  if (!provider.handles(job.fn)) return finish(await fallbackOutcome(job))
+  if (!provider.handles(job.fn)) return finish(await fallbackOutcome(providerJob))
 
   try {
-    return finish(await provider.run(job))
+    return finish(await provider.run(providerJob))
   } catch (err) {
     // A provider is contracted never to throw; this is the belt for when one does,
     // and it fails loud to the trace rather than swallowing.

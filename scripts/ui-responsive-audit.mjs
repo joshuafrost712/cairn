@@ -56,7 +56,7 @@
 import { chromium } from 'playwright'
 import { mkdirSync, rmSync } from 'node:fs'
 
-const BASE = 'http://localhost:5198/'
+const BASE = `http://localhost:${process.env.AUDIT_PORT ?? 5198}/`
 const SHOTS = 'screenshots/ui-audit'
 
 const VIEWPORTS = [
@@ -115,6 +115,10 @@ const ROUTES = [
   { path: 'admin/assignments', label: 'admin-assignments', auth: true, owned: true, elevate: true },
   { path: 'admin/sync-health', label: 'admin-sync-health', auth: true, owned: true, elevate: true },
   { path: 'admin/routing', label: 'admin-routing', auth: true, owned: true, elevate: true },
+  // tl-15's brief pack, added by the spec that built it rather than by whoever merges
+  // it: this harness is on `main` now, so the duty the wave kept deferring is just an
+  // entry in this array.
+  { path: 'admin/agent-brief', label: 'admin-agent-brief', auth: true, owned: true, elevate: true },
 ]
 
 const results = []
