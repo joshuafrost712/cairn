@@ -232,9 +232,15 @@ export function TemplatesSection({ workshop }: { workshop: Workshop }) {
             >
               <strong>{c(`setup.templates.group.${g.group}`)}</strong>{' '}
               <span className="small muted">
+                {/* A singular id rather than "1 slot(s)". Four of the seven groups hold
+                    exactly one slot, so this is the common case rather than the edge one,
+                    and "1 slots" was on screen in the audit's own phone screenshot —
+                    which is the half of that audit a person has to do. */}
                 {edited > 0
                   ? c('setup.templates.group-edited', 'label', { edited, total: specs.length })
-                  : c('setup.templates.group-default', 'label', { total: specs.length })}
+                  : specs.length === 1
+                    ? c('setup.templates.group-default-one')
+                    : c('setup.templates.group-default', 'label', { total: specs.length })}
               </span>
             </button>
 
@@ -299,10 +305,15 @@ function TemplateEditor({
       </div>
       <p className="small muted">{spec.help}</p>
 
+      {/* Sized to the text rather than to `spec.multiline`. That flag answers "may this
+          body contain a line break", and using it for height too gave the two-line
+          sign-off the same twelve-row box as the 2,400-character general instructions —
+          visible only by opening the walkthrough's own screenshot, which is the half of
+          an audit a person has to do. */}
       <textarea
         value={draft}
         onChange={(e) => setDraft(e.target.value)}
-        rows={spec.multiline ? 12 : 3}
+        rows={rowsFor(draft, spec.multiline)}
         style={{ width: '100%', fontFamily: 'inherit' }}
         aria-label={spec.label}
       />
@@ -354,6 +365,19 @@ function TemplateEditor({
       )}
     </div>
   )
+}
+
+/**
+ * How tall the box should be: enough for what is in it, plus room to grow.
+ *
+ * Clamped at both ends. Three rows minimum so a one-line slot still looks editable, and
+ * fourteen maximum so the general instructions scroll inside their own box rather than
+ * pushing every slot below them off the page.
+ */
+function rowsFor(body: string, multiline: boolean): number {
+  if (!multiline) return 3
+  const lines = body.split('\n').length
+  return Math.min(14, Math.max(3, lines + 2))
 }
 
 /**

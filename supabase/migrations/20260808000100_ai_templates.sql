@@ -183,9 +183,24 @@ end $$;
 -- triggers on one table leave the order of two refusals undefined. That reasoning is
 -- about ONE table with several invariants. This is a different table, so it gets its own
 -- and `ai_config_is_permitted` is not touched.
+--
+-- `SECURITY DEFINER` IS LOAD-BEARING AND ITS ABSENCE REFUSED EVERY WRITE. A trigger
+-- function that is not a definer runs as the invoking role, so it needs EXECUTE on
+-- everything it calls — and `ai_template_is_legal` is revoked from `authenticated` by
+-- design a few lines below. The first version of this file omitted the clause, and the
+-- consequence was not a subtle one: a legitimate workshop admin's insert came back 42501
+-- (insufficient_privilege), indistinguishable from an RLS refusal, so the whole feature
+-- was dead for everybody while every negative test in the harness passed for the wrong
+-- reason. It was caught only because that harness asserts the PERMITTED direction as
+-- well as the blocked ones. `ai_config_is_permitted` has carried the clause since tl-13
+-- and its comment says why; this file's did not, and copying the pattern means copying
+-- the clause. `set search_path` goes with it, because a definer function without one is
+-- resolvable against a caller-controlled schema.
 create or replace function ai_template_is_permitted()
 returns trigger
 language plpgsql
+security definer
+set search_path = public
 as $$
 declare
   _problem text;

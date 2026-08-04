@@ -1814,6 +1814,10 @@
       "label": "{total} slots, all using the shipped wording"
     },
     {
+      "id": "setup.templates.group-default-one",
+      "label": "one slot, using the shipped wording"
+    },
+    {
       "id": "setup.templates.group-edited",
       "label": "{edited} of {total} slots reworded"
     },

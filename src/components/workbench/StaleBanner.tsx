@@ -75,12 +75,18 @@ export function StaleBanner({
       {templatesMoved && (
         <div className="banner stack-tight">
           <strong>{c('workbench.templates-moved.title')}</strong>
-          {/* No button. Regeneration is a BATCH action and it lives on Outgoing,
+          {/* A block, not a span. `stack-tight` lays out block children, so an inline
+              one ran straight on from the bold headline — "…after this was written.An
+              administrator edited…" — which the walkthrough's own screenshot showed and
+              no assertion could. The evidence branch above gets this right by accident,
+              because each of its children is a `div.row`.
+
+              No button, either. Regeneration is a BATCH action and it lives on Outgoing,
               which holds the sender name and the facilitator list this page does not
               have; a button here could only regenerate one document with defaults
               substituted for both, which is a worse document than the stale one. The
               copy names where to go instead. */}
-          <span className="small">{c('workbench.templates-moved.body')}</span>
+          <div className="small">{c('workbench.templates-moved.body')}</div>
         </div>
       )}
     </>
