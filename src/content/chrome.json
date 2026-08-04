@@ -3551,7 +3551,7 @@
     },
     {
       "id": "setup.ai.mode.hosted-api-limit",
-      "label": "Its limit: it costs money per use, and today only the scenario draft-fill has a hosted endpoint."
+      "label": "Its limit: it costs money per use. Observation routing and the scenario draft-fill have hosted endpoints; conversation guidance still hands you a prompt."
     },
     {
       "id": "setup.ai.mode.hosted-needs-backend",
@@ -3560,6 +3560,26 @@
     {
       "id": "setup.ai.mode.hosted-not-enabled-here",
       "label": "Hosted AI is switched off for this whole deployment. Whoever runs it holds the key and the bill, so turning it on is their decision rather than a workshop setting."
+    },
+    {
+      "id": "setup.ai.hosted.nothing-pending",
+      "label": "Nothing is pending routing."
+    },
+    {
+      "id": "setup.ai.hosted.never-pushes",
+      "label": "This mode routes on the server and never writes to the routing repository — pushing is the repository mode's mechanism, not another way of doing this."
+    },
+    {
+      "id": "setup.ai.hosted.model-unreachable",
+      "label": "The model this workshop has chosen for routing cannot be reached through the hosted endpoint, which calls Claude models only. Pick a Claude model in Setup → AI, or clear the choice to use the default."
+    },
+    {
+      "id": "setup.ai.hosted.ceiling-reached",
+      "label": "This deployment has spent its daily AI token allowance. Routing resumes after midnight UTC, or the deployment owner can raise the ceiling."
+    },
+    {
+      "id": "setup.ai.hosted.no-key",
+      "label": "The server has no Anthropic key configured, so hosted routing cannot run. Whoever operates this deployment sets the ANTHROPIC_API_KEY secret."
     },
     {
       "id": "setup.ai.functions-title",
@@ -3867,7 +3887,7 @@
     },
     {
       "id": "routing.mode.hosted-api",
-      "label": "This workshop is set to pay a model per use. There is no hosted endpoint for routing yet, so this step still hands you a prompt."
+      "label": "This workshop is set to pay a model per use. Routing runs on the server, on the deployment's own key — press Route now below and the observations come back through the same validation as every other mode."
     },
     {
       "id": "admin-conversations.guidance.suggest",
@@ -4476,6 +4496,26 @@
     {
       "id": "routing.local.file-help",
       "label": "Save this as a .json file into the machine’s drop folder (its path is in Setup → AI). The answer appears in the folder beside it; paste that text into the import box below."
+    },
+    {
+      "id": "routing.hosted.title",
+      "label": "Routed on the server"
+    },
+    {
+      "id": "routing.hosted.intro",
+      "label": "One press routes every pending capture through the deployment's own key, one capture per call, so a failure costs one capture rather than the batch. The trace records what each call actually cost."
+    },
+    {
+      "id": "routing.hosted.run",
+      "label": "Route now"
+    },
+    {
+      "id": "routing.hosted.working",
+      "label": "Routing on the server…"
+    },
+    {
+      "id": "routing.hosted.result",
+      "label": "Routed {routed} of {captures} capture(s): {stored} observation(s) imported, {rejected} rejected, shared {shared}. {failed} failed and stay pending — Route now again retries just those."
     }
   ]
 }

@@ -187,6 +187,12 @@ export function Routing() {
         <LocalAgentCard workshopId={workshopId} routingOn={routingOn} handOff={handOff} />
       )}
 
+      {/* tl-23: routing on the server, on the deployment's own key. Same rule as the
+          card above: the button exists only in the mode that can honour it. */}
+      {config.mode === 'hosted-api' && workshopId && (
+        <HostedApiCard routingOn={routingOn} handOff={handOff} />
+      )}
+
       <div className="card">
         <h2>Manual (no setup needed)</h2>
         <p className="small muted">
@@ -324,6 +330,79 @@ export function Routing() {
  * sees nothing and routes the same captures again, spending a second batch of the
  * subscription's tokens on work that is already done.
  */
+/**
+ * Route this workshop's captures on the server, on the deployment's own key (tl-23).
+ *
+ * One button. The provider fans the pending captures out to the Edge Function one
+ * capture per call and imports the answers through the ordinary boundary, so what
+ * this card reports is the same partial-honesty rule the spec asks for: "routed 18
+ * of 20" rather than a success that hid two failures or a failure that hid
+ * eighteen successes. Failed captures stay pending, so the retry is this button.
+ */
+function HostedApiCard({
+  routingOn,
+  handOff,
+}: {
+  routingOn: boolean
+  handOff: (intent: 'copy' | 'push' | 'run') => Promise<AiOutcome>
+}) {
+  const [busy, setBusy] = useState(false)
+  const [status, setStatus] = useState<string | null>(null)
+
+  const describe = (outcome: AiOutcome): string => {
+    if (outcome.kind === 'result') {
+      const v = outcome.value as {
+        captures?: number
+        routed?: number
+        failed?: number
+        stored?: number
+        rejected?: number
+        shared?: number
+      }
+      return c('routing.hosted.result', 'label', {
+        captures: v.captures ?? 0,
+        routed: v.routed ?? 0,
+        failed: v.failed ?? 0,
+        stored: v.stored ?? 0,
+        rejected: v.rejected ?? 0,
+        shared: v.shared ?? 0,
+      })
+    }
+    if (outcome.kind === 'operator_action') return c(outcome.instructionsId ?? 'setup.ai.op.fallback-prompt')
+    if (outcome.kind === 'refused') return c(outcome.reason ?? 'setup.ai.fn.disabled')
+    return outcome.reason ?? c('setup.ai.fn.disabled')
+  }
+
+  return (
+    <div className="card form-col">
+      <Copy id="routing.hosted.title" as="h2" />
+      <Copy id="routing.hosted.intro" as="p" className="small muted" />
+      <div className="row" style={{ flexWrap: 'wrap', gap: 'var(--s-1)' }}>
+        <button
+          className="primary"
+          disabled={busy || !routingOn}
+          onClick={() =>
+            void (async () => {
+              setBusy(true)
+              setStatus(c('routing.hosted.working'))
+              try {
+                setStatus(describe(await handOff('run')))
+              } catch (err) {
+                setStatus(err instanceof Error ? err.message : String(err))
+              } finally {
+                setBusy(false)
+              }
+            })()
+          }
+        >
+          {c('routing.hosted.run')}
+        </button>
+      </div>
+      {status && <p className="small">{status}</p>}
+    </div>
+  )
+}
+
 function LocalAgentCard({
   workshopId,
   routingOn,
