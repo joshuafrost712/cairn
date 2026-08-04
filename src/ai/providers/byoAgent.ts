@@ -17,17 +17,13 @@ import type { AiFunction } from '../../lib/aiConfig'
  * did not carry it", so `intent: 'push'` is REFUSED here rather than quietly falling
  * back to the repo.
  *
- * tl-15 IS the brief pack, and it arrives here as a fourth `observation_routing`
- * intent rather than as a function of its own: `pack` is the same captures under the
- * same contract, handed over as a folder instead of as a prompt. Routing it through
- * the intent keeps it behind `runAiJob`'s toggle check and inside the trace, which a
- * download button wired straight to `buildBriefPack` would not be.
- *
- * THE PACK IS AVAILABLE IN EVERY MODE, NOT ONLY THIS ONE, and that is deliberate. An
- * administrator on `github-claude` who happens to have Codex in front of them should not
- * have to change their workshop's provider setting to use it once; `fallbackOutcome` in
- * ./index.ts serves the same pack with its own instruction id, so the trace says which
- * mode it actually happened in.
+ * tl-15's brief pack is NOT here, and the omission is the design. `pack` is a fourth
+ * `observation_routing` intent — the same captures under the same contract, handed over as a
+ * folder instead of as a prompt — and `runAiJob` serves it centrally, before any provider is
+ * chosen, because it is the one intent that does not depend on the mode: it moves the work
+ * rather than doing it, so it calls no model, holds no credential and touches no network.
+ * `ProviderJob` excludes the intent from this signature, so this file cannot receive it even
+ * by accident. See the note above `runAiJob` in ./index.ts for what that buys.
  */
 export const byoAgentProvider: AiProvider = {
   mode: 'byo-agent',

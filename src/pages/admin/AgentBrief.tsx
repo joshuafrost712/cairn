@@ -14,7 +14,6 @@ import { packToZip, type BriefPack } from '../../ai/pack'
 import {
   importObservationsPack,
   listPendingCaptures,
-  MAX_IMPORT_FILES,
   type ImportFileReport,
   type ImportReport,
 } from '../../routing/operations'
@@ -98,15 +97,16 @@ export function AgentBrief() {
     setBusy(true)
     setStatus(c('agent-brief.importing'))
     try {
-      const uploads = await Promise.all(
-        [...files]
-          // Only the JSON answers. A `output/` folder picked whole carries the README
-          // this app wrote into it, and reporting that as a malformed answer would be
-          // the app complaining about its own file.
-          .filter((f) => f.name.toLowerCase().endsWith('.json'))
-          .slice(0, MAX_IMPORT_FILES)
-          .map(async (f) => ({ name: f.name, text: await f.text() })),
-      )
+      const uploads = [...files]
+        // Only the JSON answers. An `output/` folder picked whole carries the README this
+        // app wrote into it, and reporting that as a malformed answer would be the app
+        // complaining about its own file.
+        .filter((f) => f.name.toLowerCase().endsWith('.json'))
+        // NOT sliced to MAX_IMPORT_FILES, which the first draft did: it made the
+        // boundary's own refusal unreachable, so selecting 600 files imported 500 and
+        // dropped 100 with a banner that read like a completed import. The boundary
+        // throws, and the throw is what the operator sees.
+        .map((f) => ({ name: f.name, bytes: f.size, read: () => f.text() }))
       if (uploads.length === 0) {
         setStatus(c('agent-brief.no-json'))
         return
@@ -117,7 +117,7 @@ export function AgentBrief() {
         c('agent-brief.imported', 'label', {
           stored: result.stored,
           rejected: result.rejected,
-          skipped: result.skipped,
+          skipped: result.filesSkipped,
           shared: result.shared,
         }),
       )

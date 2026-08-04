@@ -103,7 +103,12 @@ export async function buildBriefPack(options: BuildPackOptions): Promise<BriefPa
   )
 
   const teamName = (id: string | null) => teams.find((t) => t.id === id)?.name ?? 'unassigned'
-  const rubricDoc = renderRubricDoc(ksas, ctx.scale)
+  // The workshop is passed in, because `renderRubricDoc` used to name Bali in its own text
+  // and this pack is generated for whatever workshop the administrator is in.
+  const rubricDoc = renderRubricDoc(ksas, ctx.scale, {
+    name: ctx.workshop.name,
+    goalLabel: ctx.goalLabel,
+  })
 
   const files: ZipFile[] = [
     { name: 'brief.md', text: renderBriefDoc(ctx) },

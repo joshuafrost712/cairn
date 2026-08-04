@@ -8,8 +8,18 @@ import {
   renderWorkshopDoc,
   type BriefContext,
 } from '../src/ai/brief'
-import { renderRoutingDoc } from '../src/ai/workspace'
+import { renderRoutingDoc, renderRubricDoc } from '../src/ai/workspace'
 import { packFilename } from '../src/ai/pack'
+import {
+  countRejections,
+  importObservationsPack,
+  mergeRejections,
+  rejectionNoteTokens,
+  MAX_IMPORT_FILES,
+  MAX_IMPORT_FILE_BYTES,
+  type ImportItemReport,
+  type ImportRejection,
+} from '../src/routing/operations'
 import { buildZip, crc32, dosDateTime, isSafeZipPath } from '../src/lib/zip'
 import { readZipDirectory, readZipEntry } from '../src/roster/unzip'
 import {
@@ -97,6 +107,22 @@ describe('the github-claude runbook is untouched by this spec', () => {
     // would be exactly the tl-09 bug returning. Five points, so the range reads 1-5.
     expect(renderRoutingDoc(fivePoint)).toContain('evidence_designation 1-5')
   })
+
+  it('renders a five-point workshop byte-identically to ITS fixture too', () => {
+    /**
+     * A second fixture, and the review was right that the first draft committed one and
+     * used it for nothing. This one pins the whole document for a non-default scale rather
+     * than the single line the assertion above checks — so a wording regression anywhere
+     * else in the prompt two shipped modes read fails here instead of passing green.
+     *
+     * Its provenance is weaker than the default fixture's and worth saying plainly: that
+     * one came from `main` and is proof this refactor changed nothing, while this one was
+     * generated from the same unchanged function afterwards and is a pin against the next
+     * change rather than evidence about this one.
+     */
+    const fixture = readFileSync('test/fixtures/routing-doc-five-point.md', 'utf8')
+    expect(renderRoutingDoc(fivePoint)).toBe(fixture)
+  })
 })
 
 describe('renderBriefDoc', () => {
@@ -117,16 +143,31 @@ describe('renderBriefDoc', () => {
     // 0-3 for a five-point workshop would have every observation rejected on import, and
     // the instruction would have been a lie the whole time.
     const doc = renderBriefDoc(ctx())
-    expect(doc).toContain('They run from 1 to 5')
+    expect(doc).toContain("This workshop's points run from 1 to 5")
     expect(doc).toContain('**5** — exemplary')
     expect(doc).toContain('triggers a follow-up conversation')
-    expect(doc).not.toContain('They run from 0 to 3')
+    expect(doc).not.toContain('points run from 0 to 3')
   })
 
   it('states that the instructions are the shipped defaults', () => {
     // tl-16 makes them editable. Until then a brief that implied an administrator had
     // authored these words would be claiming something untrue of every deployment.
     expect(renderBriefDoc(ctx())).toContain('shipped defaults')
+  })
+
+  it('answers the three questions a real agent asked of it', () => {
+    /**
+     * Not invented gaps: a fresh agent ran this brief for real and reported these three as
+     * things it had to guess at (recorded in the spec's review record). A mention that is
+     * not a claim, the undefined middle `confidence`, and an evidence level written for a
+     * session being applied to one moment.
+     */
+    const doc = renderBriefDoc(ctx())
+    expect(doc).toMatch(/A mention is not a claim/)
+    expect(doc).toMatch(/confidence: "medium"/)
+    expect(doc).toMatch(/describes a whole session; your observation describes one moment/)
+    // And the schema/envelope contradiction it reasonably worried about.
+    expect(doc).toMatch(/describes ONE OBSERVATION, not the file around it/)
   })
 
   it('holds the honesty rules an agent has to be told', () => {
@@ -264,6 +305,21 @@ describe('the zip writer', () => {
     expect(dosDateTime(new Date('1970-01-01T00:00:00Z')).date >> 9).toBe(0)
   })
 
+  it('reads the instant in UTC, so the bytes do not depend on the machine', () => {
+    /**
+     * THE REVIEW'S TENTH FINDING, and the round-trip test above could not have caught it:
+     * it compares two calls in one process, which agree in any timezone. The first draft
+     * used the local-time getters, so the same `generatedAt` wrote 17:00 into the header in
+     * Bali and 04:00 in Dallas — reproducible nowhere, which is the one property the module
+     * claims. Asserted as absolute field values rather than by re-running under a second TZ,
+     * because vitest cannot change the process timezone mid-run.
+     */
+    const at = new Date('2026-08-04T09:00:00.000Z')
+    const { date, time } = dosDateTime(at)
+    expect([date >> 9, (date >> 5) & 0xf, date & 0x1f]).toEqual([2026 - 1980, 8, 4])
+    expect([time >> 11, (time >> 5) & 0x3f]).toEqual([9, 0])
+  })
+
   it('refuses a path that climbs out of the archive', () => {
     for (const name of ['../escape.md', '/absolute.md', 'a\\b.md', 'dir//x.md', 'trailing/']) {
       expect(isSafeZipPath(name)).toBe(false)
@@ -353,10 +409,118 @@ describe('the caps in TypeScript and in SQL are the same caps', () => {
   })
 })
 
+describe('the rubric document belongs to the workshop that generated it', () => {
+  /**
+   * THE REVIEW'S FOURTH FINDING. `renderRubricDoc` named "the Psalms Workshop (OBT CDT
+   * Workshop 3, Bali 2026)" in its own text and called every descriptor a draft placeholder,
+   * both hardcoded when this app had one workshop. tl-08 gave questions a workshop and tl-17
+   * gave the deployment several, so every pack for every other workshop carried Bali's name.
+   * The first draft of this spec missed it because the pack test passed a stub string in
+   * place of the rubric.
+   */
+  it('names the workshop it was generated for, and never Bali by default', () => {
+    const doc = renderRubricDoc([ksa()], fivePoint, { name: 'OBT Crash Course', goalLabel: 'Competency' })
+    expect(doc).toContain('**OBT Crash Course**')
+    expect(doc).toContain('grouped by competency')
+    expect(doc).not.toMatch(/Psalms Workshop|Bali/)
+  })
+
+  it('says nothing about drafts when every descriptor is authored', () => {
+    const complete = ksa({ evidence_levels: Object.fromEntries(fivePoint.points.map((p) => [String(p.value), `level ${p.value}`])) })
+    const doc = renderRubricDoc([complete], fivePoint, { name: 'OBT Crash Course' })
+    expect(doc).not.toMatch(/unwritten|placeholder/i)
+  })
+
+  it('warns per question when descriptors are missing, and counts them', () => {
+    // `ksa()` authors 1 and 5 of five points, so three are missing.
+    const doc = renderRubricDoc([ksa()], fivePoint, { name: 'OBT Crash Course' })
+    expect(doc).toContain('some still unwritten')
+    expect(doc).toContain('3 of these 5 points has no descriptor yet')
+    expect(doc).toContain('needs_review')
+  })
+})
+
+describe('the rejection breakdown the batch surfaces report from', () => {
+  const item = (rejection: ImportRejection | undefined) =>
+    ({ index: 0, participant: null, ksaCode: null, status: rejection ? 'rejected' : 'stored', rejection }) as ImportItemReport
+
+  it('counts only what was rejected, by rule', () => {
+    const counts = countRejections([
+      item('unsupported_quotation'),
+      item('unsupported_quotation'),
+      item('unknown_question'),
+      item(undefined),
+    ])
+    expect(counts).toEqual({ unsupported_quotation: 2, unknown_question: 1 })
+  })
+
+  it('sums across files', () => {
+    expect(mergeRejections({ off_scale: 1 }, { off_scale: 2, shape: 1 })).toEqual({ off_scale: 3, shape: 1 })
+  })
+
+  it('says nothing at all when neither new rule fired', () => {
+    // The two rules that predate this spec are not news, so a batch that rejected only on
+    // shape or scale appends no sentence rather than appending "0 and 0".
+    expect(rejectionNoteTokens({ shape: 3, off_scale: 1 })).toBeNull()
+    expect(rejectionNoteTokens({})).toBeNull()
+    expect(rejectionNoteTokens({ unknown_question: 1 })).toEqual({ quotation: 0, question: 1 })
+  })
+})
+
 describe('the default scale still starts at zero', () => {
   it('so a workshop with no scale row gets the app’s original brief', () => {
     // Guards the argument the five-point tests above rest on: they are meaningful only
     // because the default is different.
     expect(defaultScalePoints(null).map((p) => p.value)).toEqual([0, 1, 2, 3])
+  })
+})
+
+describe('the upload boundary refuses a file before reading it', () => {
+  /**
+   * The file-level triage only: nothing here reaches Dexie, because a file refused for its
+   * size or its syntax never gets as far as `storeObservationsFile`. The item-level half is
+   * a browser assertion (scripts/tl15-agent-brief.mjs), like every other Dexie seam in this
+   * wave.
+   *
+   * The point of the `read` callback is what these two tests prove: an oversize file is
+   * refused WITHOUT being read, so the cap is a memory guard and not just a message. The
+   * first draft took a string, which meant the caller had already loaded a 500MB file into
+   * memory before the cap could refuse it.
+   */
+  it('refuses an oversize file without reading it, and says so distinctly', async () => {
+    let read = false
+    const report = await importObservationsPack([
+      {
+        name: 'huge.json',
+        bytes: MAX_IMPORT_FILE_BYTES + 1,
+        read: async () => {
+          read = true
+          return '{}'
+        },
+      },
+    ])
+    expect(read).toBe(false)
+    expect(report.files[0].status).toBe('too_large')
+    expect(report.filesSkipped).toBe(1)
+    expect(report.stored).toBe(0)
+  })
+
+  it('tells unreadable apart from too big, per file, and keeps going', async () => {
+    const report = await importObservationsPack([
+      { name: 'garbage.json', read: async () => '{ not json' },
+      { name: 'wrong-shape.json', read: async () => '{"hello":"world"}' },
+    ])
+    expect(report.files.map((f) => f.status)).toEqual(['malformed', 'malformed'])
+    expect(report.filesSkipped).toBe(2)
+  })
+
+  it('refuses the whole batch above the file count, rather than importing a prefix', async () => {
+    // The review's fifth finding in its other half: the UI used to slice to this number, so
+    // the boundary's refusal was unreachable and 100 of 600 files vanished silently.
+    const many = Array.from({ length: MAX_IMPORT_FILES + 1 }, (_, i) => ({
+      name: `a${i}.json`,
+      read: async () => '{}',
+    }))
+    await expect(importObservationsPack(many)).rejects.toThrow(/501 files/)
   })
 })

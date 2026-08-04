@@ -4542,10 +4542,6 @@
       "label": "Save locations"
     },
     {
-      "id": "setup.ai.brief.saved",
-      "label": "Saved. The next pack you generate will carry them."
-    },
-    {
       "id": "setup.ai.brief.generate-link",
       "label": "Generate a pack →"
     },
@@ -4692,6 +4688,22 @@
     {
       "id": "agent-brief.file.malformed",
       "label": "unreadable"
+    },
+    {
+      "id": "setup.ai.brief.stored",
+      "label": "{n} location(s) saved. The next pack will name them for your tool to read."
+    },
+    {
+      "id": "agent-brief.file.all_rejected",
+      "label": "nothing kept"
+    },
+    {
+      "id": "agent-brief.file.too_large",
+      "label": "too big"
+    },
+    {
+      "id": "routing.rejection-note",
+      "label": "Of those, {quotation} quoted something that is not in the capture's own words and {question} used a question code this workshop does not have. Those captures are still waiting, so they can be routed again."
     },
     {
       "id": "agent-brief.file.counts",

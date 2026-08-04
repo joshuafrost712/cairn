@@ -3,12 +3,14 @@ import { buildBriefPack, type BriefPack } from '../pack'
 import { failed, operatorAction, type AiOutcome } from './types'
 
 /**
- * The `pack` intent's outcome, shared by `byo-agent` and by the fallback (tl-15).
+ * The `pack` intent's outcome (tl-15). One caller today: `runAiJob`, which serves the pack
+ * in every mode.
  *
- * ONE IMPLEMENTATION, TWO INSTRUCTION IDS. `fallbackOutcome` in ./index.ts deliberately
- * does not call `byoAgentProvider.run`, because that would trace a hand-off as though the
- * workshop had chosen bring-your-own; the same reasoning applies to the pack, so the
- * instruction id is the caller's and everything else is here.
+ * It is a module of its own rather than an inline branch because the instruction id is a
+ * parameter: `runAiJob` passes `setup.ai.op.pack-ready`, and a later spec that wants a
+ * differently-worded hand-off (a per-function pack, say) passes its own rather than editing
+ * this. That is the same shape `fallbackOutcome` uses for its prompts, and for the same
+ * reason — a trace that names the wrong hand-off is worse than a terse one.
  *
  * The pack travels on `value` rather than on `prompt`. `prompt` is text for a human to
  * paste; a pack is a set of files, and the screen that asked for it turns them into a zip.

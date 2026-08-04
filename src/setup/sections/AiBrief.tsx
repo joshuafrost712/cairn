@@ -37,7 +37,6 @@ export function AiBrief({ workshopId, config }: { workshopId: string; config: Ai
   const [pathsText, setPathsText] = useState(config.brief.localFiles.join('\n'))
   const [note, setNote] = useState(config.brief.localFilesNote ?? '')
   const [error, setError] = useState<string | null>(null)
-  const [saved, setSaved] = useState<string | null>(null)
 
   const parsePaths = (text: string): string[] =>
     text
@@ -47,7 +46,6 @@ export function AiBrief({ workshopId, config }: { workshopId: string; config: Ai
 
   const save = async () => {
     const paths = parsePaths(pathsText)
-    setSaved(null)
     if (paths.length > MAX_LOCAL_FILE_PATHS) {
       setError(c('setup.ai.brief.too-many', 'label', { max: MAX_LOCAL_FILE_PATHS }))
       return
@@ -75,7 +73,11 @@ export function AiBrief({ workshopId, config }: { workshopId: string; config: Ai
       },
       commit: async () => {
         await setAiLocalFiles(workshopId, paths, note.trim() || null, identity?.email ?? null)
-        setSaved(c('setup.ai.brief.saved'))
+        // Deliberately NOT a `setSaved` here. The panel is keyed on the stored values (see
+        // AiSection), so a successful save changes the key and remounts this component —
+        // which would throw away a confirmation set in local state before anybody read it.
+        // The confirmation is the derived line at the bottom instead: it comes from the
+        // config, so it survives the remount and is true rather than merely optimistic.
       },
     })
   }
@@ -118,7 +120,12 @@ export function AiBrief({ workshopId, config }: { workshopId: string; config: Ai
         </Link>
       </div>
       {error && <p className="small banner warn">{error}</p>}
-      {saved && !error && <p className="small muted">{saved}</p>}
+      {/* The confirmation, derived from what is stored rather than from what was typed. */}
+      {!error && config.brief.localFiles.length > 0 && (
+        <p className="small muted">
+          {c('setup.ai.brief.stored', 'label', { n: config.brief.localFiles.length })}
+        </p>
+      )}
       {config.brief.packGeneratedAt && (
         <p className="small muted">
           {c('setup.ai.brief.last-pack', 'label', { at: config.brief.packGeneratedAt.slice(0, 16).replace('T', ' ') })}

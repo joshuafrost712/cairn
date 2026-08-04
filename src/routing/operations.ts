@@ -52,7 +52,21 @@ export interface ImportItemReport {
   detail?: string
 }
 
-export type ImportFileStatus = 'imported' | 'already_routed' | 'unknown_capture' | 'malformed'
+/**
+ * What became of one returned file.
+ *
+ * `all_rejected` is its own status rather than an `imported` with a zero, because the two
+ * mean opposite things to whoever is looking: one says the router's answer was kept, the
+ * other says none of it could be and the capture is still waiting. Nothing is written in
+ * that case — see the note at the end of `storeObservationsFile`.
+ */
+export type ImportFileStatus =
+  | 'imported'
+  | 'all_rejected'
+  | 'already_routed'
+  | 'unknown_capture'
+  | 'malformed'
+  | 'too_large'
 
 export interface ImportFileReport {
   /** The file's own name where there was one (the pack path), else the capture id. */
@@ -68,12 +82,70 @@ export interface ImportReport {
   files: ImportFileReport[]
   stored: number
   rejected: number
-  /** Items in files that were skipped whole: already routed, unknown, malformed. */
-  skipped: number
+  /**
+   * FILES skipped whole, not items: already routed, unknown, unreadable, oversize.
+   *
+   * Named for what it counts after the review found the doc comment claiming items — two
+   * skipped files holding five observations each are two here, and a later caller trusting
+   * the old wording would have reported a fifth of the real figure.
+   */
+  filesSkipped: number
   shared: number
 }
 
-/** Per-file caps on an upload, which is arbitrary text from outside the app. */
+/**
+ * How many items each rejection rule refused, so a surface with no per-item report can
+ * still say WHY (tl-15).
+ *
+ * The pack screen lists every rejected item. The repo pull, the relay and the hosted
+ * fan-out do not and should not — they are batch operations with a one-line result — but
+ * "2 rejected" with no reason is exactly the kind of silence the two new rules would
+ * otherwise introduce into three paths that were working before this spec.
+ */
+export type RejectionCounts = Partial<Record<ImportRejection, number>>
+
+export function countRejections(items: ImportItemReport[]): RejectionCounts {
+  const counts: RejectionCounts = {}
+  for (const item of items) {
+    if (item.status !== 'rejected' || !item.rejection) continue
+    counts[item.rejection] = (counts[item.rejection] ?? 0) + 1
+  }
+  return counts
+}
+
+/**
+ * The two rules tl-15 added, as a sentence for a surface that shows no per-item report.
+ *
+ * Only those two, deliberately: the shape, the roster and the scale have refused items on
+ * every path since long before this spec, and their counts are not news. Returns null when
+ * neither fired, so a caller appends nothing rather than appending "0 and 0".
+ */
+export function rejectionNoteTokens(
+  rejections: RejectionCounts,
+): { quotation: number; question: number } | null {
+  const quotation = rejections.unsupported_quotation ?? 0
+  const question = rejections.unknown_question ?? 0
+  if (quotation === 0 && question === 0) return null
+  return { quotation, question }
+}
+
+export function mergeRejections(into: RejectionCounts, from: RejectionCounts): RejectionCounts {
+  for (const [key, n] of Object.entries(from)) {
+    const rule = key as ImportRejection
+    into[rule] = (into[rule] ?? 0) + (n ?? 0)
+  }
+  return into
+}
+
+/**
+ * Per-file caps on an upload, which is arbitrary content from a tool the app does not
+ * control.
+ *
+ * Measured in BYTES against the browser's own `File.size`, before the file is read. The
+ * first draft measured `text.length` after `await f.text()`, which is neither a byte count
+ * (a Devanagari answer is ~3 bytes a character, so a 6MB file passed a "2MB" cap) nor a
+ * guard (the whole file was already in memory by the time the check ran).
+ */
 export const MAX_IMPORT_FILE_BYTES = 2_000_000
 export const MAX_IMPORT_FILES = 500
 
@@ -155,11 +227,14 @@ export async function pullObservationsFromRepo(): Promise<{
   observations: number
   rejected: number
   shared: number
+  /** Which rules did the rejecting, so the page can say more than a count (tl-15). */
+  rejections: RejectionCounts
 }> {
   const entries = await listDir('routing/outbox')
   let files = 0
   let observations = 0
   let rejected = 0
+  const rejections: RejectionCounts = {}
   for (const entry of entries) {
     if (entry.type !== 'file' || !entry.name.endsWith('.json')) continue
     const got = await getFile(entry.path)
@@ -168,13 +243,14 @@ export async function pullObservationsFromRepo(): Promise<{
     files++
     observations += result.stored
     rejected += result.rejected
+    mergeRejections(rejections, result.rejections)
   }
   // Straight up to the backend rather than waiting for the 30-second cycle. What
   // the administrator has just imported is the thing every other device is
   // waiting for, and "routed but not yet shared" is a state worth keeping as
   // short as possible. The loop remains the reliable path if this fails.
   const shared = await shareImported()
-  return { files, observations, rejected, shared }
+  return { files, observations, rejected, shared, rejections }
 }
 
 /**
@@ -213,6 +289,14 @@ export async function importObservationsText(text: string): Promise<{
   stored: number
   rejected: number
   shared: number
+  /**
+   * Which rules did the rejecting (tl-15). Added because two new item-level rules — an
+   * unknown question code and an ungrounded quotation — now apply on this path as well, and
+   * this is the return value the relay, the hosted fan-out and the paste box all report
+   * from. "2 rejected" with no reason would have been a silence introduced into three
+   * working paths.
+   */
+  rejections: RejectionCounts
 }> {
   let parsed: unknown
   try {
@@ -225,14 +309,16 @@ export async function importObservationsText(text: string): Promise<{
   let files = 0
   let stored = 0
   let rejected = 0
+  const rejections: RejectionCounts = {}
   for (const f of fileList) {
     const r = await storeObservationsFile(f)
     files++
     stored += r.stored
     rejected += r.rejected
+    mergeRejections(rejections, countRejections(r.items))
   }
   const shared = await shareImported()
-  return { files, stored, rejected, shared }
+  return { files, stored, rejected, shared, rejections }
 }
 
 /**
@@ -255,36 +341,53 @@ export async function importObservationsText(text: string): Promise<{
  * **Caps at the boundary.** A file over 2MB, or more than 500 of them, is refused before
  * anything is parsed: this is arbitrary content from a tool the app does not control.
  */
-export async function importObservationsPack(
-  uploads: { name: string; text: string }[],
-): Promise<ImportReport> {
+export async function importObservationsPack(uploads: PackUpload[]): Promise<ImportReport> {
   if (uploads.length > MAX_IMPORT_FILES) {
-    throw new Error(`That is more than ${MAX_IMPORT_FILES} files. Upload the output folder only.`)
+    throw new Error(
+      `That is ${uploads.length} files, and ${MAX_IMPORT_FILES} is the most that can be imported at once. Upload the output folder in batches.`,
+    )
   }
   const reports: ImportFileReport[] = []
   let stored = 0
   let rejected = 0
-  let skipped = 0
+  let filesSkipped = 0
+  const skip = (name: string, status: ImportFileStatus) => {
+    reports.push({ name, capture: null, status, stored: 0, rejected: 0, items: [] })
+    filesSkipped++
+  }
 
   for (const upload of uploads) {
     const name = upload.name.split('/').pop() || upload.name
-    if (upload.text.length > MAX_IMPORT_FILE_BYTES) {
-      reports.push({ name, capture: null, status: 'malformed', stored: 0, rejected: 0, items: [] })
-      skipped++
+    // Bytes, from the file itself, before it is read. An oversize file is `too_large` and
+    // not `malformed`: a 10MB answer that is perfectly good JSON reported as "unreadable"
+    // sends an operator to look for a syntax error that is not there.
+    if (upload.bytes != null && upload.bytes > MAX_IMPORT_FILE_BYTES) {
+      skip(name, 'too_large')
+      continue
+    }
+    let text: string
+    try {
+      text = await upload.read()
+    } catch {
+      skip(name, 'malformed')
+      continue
+    }
+    if (text.length > MAX_IMPORT_FILE_BYTES) {
+      // A belt for a caller that could not supply a size. Character count, so it is a
+      // looser bound than the byte cap above rather than a second, disagreeing one.
+      skip(name, 'too_large')
       continue
     }
     let parsed: unknown
     try {
-      parsed = JSON.parse(upload.text)
+      parsed = JSON.parse(text)
     } catch {
-      reports.push({ name, capture: null, status: 'malformed', stored: 0, rejected: 0, items: [] })
-      skipped++
+      skip(name, 'malformed')
       continue
     }
     const files = extractObservationsFiles(parsed)
     if (files.length === 0) {
-      reports.push({ name, capture: null, status: 'malformed', stored: 0, rejected: 0, items: [] })
-      skipped++
+      skip(name, 'malformed')
       continue
     }
     for (const file of files) {
@@ -302,22 +405,39 @@ export async function importObservationsPack(
       })
       stored += r.stored
       rejected += r.rejected
-      if (r.status !== 'imported') skipped++
+      if (r.status !== 'imported' && r.status !== 'all_rejected') filesSkipped++
     }
   }
 
   const shared = await shareImported()
-  return { files: reports, stored, rejected, skipped, shared }
+  return { files: reports, stored, rejected, filesSkipped, shared }
+}
+
+/**
+ * One uploaded answer file, read lazily.
+ *
+ * `read()` rather than a string, so the size cap can refuse a file BEFORE its contents are
+ * pulled into memory — which is the only version of that cap that is also a guard. `bytes`
+ * is the browser's own `File.size`; a caller that genuinely has no size (a test, a paste)
+ * omits it and gets the character-count belt instead.
+ */
+export interface PackUpload {
+  name: string
+  bytes?: number
+  read: () => Promise<string>
 }
 
 // ---- shared ingest --------------------------------------------------------
 
-async function ingestObservationsFile(text: string): Promise<{ stored: number; rejected: number }> {
+async function ingestObservationsFile(
+  text: string,
+): Promise<{ stored: number; rejected: number; rejections: RejectionCounts }> {
+  const rejections: RejectionCounts = {}
   let parsed: unknown
   try {
     parsed = JSON.parse(text)
   } catch {
-    return { stored: 0, rejected: 0 }
+    return { stored: 0, rejected: 0, rejections }
   }
   const files = extractObservationsFiles(parsed)
   let stored = 0
@@ -326,8 +446,9 @@ async function ingestObservationsFile(text: string): Promise<{ stored: number; r
     const r = await storeObservationsFile(f)
     stored += r.stored
     rejected += r.rejected
+    mergeRejections(rejections, countRejections(r.items))
   }
-  return { stored, rejected }
+  return { stored, rejected, rejections }
 }
 
 function extractObservationsFiles(parsed: unknown): ObservationsFile[] {
@@ -392,16 +513,20 @@ async function resolveWorkshopId(
 }
 
 /**
- * How strictly to read a returned file (tl-15).
+ * How strictly to read a returned file (tl-15). These two options, and ONLY these two.
  *
- * The pack path is the strict one, and the asymmetry is the whole point rather than an
- * inconsistency. A pack is generated FROM this device's pending queue, so a capture id
- * it does not recognize is a stale or forged pack rather than a colleague's work, and a
- * capture already routed must not be overwritten by a pack somebody generated last
- * week. The repo path is the loose one because both of those are legitimate there: it
- * pulls captures this device never recorded, and re-reading `outbox/` after a
- * correction is how a router fixes a bad batch. That escape hatch survives on the paste
- * path too, which keeps its replace semantics.
+ * The asymmetry is deliberate and it is narrow, which the first draft of this comment got
+ * wrong by calling the repo path "the loose one" without saying loose about what. What
+ * differs between the paths is the two CAPTURE-level questions below. Every ITEM-level rule
+ * — the shape, the roster, the question code, the quotation — applies identically on every
+ * path, because an invented quotation is no better for having arrived from a repository.
+ *
+ * A pack is generated FROM this device's pending queue, so a capture id it does not
+ * recognize is a stale or forged pack rather than a colleague's work, and a capture already
+ * routed must not be overwritten by a pack somebody generated last week. Neither is true of
+ * the repo pull: it brings down captures this device never recorded, and re-reading
+ * `outbox/` after a correction is how a router fixes a bad batch. That escape hatch survives
+ * on the paste path too, which keeps its replace semantics.
  */
 interface StoreOptions {
   /** Refuse a capture this device holds no evaluation for. */
@@ -538,6 +663,27 @@ async function storeObservationsFile(
       ...v.value,
     })
   })
+  /**
+   * A FILE WHOSE EVERY ITEM WAS REJECTED WRITES NOTHING (tl-15), and this is the most
+   * expensive thing this spec found.
+   *
+   * Before it, the transaction below ran unconditionally: it deleted the capture's existing
+   * observations, put an empty set in their place, and marked the capture `routed`. A file
+   * that was entirely bad therefore destroyed good evidence AND took the capture out of the
+   * pending queue, so it appeared in no future pack and on no routing screen — with nothing
+   * anywhere saying so. tl-15 would have made that unrecoverable, because
+   * `refuseAlreadyRouted` then declines the corrected re-upload of a capture already marked
+   * routed. Two new rejection rules (an unknown question code, an ungrounded quotation) also
+   * make an all-rejected file much likelier than it was.
+   *
+   * An EMPTY answer is deliberately not this case. "An empty `observations` array is a valid
+   * result when a capture contains nothing routable" is what the runbook tells the router, so
+   * zero items and zero rejections stays what it always was: the capture is routed, and the
+   * router has said there was nothing in it.
+   */
+  if (records.length === 0 && rejected > 0) {
+    return { stored: 0, rejected, items, status: 'all_rejected' as const }
+  }
   await db.transaction('rw', [db.observations, db.evaluations], async () => {
     const old = await db.observations.where('capture_client_id').equals(captureId).primaryKeys()
     await db.observations.bulkDelete(old)

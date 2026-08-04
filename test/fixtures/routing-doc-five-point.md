@@ -24,7 +24,7 @@ Rules:
 - Produce one observation per (participant, KSA) claim. Split compound statements.
 - Attribute every observation to a single participant by the name the evaluator used. If the evaluator made a whole-group remark, emit one observation per named participant in scope, each with origin "group".
 - Only use the KSA codes provided in the reference. If a statement does not map to any provided KSA, omit it (do not invent a KSA).
-- Assign evidence_designation 0-4 strictly from that KSA's evidence levels. The evaluator's text is the only evidence; do not infer beyond it.
+- Assign evidence_designation 1-5 strictly from that KSA's evidence levels. The evaluator's text is the only evidence; do not infer beyond it.
 - A line like "(Evaluator quick read, prior only: 2/3)" is the evaluator's own optional read, NOT ground truth. Treat it as a weak prior: rate from the observation text, and when the text clearly disagrees with the prior, follow the text and set needs_review true so the gate can reconcile.
 - Quote the relevant span of the source in source_excerpt; put your own concise English summary in text.
 - sentiment_flag: "strong" for clearly strong performance, "weak" for clearly weak, else "neutral".

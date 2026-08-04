@@ -451,8 +451,56 @@ await page.waitForTimeout(1200)
 }
 
 // ---------------------------------------------------------------------------
-// 9-10. A stale pack cannot overwrite, and an unknown capture is refused.
+// 8b. A file whose every item is bad costs nothing and can be retried.
+//
+// The review's worst finding. Before the fix, an all-rejected file wiped the capture's
+// observations, marked it routed, and — because tl-15 then refuses an already-routed
+// capture — made the correction impossible: the capture was permanently routed with zero
+// observations, absent from the pending queue and from every future pack, with nothing
+// anywhere saying so.
 // ---------------------------------------------------------------------------
+{
+  const second = await seedCapture('tl15-cap-2')
+  await page.goto(BASE + 'admin/agent-brief', { waitUntil: 'domcontentloaded' })
+  await page.waitForTimeout(1200)
+
+  const allBad = [
+    observation({
+      ksaCode: second.code,
+      ksa_code: second.code,
+      participant_name: second.participant,
+      source_excerpt: 'She explained the imagery of the psalm to each participant in turn.',
+    }),
+    observation({ ksa_code: 'Q-INVENTED', participant_name: second.participant }),
+  ]
+  await uploadFiles([{ name: 'tl15-cap-2.json', text: outputFile('tl15-cap-2', allBad) }])
+  const body = await text()
+  check(/nothing kept/i.test(body), '8b. a file whose every item is bad reports “nothing kept”')
+  check(/0 observation\(s\) stored/.test(body), '8b. and stores nothing', body.match(/\d+ observation\(s\) stored/)?.[0])
+
+  const stillPending = await idb(
+    `
+    const tx = db.transaction('evaluations', 'readonly')
+    const one = tx.objectStore('evaluations').get(arg)
+    one.onsuccess = () => resolve(one.result ? one.result.routing_status : null)
+    tx.onerror = () => reject(String(tx.error))
+  `,
+    'tl15-cap-2',
+  )
+  check(
+    stillPending !== 'routed',
+    '8b. the capture is NOT marked routed, so it stays in the queue',
+    `routing_status ${stillPending}`,
+  )
+
+  // And the correction lands, which is the half the old behaviour made impossible.
+  const fixed = observation({ ksa_code: second.code, participant_name: second.participant })
+  await uploadFiles([{ name: 'tl15-cap-2.json', text: outputFile('tl15-cap-2', [fixed]) }])
+  const after = await text()
+  check(/1 observation\(s\) stored/.test(after), '8b. and a corrected answer for it still imports')
+  const stored = await observationsFor('tl15-cap-2')
+  check(stored.length === 1, '8b. exactly one observation, from the corrected file', `${stored.length} rows`)
+}
 {
   // The same capture again, this time with a DIFFERENT observation. Under the spec's
   // round-trip rule this must be reported as already done and must write nothing: a pack

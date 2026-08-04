@@ -58,11 +58,19 @@ export function crc32(bytes: Uint8Array): number {
  * about the format rather than approximations chosen here. A date before 1980 is
  * clamped rather than wrapped, because a negative year field produces an archive some
  * tools refuse to open and none of them explains why.
+ *
+ * READ IN UTC, which is what makes the determinism claim above true. The first draft used
+ * the local-time getters, so the same `generatedAt` wrote 17:00 into the header in Bali and
+ * 04:00 in Dallas: the archive's bytes depended on the machine rather than on its inputs,
+ * and the round-trip test could not see it because both calls ran in one process. A zip has
+ * no timezone field, so a reader shows this stamp as local time wherever it is opened; UTC
+ * is therefore the only choice that is the same everywhere, and being an hour off in a
+ * file listing is worth more than being reproducible nowhere.
  */
 export function dosDateTime(at: Date): { date: number; time: number } {
-  const year = Math.max(1980, at.getFullYear())
-  const date = ((year - 1980) << 9) | ((at.getMonth() + 1) << 5) | at.getDate()
-  const time = (at.getHours() << 11) | (at.getMinutes() << 5) | Math.floor(at.getSeconds() / 2)
+  const year = Math.max(1980, at.getUTCFullYear())
+  const date = ((year - 1980) << 9) | ((at.getUTCMonth() + 1) << 5) | at.getUTCDate()
+  const time = (at.getUTCHours() << 11) | (at.getUTCMinutes() << 5) | Math.floor(at.getUTCSeconds() / 2)
   return { date, time }
 }
 
