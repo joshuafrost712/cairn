@@ -153,6 +153,7 @@ export function buildDayEmailSegments(
           out.push(
             evidenceSegment(best, {
               id: segId(kRoot, `ev:${slug(best.id)}`),
+              scale,
               indent: '  ',
               showEvaluator: true,
               participantId: pid,
@@ -187,6 +188,7 @@ export function buildDayEmailSegments(
           out.push(
             evidenceSegment(best, {
               id: segId(kRoot, `ev:${slug(best.id)}`),
+              scale,
               indent: '  ',
               showEvaluator: true,
               participantId: pid,
@@ -221,6 +223,7 @@ export function buildDayEmailSegments(
           out.push(
             evidenceSegment(o, {
               id: segId(kRoot, `ev:${slug(o.id)}`),
+              scale,
               indent: '  ',
               showEvaluator: true,
               participantId: pid,

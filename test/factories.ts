@@ -105,7 +105,12 @@ export function evaluation(partial: Partial<EvaluationRecord> = {}): EvaluationR
     client_id: partial.client_id ?? uid('cap'),
     evaluator_email: 'evaluator_email' in partial ? (partial.evaluator_email ?? null) : 'a@x.org',
     activity_id: 'activity_id' in partial ? (partial.activity_id ?? null) : 'act-1',
-    workshop_id: partial.workshop_id ?? 'w-1',
+    // `in` rather than `??`, exactly as `obs()` above does and for the same reason
+    // (tl-29): `EvaluationRecord.workshop_id` is nullable, that null is the pre-tl-04
+    // capture the scoping rules have to cope with, and `?? 'w-1'` SWALLOWED an explicit
+    // null so a test asking for a workshop-less capture silently got a workshop-1 one.
+    // Two tl-29 scope tests passed for the wrong reason before this was fixed.
+    workshop_id: 'workshop_id' in partial ? (partial.workshop_id ?? null) : 'w-1',
     source_language: partial.source_language ?? 'English',
     answers: partial.answers ?? {},
     source_text: partial.source_text ?? 'text',

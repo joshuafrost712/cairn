@@ -155,13 +155,14 @@ export function buildParticipantEmailSegments(
         participantId: pid,
         ksaCode: k.ksa_code,
         evidence: claimEvidence(k),
-        note: derivationNote(k),
+        note: derivationNote(k, scale),
       })
       const best = strongestEvidence(k)
       if (best) {
         out.push(
           evidenceSegment(best, {
             id: segId(kRoot, `ev:${slug(best.id)}`),
+            scale,
             indent: '  ',
             showEvaluator: false,
             participantId: pid,
@@ -200,13 +201,14 @@ export function buildParticipantEmailSegments(
         participantId: pid,
         ksaCode: k.ksa_code,
         evidence: claimEvidence(k),
-        note: derivationNote(k),
+        note: derivationNote(k, scale),
       })
       const best = strongestEvidence(k)
       if (best) {
         out.push(
           evidenceSegment(best, {
             id: segId(kRoot, `ev:${slug(best.id)}`),
+            scale,
             indent: '  ',
             showEvaluator: false,
             participantId: pid,

@@ -151,7 +151,7 @@ export async function generateParticipantEmails(opts: GenerateOptions): Promise<
   ])
   const fingerprint = templateFingerprint(templates)
 
-  const observations = observationsForWorkshop(allObservations, evaluations, opts.workshopId)
+  const observations = observationsForWorkshop(allObservations, evaluations, opts.workshopId, participants)
   const workshopName = workshop?.name ?? 'Workshop'
   const sortedKsas = [...ksas].sort((a, b) => a.code.localeCompare(b.code))
   const annotated = annotateObservations(observations, verdicts)
@@ -212,7 +212,7 @@ export interface DigestOptions extends GenerateOptions {
  * be the same defect as a participant email with the wrong roster, one level up.
  */
 export async function generateEventDigests(opts: DigestOptions): Promise<DraftDoc[]> {
-  const [activities, ksas, allObservations, verdicts, allEvaluations, conversations] =
+  const [activities, ksas, allObservations, verdicts, allEvaluations, conversations, participants] =
     await Promise.all([
       db.activities.where('workshop_id').equals(opts.workshopId).toArray(),
       ksasForWorkshop(opts.workshopId),
@@ -220,6 +220,9 @@ export async function generateEventDigests(opts: DigestOptions): Promise<DraftDo
       db.verifications.toArray(),
       db.evaluations.toArray(),
       db.mentoringConversations.where('workshop_id').equals(opts.workshopId).toArray(),
+      // Only to resolve stranded observations through their participant (tl-29). The
+      // digest itself has no roster: it is per event, not per person.
+      db.participants.where('workshop_id').equals(opts.workshopId).toArray(),
     ])
 
   // Same rule as generateParticipantEmails above: resolved for the named workshop.
@@ -229,7 +232,7 @@ export async function generateEventDigests(opts: DigestOptions): Promise<DraftDo
   ])
   const fingerprint = templateFingerprint(templates)
 
-  const observations = observationsForWorkshop(allObservations, allEvaluations, opts.workshopId)
+  const observations = observationsForWorkshop(allObservations, allEvaluations, opts.workshopId, participants)
   // Captures stay unscoped for the INDEX (an observation is situated by its own
   // capture, whichever workshop that capture is in) but the analytics below see
   // only this workshop's, so a capture from elsewhere cannot contribute a

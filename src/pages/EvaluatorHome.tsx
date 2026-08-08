@@ -2,7 +2,8 @@ import { useMemo, type CSSProperties } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '../db/local'
-import { useActiveWorkshopId } from '../lib/activeWorkshop'
+import { useDisplayWorkshopId } from '../hooks/useWorkshopEvidence'
+import { resolveDisplayWorkshop } from '../reports/scope'
 import { c } from '../lib/content/chrome'
 import { Copy } from '../components/Copy'
 import { useAuth } from '../auth/AuthContext'
@@ -21,15 +22,11 @@ export function EvaluatorHome() {
   const { identity } = useAuth()
   const navigate = useNavigate()
 
-  const activeWorkshopId = useActiveWorkshopId()
+  // One shared answer to "which workshop am I showing" (tl-29): the membership-validated
+  // selection, else the device's own, else the only workshop here, else nothing.
+  const activeWorkshopId = useDisplayWorkshopId()
   const workshop = useLiveQuery(
-    async () => {
-      if (activeWorkshopId) {
-        const w = await db.workshops.get(activeWorkshopId)
-        if (w) return w
-      }
-      return db.workshops.toCollection().first()
-    },
+    async () => resolveDisplayWorkshop(await db.workshops.toArray(), activeWorkshopId),
     [activeWorkshopId],
   )
   const activities = useLiveQuery(

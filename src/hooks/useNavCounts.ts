@@ -6,7 +6,7 @@ import { ADMIN_ROLES, useHasWorkshopRole, useIsChief, useScopedWorkshopId } from
 import { buildAllReports } from '../reports/build'
 import { annotateObservations, getRequiredConfirmations } from '../reports/verification'
 import { buildCaptureTimeMap, discrepancyId, findDiscrepancies } from '../reports/discrepancy'
-import { withGoalTitles } from '../lib/goals'
+import { scopeEvidence } from '../reports/scope'
 import { OPEN_CONVERSATION_STATUSES } from '../db/mentoring'
 import type {
   Goal,
@@ -191,18 +191,31 @@ export function useNavCounts(): NavCounts {
 
   const openDiscrepancies = useMemo(() => {
     if (!isChief) return 0
-    const sortedKsas = withGoalTitles(
-      [...(ksas ?? [])].sort((a, b) => a.code.localeCompare(b.code)),
-      goals ?? [],
-    )
-    const annotated = annotateObservations(observations ?? [], verdicts ?? [])
-    const reports = buildAllReports(participants ?? [], sortedKsas, annotated, teams ?? [])
-    const captureTimes = buildCaptureTimeMap(evaluations ?? [])
+    /**
+     * Scoped to the active workshop (tl-29), which the assignment comment fifty lines
+     * above had already worked out for its own badge and this one had not: the cache
+     * holds every workshop the account can read, so this badge counted discrepancies
+     * from all of them and linked to an inbox showing one. It is the same defect
+     * tl-26 found in the day email, in the sidebar.
+     */
+    const scoped = scopeEvidence({
+      workshopId,
+      participants: participants ?? [],
+      teams: teams ?? [],
+      ksas: ksas ?? [],
+      goals: goals ?? [],
+      observations: observations ?? [],
+      verdicts: verdicts ?? [],
+      evaluations: evaluations ?? [],
+    })
+    const annotated = annotateObservations(scoped.observations, scoped.verdicts)
+    const reports = buildAllReports(scoped.participants, scoped.ksas, annotated, scoped.teams)
+    const captureTimes = buildCaptureTimeMap(scoped.evaluations)
     const resolvedIds = new Set((resolutions ?? []).map((r) => r.id))
     return findDiscrepancies(reports, captureTimes).filter(
       (d) => !resolvedIds.has(discrepancyId(d.participant_id, d.ksa_code)),
     ).length
-  }, [isChief, participants, ksas, goals, teams, observations, verdicts, evaluations, resolutions])
+  }, [isChief, workshopId, participants, ksas, goals, teams, observations, verdicts, evaluations, resolutions])
 
   const underAssigned = useMemo(() => {
     if (!isChief || !workshopId) return 0

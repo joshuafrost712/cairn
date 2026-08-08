@@ -208,16 +208,13 @@ export async function primeFromSeed(): Promise<void> {
   await mirrorActiveScale(getActiveWorkshopId())
 }
 
-/**
- * Every cached question with its goal title resolved.
- *
- * The non-React twin of `useResolvedKsas()`, for the document generators in
- * db/drafts.ts. Same scope decision, same reason: see that hook's header.
- */
-export async function loadResolvedKsas(): Promise<ResolvedKsa[]> {
-  const [ksas, goals] = await Promise.all([db.ksas.toArray(), db.goals.toArray()])
-  return withGoalTitles(ksas, goals)
-}
+// `loadResolvedKsas()` lived here until tl-29: every cached question with its goal
+// title resolved, ACROSS EVERY WORKSHOP, described as the non-React twin of the
+// equally unscoped `useResolvedKsas()`. Its last caller (db/drafts.ts) moved to
+// `ksasForWorkshop` when tl-17 gave the generators a named workshop, so it was a
+// deployment-wide read that nothing called, sitting one import away from any page
+// that wanted questions. Use `ksasForWorkshop(workshopId)` below, or the
+// `useWorkshopEvidence()` hook, both of which have to be told which workshop.
 
 /** A workshop's goals, in the order the administrator arranged them. */
 export async function goalsForWorkshop(workshopId: string): Promise<Goal[]> {

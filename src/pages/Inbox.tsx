@@ -1,16 +1,17 @@
 import { useMemo, useState } from 'react'
 
-import { useResolvedKsas } from '../hooks/useResolvedKsas'
 import { Link } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '../db/local'
 import { useAuth } from '../auth/AuthContext'
 import { useIsChief } from '../layout/roles'
+import { useWorkshopEvidence } from '../hooks/useWorkshopEvidence'
 import { buildAllReports } from '../reports/build'
 import { annotateObservations } from '../reports/verification'
 import { findDiscrepancies, buildCaptureTimeMap, discrepancyId } from '../reports/discrepancy'
 import { renderDiscrepancyEmails } from '../reports/discrepancyEmail'
-import type { ObservationRecord, Participant, Team, VerificationVerdict, EvaluationRecord, DiscrepancyResolution } from '../lib/types'
+import { maxValue, type Scale } from '../lib/scale'
+import type { DiscrepancyResolution } from '../lib/types'
 import type { Discrepancy } from '../reports/discrepancy'
 import type { DiscrepancyEmailDraft } from '../reports/discrepancyEmail'
 
@@ -67,17 +68,21 @@ function DiscrepancyCard({
   d,
   workshopName,
   chiefEmail,
+  scale,
   onReconcile,
 }: {
   d: Discrepancy
   workshopName: string
   chiefEmail: string
+  /** This workshop's scale, so a score prints out of ITS top point (tl-29). */
+  scale: Scale
   onReconcile: (id: string) => void
 }) {
   const [showEmails, setShowEmails] = useState(false)
+  const top = maxValue(scale)
   const drafts = useMemo(
-    () => renderDiscrepancyEmails(d, chiefEmail, workshopName),
-    [d, chiefEmail, workshopName],
+    () => renderDiscrepancyEmails(d, chiefEmail, workshopName, scale),
+    [d, chiefEmail, workshopName, scale],
   )
   const id = discrepancyId(d.participant_id, d.ksa_code)
 
@@ -88,7 +93,7 @@ function DiscrepancyCard({
           <strong>{d.participant_name}</strong>
           <span className="muted small"> · {d.ksa_code} — {d.goal_title}</span>
           <div className="small" style={{ marginTop: 'var(--s-1)' }}>
-            <span className="pill queued">scores: {d.lo}/3 to {d.hi}/3</span>
+            <span className="pill queued">scores: {d.lo}/{top} to {d.hi}/{top}</span>
           </div>
         </div>
         <div className="row">
@@ -106,7 +111,7 @@ function DiscrepancyCard({
       <div className="stack-tight">
         {d.observations.map((o) => (
           <div key={o.id} className="rail small">
-            <span className="pill">{o.effective_designation}/3</span>{' '}
+            <span className="pill">{o.effective_designation}/{top}</span>{' '}
             <strong>{o.evaluator_email ?? 'unknown evaluator'}</strong>: {o.text}
             {o.source_excerpt && <div className="muted">“{o.source_excerpt}”</div>}
           </div>
@@ -124,11 +129,11 @@ function DiscrepancyCard({
           <EmailDraftCard draft={drafts[0]} label="To the chief evaluator" />
           <EmailDraftCard
             draft={drafts[1]}
-            label={`To evaluator (low score: ${d.lo}/3)`}
+            label={`To evaluator (low score: ${d.lo}/${top})`}
           />
           <EmailDraftCard
             draft={drafts[2]}
-            label={`To evaluator (high score: ${d.hi}/3)`}
+            label={`To evaluator (high score: ${d.hi}/${top})`}
           />
         </div>
       )}
@@ -140,22 +145,27 @@ export function Inbox() {
   const isChief = useIsChief()
   const { identity } = useAuth()
 
-  const participants = useLiveQuery(() => db.participants.toArray(), [], [] as Participant[])
-  const ksas = useResolvedKsas()
-  const teams = useLiveQuery(() => db.teams.toArray(), [], [] as Team[])
-  const observations = useLiveQuery(() => db.observations.toArray(), [], [] as ObservationRecord[])
-  const verdicts = useLiveQuery(() => db.verifications.toArray(), [], [] as VerificationVerdict[])
-  const evaluations = useLiveQuery(() => db.evaluations.toArray(), [], [] as EvaluationRecord[])
+  // SCOPED TO THE ACTIVE WORKSHOP (tl-29). Unscoped, this page could raise a
+  // discrepancy between two workshops that share nothing but a question code, and
+  // print its email drafts under the wrong workshop's name.
+  const {
+    participants,
+    teams,
+    ksas: sortedKsas,
+    observations,
+    verdicts,
+    evaluations,
+    workshopName,
+    scale,
+  } = useWorkshopEvidence()
   const resolutions = useLiveQuery(() => db.discrepancyResolutions.toArray(), [], [] as DiscrepancyResolution[])
-  const workshop = useLiveQuery(() => db.workshops.toCollection().first(), [])
 
-  const sortedKsas = useMemo(() => [...(ksas ?? [])].sort((a, b) => a.code.localeCompare(b.code)), [ksas])
-  const annotated = useMemo(() => annotateObservations(observations ?? [], verdicts ?? []), [observations, verdicts])
+  const annotated = useMemo(() => annotateObservations(observations, verdicts), [observations, verdicts])
   const reports = useMemo(
-    () => buildAllReports(participants ?? [], sortedKsas, annotated, teams ?? []),
+    () => buildAllReports(participants, sortedKsas, annotated, teams),
     [participants, sortedKsas, annotated, teams],
   )
-  const captureTimes = useMemo(() => buildCaptureTimeMap(evaluations ?? []), [evaluations])
+  const captureTimes = useMemo(() => buildCaptureTimeMap(evaluations), [evaluations])
   const allDiscrepancies = useMemo(() => findDiscrepancies(reports, captureTimes), [reports, captureTimes])
 
   const resolvedIds = useMemo(
@@ -189,7 +199,6 @@ export function Inbox() {
     )
   }
 
-  const workshopName = workshop?.name ?? 'Workshop'
   const chiefEmail = identity?.email ?? ''
 
   return (
@@ -224,6 +233,7 @@ export function Inbox() {
           d={d}
           workshopName={workshopName}
           chiefEmail={chiefEmail}
+          scale={scale}
           onReconcile={markReconciled}
         />
       ))}
@@ -245,7 +255,10 @@ export function Inbox() {
                   <div key={id} className="rail small">
                     <span className="pill synced">reconciled</span>{' '}
                     <strong>{d.participant_name}</strong>
-                    <span className="muted"> · {d.ksa_code} — {d.goal_title} ({d.lo}/3 to {d.hi}/3)</span>
+                    <span className="muted">
+                      {' '}· {d.ksa_code} — {d.goal_title} ({d.lo}/{maxValue(scale)} to{' '}
+                      {d.hi}/{maxValue(scale)})
+                    </span>
                     {res && (
                       <div className="muted">
                         Marked by {res.resolved_by} on {new Date(res.at).toLocaleString()}

@@ -4,6 +4,7 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '../db/local'
 import { useAuth } from '../auth/AuthContext'
 import { useScopedWorkshopId } from '../layout/roles'
+import { useWorkshopEvidence } from '../hooks/useWorkshopEvidence'
 import { isSupabaseConfigured } from '../lib/supabase'
 import { pullPendingCaptures } from '../db/sync'
 import { c } from '../lib/content/chrome'
@@ -65,12 +66,13 @@ export function Routing() {
   const routingOffReason = aiUnavailableReason('observation_routing', config)
 
   const pending = useLiveQuery(async () => (await listPendingCaptures()).length, [], 0)
-  const observationCount = useLiveQuery(() => db.observations.count(), [], 0)
-  const needsReview = useLiveQuery(
-    async () => (await db.observations.toArray()).filter((o) => o.needs_review).length,
-    [],
-    0,
-  )
+  // Scoped through the shared seam (tl-29): these numbers tell an admin how much of
+  // THIS workshop is routed and how much of it needs a human. Through the hook rather
+  // than a `where('workshop_id')` count, so a stranded observation attributable to one
+  // of this workshop's participants is counted here rather than nowhere.
+  const { observations: scopedObservations } = useWorkshopEvidence()
+  const observationCount = scopedObservations.length
+  const needsReview = scopedObservations.filter((o) => o.needs_review).length
 
   const [token, setToken] = useState('')
   const [busy, setBusy] = useState(false)

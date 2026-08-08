@@ -11,6 +11,7 @@
 // one has identical provenance, so splitting them would add an abbreviation-aware
 // sentence splitter and buy nothing. The UI says "click a line".
 
+import { maxValue as scaleMaxValue, type Scale } from '../lib/scale'
 import type { KsaRollup } from './build'
 import type { ObservationRecord } from '../lib/types'
 
@@ -143,14 +144,14 @@ export function evaluatorLabel(email: string | null | undefined): string {
  * the counting designations), so it is computed and printed, never inferred and
  * never explained by a model.
  */
-export function derivationNote(r: KsaRollup<EvidenceObservation>): string {
+export function derivationNote(r: KsaRollup<EvidenceObservation>, scale: Scale): string {
   if (r.representative === null) {
     return r.toVerify.length
       ? `No counting evidence yet: ${r.toVerify.length} observation${r.toVerify.length === 1 ? ' is' : 's are'} still set aside.`
       : 'No evidence captured for this area yet.'
   }
   const parts = [
-    `${r.representative}/3 is the highest of ${r.designations.length} counting designation${r.designations.length === 1 ? '' : 's'} (${r.designations.join(', ')}).`,
+    `${r.representative}/${scaleMaxValue(scale)} is the highest of ${r.designations.length} counting designation${r.designations.length === 1 ? '' : 's'} (${r.designations.join(', ')}).`,
   ]
   if (r.toVerify.length) parts.push(`${r.toVerify.length} set aside pending review.`)
   if (r.conflict) parts.push('Evaluators differ by 2 or more, so this is flagged for reconciliation.')
@@ -164,6 +165,15 @@ export function claimEvidence(r: KsaRollup<EvidenceObservation>): string[] {
 
 export interface EvidenceSegmentOptions {
   id: string
+  /**
+   * The workshop's scale, for the denominator a score prints against.
+   *
+   * Required rather than defaulted, per the rule this file states above: a helper
+   * that reads `getActiveScale()` reintroduces the bug the parameter exists to
+   * prevent. It printed a literal `/3` until tl-29 — correct on a four-point
+   * workshop and silently wrong on the two-to-six points tl-09 shipped.
+   */
+  scale: Scale
   /** Leading whitespace for the bullet. The quote line gets two more spaces. */
   indent?: string
   /** Name the evaluator. True for internal documents, false for anything a participant reads. */
@@ -185,12 +195,13 @@ export function evidenceSegment(
   opts: EvidenceSegmentOptions,
 ): DocSegment {
   const indent = opts.indent ?? ''
+  const top = scaleMaxValue(opts.scale)
   const eff = o.effective_designation ?? o.evidence_designation
   const adjusted = eff !== o.evidence_designation ? ` (adjusted from ${o.evidence_designation})` : ''
   const group = o.origin === 'group' ? ' [group observation]' : ''
   const head = opts.showEvaluator
-    ? `${indent}- ${evaluatorLabel(o.evaluator_email)} rated ${eff}/3${adjusted}${group}: ${o.text}`
-    : `${indent}- ${eff}/3${adjusted}${group}: ${o.text}`
+    ? `${indent}- ${evaluatorLabel(o.evaluator_email)} rated ${eff}/${top}${adjusted}${group}: ${o.text}`
+    : `${indent}- ${eff}/${top}${adjusted}${group}: ${o.text}`
   const text = o.source_excerpt ? `${head}\n${indent}  > "${o.source_excerpt}"` : head
 
   return {
