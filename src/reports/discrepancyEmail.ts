@@ -11,7 +11,7 @@
 //
 // Formatting rules: no em dashes, short paragraphs, no horizontal rules.
 
-import { getActiveScale, maxValue, type Scale } from '../lib/scale'
+import { maxValue, type Scale } from '../lib/scale'
 import type { Discrepancy } from './discrepancy'
 import type { AnnotatedObservation } from './verification'
 
@@ -57,17 +57,20 @@ export function renderDiscrepancyEmails(
   chiefEmail: string,
   workshopName: string,
   /**
-   * The workshop's grading scale (tl-09), used only for the denominator a score
-   * prints against. Defaults to the ACTIVE workshop's, matching every other
-   * renderer in this folder, and a caller generating documents for a workshop it is
-   * not switched into passes it explicitly.
+   * The workshop's grading scale (tl-09), for the denominator a score prints against.
+   *
+   * **Required, with no `getActiveScale()` default**, because segments.ts states the
+   * rule for this whole folder and the second-AI review of tl-29 caught these two
+   * files asserting opposite versions of it: a renderer that resolves its own scale
+   * resolves the wrong one the day somebody generates documents for a workshop they
+   * are not switched into. The caller already holds it.
    *
    * This file printed a literal `/3` in four places until tl-29. tl-09 made the
    * scale two-to-six points, tl-16 found the hardcoding and disclosed it rather
    * than fixing it, and it renders identically on today's four-point workshops,
    * which is exactly why it needed a spec to remove rather than a reader to notice.
    */
-  scale: Scale = getActiveScale(),
+  scale: Scale,
 ): DiscrepancyEmailDraft[] {
   const top = maxValue(scale)
   // Sort contributing observations by effective_designation so we can find the extremes.

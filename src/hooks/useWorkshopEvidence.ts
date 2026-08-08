@@ -5,7 +5,7 @@ import { scaleForWorkshop } from '../db/scale'
 import { templatesForWorkshop } from '../db/templates'
 import { DEFAULT_SCALE, type Scale } from '../lib/scale'
 import { DEFAULT_TEMPLATES, type TemplateSet } from '../templates/resolve'
-import { scopeEvidence, type ScopedEvidence } from '../reports/scope'
+import { resolveDisplayWorkshop, scopeEvidence, type ScopedEvidence } from '../reports/scope'
 import { useActiveWorkshopId } from '../lib/activeWorkshop'
 import { useScopedWorkshopId } from '../layout/roles'
 import type { Workshop } from '../lib/types'
@@ -58,7 +58,7 @@ const EMPTY: WorkshopEvidence = {
  * two disagree, the membership-validated answer wins, so a signed-in member can
  * never be shown a workshop they were moved out of.
  */
-function useDisplayWorkshopId(): string | null {
+export function useDisplayWorkshopId(): string | null {
   const scoped = useScopedWorkshopId()
   const stored = useActiveWorkshopId()
   return scoped ?? stored
@@ -116,22 +116,7 @@ export function useWorkshopEvidence(): WorkshopEvidence {
         templatesForWorkshop(workshopId),
       ])
 
-      /**
-       * With a workshop selected, that workshop. With none, the ONLY workshop on the
-       * device, and otherwise nothing.
-       *
-       * The middle case is a real device: local-only, or mid-sign-in, where there is
-       * one workshop and it is unambiguous. The last case is the pairing this whole
-       * spec exists to prevent — one workshop's NAME over every workshop's people —
-       * and the first draft of this hook still permitted it by falling back to
-       * `toCollection().first()` while `scopeEvidence` passed everything through. A
-       * generic heading is worse-looking and honest; a specific wrong one is not.
-       */
-      const workshop = workshopId
-        ? (workshops.find((w) => w.id === workshopId) ?? null)
-        : workshops.length === 1
-          ? workshops[0]
-          : null
+      const workshop = resolveDisplayWorkshop(workshops, workshopId)
 
       const scoped = scopeEvidence({
         workshopId,

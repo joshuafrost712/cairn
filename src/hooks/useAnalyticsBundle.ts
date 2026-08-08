@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '../db/local'
-import { useActiveWorkshopId } from '../lib/activeWorkshop'
+import { useDisplayWorkshopId } from './useWorkshopEvidence'
 import { buildAllReports } from '../reports/build'
 import { annotateObservations, participantGate } from '../reports/verification'
 import type { AnnotatedObservation, Gate } from '../reports/verification'
@@ -30,7 +30,7 @@ import type {
   WorkbenchSummary,
 } from '../reports/analytics'
 import type { ParticipantReport } from '../reports/build'
-import { scopeEvidence } from '../reports/scope'
+import { resolveDisplayWorkshop, scopeEvidence } from '../reports/scope'
 import { type ResolvedKsa } from '../lib/goals'
 import type { Activity, Goal, Ksa, Participant, Team, Workshop } from '../lib/types'
 
@@ -85,15 +85,17 @@ export interface AnalyticsBundle {
  * after them, so a filtered mean is the mean of what the filter describes.
  */
 export function useAnalyticsBundle(filters: DashboardFilters = {}): AnalyticsBundle {
-  const activeWorkshopId = useActiveWorkshopId()
+  // The SAME two functions the document surfaces use (tl-29's review): this hook had its
+  // own pair — the unvalidated stored id plus a first-workshop fallback — so with nothing
+  // selected on a two-workshop device the day email said "Workshop" over everybody's
+  // people while these dashboards said one workshop's name over its own. Two seams, two
+  // answers to one state.
+  const activeWorkshopId = useDisplayWorkshopId()
 
-  const workshop = useLiveQuery(async () => {
-    if (activeWorkshopId) {
-      const w = await db.workshops.get(activeWorkshopId)
-      if (w) return w
-    }
-    return db.workshops.toCollection().first()
-  }, [activeWorkshopId])
+  const workshop = useLiveQuery(
+    async () => resolveDisplayWorkshop(await db.workshops.toArray(), activeWorkshopId),
+    [activeWorkshopId],
+  )
 
   const participants = useLiveQuery(() => db.participants.toArray(), [], [] as Participant[])
   const teams = useLiveQuery(() => db.teams.toArray(), [], [] as Team[])

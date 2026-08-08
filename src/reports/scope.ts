@@ -66,6 +66,24 @@ export interface ScopedEvidence {
   unresolved: ObservationRecord[]
 }
 
+/**
+ * Which workshop row a surface should present, given what the device holds.
+ *
+ * With a selection, that workshop. With none, the ONLY workshop on the device, and
+ * otherwise nothing. The middle case is a real device (local-only, or mid-sign-in, where
+ * there is one workshop and it is unambiguous); the last case is the pairing this whole
+ * module exists to prevent, one workshop's NAME over every workshop's people, so a
+ * generic heading is the honest answer. Pure and shared because three sites answered
+ * this question three ways until tl-29's review counted them.
+ */
+export function resolveDisplayWorkshop<T extends { id: string }>(
+  workshops: T[],
+  workshopId: string | null,
+): T | null {
+  if (workshopId) return workshops.find((w) => w.id === workshopId) ?? null
+  return workshops.length === 1 ? workshops[0] : null
+}
+
 const ofWorkshop = <T extends { workshop_id?: string | null }>(
   rows: T[],
   workshopId: string | null,

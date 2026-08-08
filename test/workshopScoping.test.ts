@@ -30,7 +30,16 @@ import { join } from 'node:path'
  * Read `useWorkshopEvidence()` instead, or take a workshop id as an argument.
  */
 
-/** Tables whose rows belong to exactly one workshop. */
+/**
+ * Tables whose rows belong to exactly one workshop.
+ *
+ * All fifteen, not the seven this file started with. The second-AI review pointed out
+ * that the short list left `activities`, `mentoringConversations`, `docDrafts`,
+ * `coverage`, `assignments`, `scalePoints` and `aiConfigs` unguarded, and that this is
+ * not academic: tl-29 itself had to scope `docDrafts` reads in two pages and
+ * `activities` / `mentoringConversations` reads in two more, and none of them would have
+ * been caught on reintroduction.
+ */
 const SCOPED_TABLES = [
   'observations',
   'verifications',
@@ -39,7 +48,23 @@ const SCOPED_TABLES = [
   'evaluations',
   'ksas',
   'goals',
+  'activities',
+  'mentoringConversations',
+  'docDrafts',
+  'coverage',
+  'assignments',
 ] as const
+
+/*
+ * Four per-workshop tables are deliberately NOT in that list: `scalePoints`,
+ * `activityKsas`, `aiConfigs` and `workshopSettings`. Each has exactly one resolver
+ * that selects by workshop id in JS from a full read (`db/scale.ts`, `db/reference.ts`,
+ * `db/aiConfig.ts`, `db/settings.ts`), and each holds configuration rather than
+ * evidence: reading the wrong row shows an administrator the wrong toggle, not another
+ * cohort's assessment of a person. Guarding them would add six allowlist entries whose
+ * reason is identical, and an allowlist that long stops being read. If a spec ever
+ * renders one of those rows to an evaluator, put it back.
+ */
 
 /**
  * Dexie calls that cannot return somebody else's rows: primary-key reads and writes.
@@ -135,6 +160,14 @@ const ALLOWED_UNSCOPED = new Map<string, string>([
     'linking the same human across two workshops is the whole feature, so reading both rosters is the point rather than the bug',
   ],
   [
+    'src/pages/Outgoing.tsx',
+    'reads every draft and narrows in JS, because a NULL-workshop draft must stay visible: those are the rows draftSync refuses to push and names, and hiding them would hide the problem',
+  ],
+  [
+    'src/pages/admin/Progress.tsx',
+    'summarises the Outgoing queue and narrows the same way, null-workshop drafts included',
+  ],
+  [
     'src/pages/EvaluatorHome.tsx',
     'falls back to the only workshop on the device when nothing is selected, the same local-only path the evidence hook takes',
   ],
@@ -157,23 +190,30 @@ function walk(dir: string, out: string[] = []): string[] {
 const stripComments = (src: string) =>
   src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '')
 
+/**
+ * `\s*` around every dot, because a multi-line Dexie chain is what a formatter emits
+ * when the line gets long and this codebase already writes several. The review caught
+ * that version of the hole, which is the non-adversarial one: nobody has to be evading
+ * the check to write it.
+ */
 const TABLE_CALL = new RegExp(
-  `db\\.(?:(${SCOPED_TABLES.join('|')})\\.|table\\(\\s*['"\`](${SCOPED_TABLES.join(
+  `db\\s*\\.\\s*(?:(${SCOPED_TABLES.join('|')})\\s*\\.|table\\(\\s*['"\`](${SCOPED_TABLES.join(
     '|',
-  )})['"\`]\\s*\\)\\s*\\.)(\\w+)\\s*\\(([^)]*)`,
-  'g',
+  )})['"\`]\\s*\\)\\s*\\.)\\s*(\\w+)\\s*\\(([^)]*)`,
+  'gs',
 )
 
 /** `db.workshops` resolved positionally: `.toCollection().first()`, or `[0]` off a read. */
 const FIRST_WORKSHOP = [
-  /db\.workshops\.toCollection\(/,
-  /db\.workshops\.(?:toArray|sortBy|orderBy)\([^)]*\)[\s\S]{0,20}?\)?\s*\[\s*0\s*\]/,
-  /db\.workshops\.(?:filter|each)\(/,
+  /db\s*\.\s*workshops\s*\.\s*toCollection\(/,
+  /db\s*\.\s*workshops\s*\.\s*(?:toArray|sortBy|orderBy)\([^)]*\)[\s\S]{0,24}?\)?\s*(?:\[\s*0\s*\]|\.\s*at\(\s*0\s*\))/,
+  /db\s*\.\s*workshops\s*\.\s*(?:filter|each|limit)\(/,
+  /db\s*\.\s*workshops\s*\.\s*(?:orderBy|sortBy)\([^)]*\)\s*\.\s*first\(/,
 ]
 
 /** Every unkeyed read of an evidence table in one file, as `table.method` strings. */
 export function unkeyedReads(source: string): string[] {
-  const src = stripComments(source)
+  const src = stripSameTableTernaries(stripComments(source))
   const out: string[] = []
   for (const m of src.matchAll(TABLE_CALL)) {
     const table = m[1] ?? m[2]
@@ -187,6 +227,25 @@ export function unkeyedReads(source: string): string[] {
   }
   return out
 }
+
+/**
+ * The sanctioned fallback: scope when there is a workshop, read everything when there is
+ * not, because a device with no active workshop (local-only, or mid-sign-in) must still
+ * show what it holds. Allowed only when BOTH branches name the SAME table, which is what
+ * makes this an identity rule rather than the proximity rule the review broke: a file
+ * that scopes `teams` and then reads `observations` across every workshop in an
+ * unrelated ternary still fails, and that is precisely what tl-16 did to `Reports.tsx`.
+ */
+const stripSameTableTernaries = (src: string) =>
+  src.replace(
+    new RegExp(
+      `db\\s*\\.\\s*(${SCOPED_TABLES.join(
+        '|',
+      )})\\s*\\.\\s*where\\(\\s*['"\`]workshop_id['"\`][\\s\\S]{0,220}?:\\s*(?:await\\s+)?db\\s*\\.\\s*\\1\\s*\\.\\s*(?:toArray|count|orderBy|sortBy|filter|toCollection|each)\\(`,
+      'g',
+    ),
+    'SAME_TABLE_TERNARY',
+  )
 
 function firstWorkshopHits(source: string): boolean {
   const src = stripComments(source)
@@ -243,6 +302,13 @@ describe('the detector detects', () => {
     ['an each', 'db.evaluations.each((e) => seen.push(e))'],
     ['a dynamic table handle', "db.table('observations').toArray()"],
     ['a where on a non-workshop key', "db.teams.where('participant_id').equals(x).toArray()"],
+    [
+      'a multi-line chain, which is what a formatter emits and needs no adversary',
+      'const rows = await db.observations\n  .toArray()',
+    ],
+    ['a docDraft read, one of the eight tables the short list missed', 'db.docDrafts.toArray()'],
+    ['a conversation read', 'db.mentoringConversations.toArray()'],
+    ['an activity read', "db.activities.orderBy('sort_order').toArray()"],
   ]
 
   for (const [label, sample] of CAUGHT) {
@@ -263,11 +329,17 @@ describe('the detector detects', () => {
     })
   }
 
-  it('still flags the unscoped half of a mixed ternary, which is how tl-16 half-fixed Reports', () => {
-    // The sanctioned fallback (scope when there is a workshop, read everything when
-    // there is not) is legitimate, and the first version of this file whitelisted it by
-    // PROXIMITY, which let an unrelated unscoped read hide beside it. Both halves are
-    // now reported, and the allowance is the allowlist rather than the pattern.
+  it('allows the same-table fallback ternary and still flags a mixed one', () => {
+    // The first version of this file whitelisted the fallback by PROXIMITY, so an
+    // unrelated unscoped read could hide within 200 characters of a scoped one. The
+    // allowance is now keyed on the table being the same on both sides.
+    const sameTable = `
+      const teams = workshopId
+        ? db.teams.where('workshop_id').equals(workshopId).toArray()
+        : db.teams.toArray()
+    `
+    expect(unkeyedReads(sameTable)).toEqual([])
+
     const mixed = `
       const teams = db.teams.where('workshop_id').equals(id).toArray()
       const obs = flag ? mine : db.observations.toArray()
@@ -275,9 +347,26 @@ describe('the detector detects', () => {
     expect(unkeyedReads(mixed)).toEqual(['observations.toArray'])
   })
 
-  it('catches the workshops[0] defect tl-17 fixed, in both of its spellings', () => {
+  it('catches the workshops[0] defect tl-17 fixed, in every spelling it has been written in', () => {
     expect(firstWorkshopHits('const w = await db.workshops.toCollection().first()')).toBe(true)
     expect(firstWorkshopHits('const w = (await db.workshops.toArray())[0]')).toBe(true)
+    expect(firstWorkshopHits('const w = (await db.workshops.toArray()).at(0)')).toBe(true)
+    expect(firstWorkshopHits("const w = await db.workshops.orderBy('start_date').first()")).toBe(true)
+    expect(firstWorkshopHits('const w = await db.workshops.limit(1).first()')).toBe(true)
     expect(firstWorkshopHits('const w = await db.workshops.get(activeId)')).toBe(false)
+  })
+
+  it('states its own limits, because a detector that hides them is trusted too far', () => {
+    // These need an AST and are accepted as a stated limit rather than a silent one. If
+    // one ever shows up in review, that is the moment to reach for ts-morph, not now.
+    const ACCEPTED_MISSES = [
+      'const t = db.observations; t.toArray()',
+      "db['observations'].toArray()",
+      'const { observations } = db; observations.toArray()',
+      'db.table(nameFromVariable).toArray()',
+    ]
+    for (const sample of ACCEPTED_MISSES) {
+      expect(unkeyedReads(sample), `documented limit: ${sample}`).toEqual([])
+    }
   })
 })

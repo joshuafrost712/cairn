@@ -118,18 +118,21 @@ function EvidencePanel({
   annotated,
   ksaByCode,
   activityById,
+  workshopId,
 }: {
   conv: MentoringConversation
   annotated: AnnotatedObservation[]
   ksaByCode: Map<string, Ksa>
   activityById: Map<string, Activity>
+  /** THIS conversation's workshop, resolved through its participant when the row is null. */
+  workshopId: string | null
 }) {
   const { trigger, pattern } = useMemo(
     () => conversationEvidence(conv, annotated),
     [conv, annotated],
   )
   const ksa = conv.trigger_ksa_code
-    ? ksaByCode.get(ksaKey(conv.workshop_id, conv.trigger_ksa_code))
+    ? ksaByCode.get(ksaKey(workshopId, conv.trigger_ksa_code))
     : undefined
   const activity = conv.trigger_activity_id ? activityById.get(conv.trigger_activity_id) : undefined
 
@@ -357,6 +360,7 @@ function ConvCard({
   annotated,
   ksaByCode,
   activityById,
+  workshopId,
   scale,
   recordedBy,
   expanded,
@@ -367,6 +371,8 @@ function ConvCard({
   annotated: AnnotatedObservation[]
   ksaByCode: Map<string, Ksa>
   activityById: Map<string, Activity>
+  /** THIS conversation's workshop, resolved through its participant when the row is null. */
+  workshopId: string | null
   /** THIS conversation's workshop's scale, not the active workshop's (tl-29). */
   scale: Scale
   recordedBy: string
@@ -410,6 +416,7 @@ function ConvCard({
             annotated={annotated}
             ksaByCode={ksaByCode}
             activityById={activityById}
+            workshopId={workshopId}
           />
 
           {conv.status === 'completed' && (
@@ -515,6 +522,10 @@ export function Conversations() {
   const verdicts = useLiveQuery(() => db.verifications.toArray(), [], [])
   const ksas = useLiveQuery(() => db.ksas.toArray(), [], [])
   const activities = useLiveQuery(() => db.activities.toArray(), [], [])
+  // Only to place a conversation whose own `workshop_id` is null, which is the same
+  // third fallback `observationsForWorkshop` has and for the same reason: those rows are
+  // real history, and without this one renders a bare question code with no prompt.
+  const participants = useLiveQuery(() => db.participants.toArray(), [], [])
 
   const annotated = useMemo(
     () => annotateObservations(observations ?? [], verdicts ?? []),
@@ -524,6 +535,20 @@ export function Conversations() {
     () => new Map((ksas ?? []).map((k) => [ksaKey(k.workshop_id, k.code), k])),
     [ksas],
   )
+  /**
+   * A conversation's workshop, resolved rather than read.
+   *
+   * `MentoringConversation.workshop_id` is nullable while `Ksa.workshop_id` is not, so a
+   * conversation derived from a stranded observation keyed to `none::CODE`, which no
+   * question can match: a bare code with no prompt, and a designation printed against
+   * the default scale. Its participant places it, exactly as the observation resolver's
+   * third fallback does.
+   */
+  const workshopOfConversation = useMemo(() => {
+    const byParticipant = new Map((participants ?? []).map((p) => [p.id, p.workshop_id]))
+    return (conv: MentoringConversation): string | null =>
+      conv.workshop_id ?? byParticipant.get(conv.participant_id) ?? null
+  }, [participants])
   const activityById = useMemo(() => new Map((activities ?? []).map((a) => [a.id, a])), [activities])
 
   /**
@@ -576,7 +601,8 @@ export function Conversations() {
     annotated,
     ksaByCode,
     activityById,
-    scale: scaleFor(conv.workshop_id),
+    workshopId: workshopOfConversation(conv),
+    scale: scaleFor(workshopOfConversation(conv)),
     recordedBy,
     expanded: expandedId === conv.id,
     onToggle: () => handleToggle(conv.id),

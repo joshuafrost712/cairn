@@ -203,7 +203,13 @@ interface AppendFormProps {
 function AppendForm({ participant, activities, ksas, scale, evaluatorEmail, onAdded }: AppendFormProps) {
   const [activityId, setActivityId] = useState(activities[0]?.id ?? '')
   const [ksaId, setKsaId] = useState(ksas[0]?.id ?? '')
-  const [designation, setDesignation] = useState<number>(scale.points[0]?.value ?? 1)
+  // The SECOND point rather than the first, which keeps the pre-tl-29 default: this
+  // form used to open on a literal 1 (the second point of a 0-3 scale), and opening on
+  // the bottom point instead would put "not demonstrated" under the cursor on a form
+  // that creates evidence about a person.
+  const [designation, setDesignation] = useState<number>(
+    scale.points[1]?.value ?? scale.points[0]?.value ?? 1,
+  )
   const [text, setText] = useState('')
   const [excerpt, setExcerpt] = useState('')
   const [saving, setSaving] = useState(false)
@@ -543,7 +549,9 @@ export function RecordsBrowser({ participantId, onSelectParticipant }: RecordsBr
                   <span className="small">
                     <strong>{c.trigger_ksa_code ?? 'KSA unknown'}</strong>
                     {c.trigger_designation !== null && (
-                      <span className="pill" style={{ marginLeft: '0.4rem' }}>{c.trigger_designation}/3</span>
+                      <span className="pill" style={{ marginLeft: '0.4rem' }}>
+                        {c.trigger_designation}/{maxValue(scale)}
+                      </span>
                     )}
                   </span>
                   <span className={`pill ${mentoringStatusPill(c.status)}`}>{c.status}</span>

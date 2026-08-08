@@ -3,6 +3,8 @@ import { buildAllReports } from '../src/reports/build'
 import { annotateObservations } from '../src/reports/verification'
 import { findDiscrepancies, buildCaptureTimeMap, discrepancyId } from '../src/reports/discrepancy'
 import { renderDiscrepancyEmails } from '../src/reports/discrepancyEmail'
+import { DEFAULT_SCALE, buildScale } from '../src/lib/scale'
+import type { ScalePoint } from '../src/lib/scale'
 import { ksa, obs, participant, team } from './factories'
 import type { EvaluationRecord } from '../src/lib/types'
 
@@ -157,7 +159,7 @@ describe('renderDiscrepancyEmails', () => {
     const d = buildDisc()
     const annotated = annotateObservations([loObs, hiObs], [])
     const disc = { ...d, observations: annotated.filter((o) => o.ksa_code === 'GENRE' && o.participant_id === 'p-1') }
-    const drafts = renderDiscrepancyEmails(disc, 'chief@sil.org', 'Psalms Workshop')
+    const drafts = renderDiscrepancyEmails(disc, 'chief@sil.org', 'Psalms Workshop', DEFAULT_SCALE)
     expect(drafts).toHaveLength(3)
   })
 
@@ -165,7 +167,7 @@ describe('renderDiscrepancyEmails', () => {
     const d = buildDisc()
     const annotated = annotateObservations([loObs, hiObs], [])
     const disc = { ...d, observations: annotated.filter((o) => o.ksa_code === 'GENRE' && o.participant_id === 'p-1') }
-    const [chief] = renderDiscrepancyEmails(disc, 'chief@sil.org', 'Psalms Workshop')
+    const [chief] = renderDiscrepancyEmails(disc, 'chief@sil.org', 'Psalms Workshop', DEFAULT_SCALE)
     expect(chief.to).toBe('chief@sil.org')
   })
 
@@ -173,7 +175,7 @@ describe('renderDiscrepancyEmails', () => {
     const d = buildDisc()
     const annotated = annotateObservations([loObs, hiObs], [])
     const disc = { ...d, observations: annotated.filter((o) => o.ksa_code === 'GENRE' && o.participant_id === 'p-1') }
-    const [, evalA, evalB] = renderDiscrepancyEmails(disc, 'chief@sil.org', 'Psalms Workshop')
+    const [, evalA, evalB] = renderDiscrepancyEmails(disc, 'chief@sil.org', 'Psalms Workshop', DEFAULT_SCALE)
     expect(evalA.to).toBe('low@sil.org')
     expect(evalB.to).toBe('high@sil.org')
   })
@@ -182,7 +184,7 @@ describe('renderDiscrepancyEmails', () => {
     const d = buildDisc()
     const annotated = annotateObservations([loObs, hiObs], [])
     const disc = { ...d, observations: annotated.filter((o) => o.ksa_code === 'GENRE' && o.participant_id === 'p-1') }
-    const [chief] = renderDiscrepancyEmails(disc, 'chief@sil.org', 'Psalms Workshop')
+    const [chief] = renderDiscrepancyEmails(disc, 'chief@sil.org', 'Psalms Workshop', DEFAULT_SCALE)
     expect(chief.body).toContain('1/3 to 3/3')
     expect(chief.body).toContain('Genre Theory')
     expect(chief.body).toContain('GENRE')
@@ -193,7 +195,7 @@ describe('renderDiscrepancyEmails', () => {
     const d = buildDisc()
     const annotated = annotateObservations([loObs, hiObs], [])
     const disc = { ...d, observations: annotated.filter((o) => o.ksa_code === 'GENRE' && o.participant_id === 'p-1') }
-    const [, evalA, evalB] = renderDiscrepancyEmails(disc, 'chief@sil.org', 'Psalms Workshop')
+    const [, evalA, evalB] = renderDiscrepancyEmails(disc, 'chief@sil.org', 'Psalms Workshop', DEFAULT_SCALE)
     expect(evalA.body).toContain('they struggled')
     expect(evalA.body).toContain('excellent work')
     expect(evalB.body).toContain('excellent work')
@@ -208,7 +210,7 @@ describe('renderDiscrepancyEmails', () => {
       observations: annotated.filter((o) => o.ksa_code === 'GENRE' && o.participant_id === 'p-1'),
       timeGapNote: 'Observations were captured 5 hours apart; they may reflect different moments in the activity.',
     }
-    const [chief, evalA, evalB] = renderDiscrepancyEmails(disc, 'chief@sil.org', 'Psalms Workshop')
+    const [chief, evalA, evalB] = renderDiscrepancyEmails(disc, 'chief@sil.org', 'Psalms Workshop', DEFAULT_SCALE)
     expect(chief.body).toContain('5 hours apart')
     expect(evalA.body).toContain('5 hours apart')
     expect(evalB.body).toContain('5 hours apart')
@@ -222,7 +224,7 @@ describe('renderDiscrepancyEmails', () => {
     const discrepancies = findDiscrepancies(reports, new Map())
     expect(discrepancies).toHaveLength(1)
     const disc = discrepancies[0]
-    const drafts = renderDiscrepancyEmails(disc, 'chief@sil.org', 'Psalms Workshop')
+    const drafts = renderDiscrepancyEmails(disc, 'chief@sil.org', 'Psalms Workshop', DEFAULT_SCALE)
     // Second draft has an empty "to" but is still produced
     expect(drafts).toHaveLength(3)
     expect(drafts[1].to).toBe('')
@@ -233,10 +235,54 @@ describe('renderDiscrepancyEmails', () => {
     const d = buildDisc()
     const annotated = annotateObservations([loObs, hiObs], [])
     const disc = { ...d, observations: annotated.filter((o) => o.ksa_code === 'GENRE' && o.participant_id === 'p-1') }
-    const [chief, evalA, evalB] = renderDiscrepancyEmails(disc, 'chief@sil.org', 'Psalms Workshop')
+    const [chief, evalA, evalB] = renderDiscrepancyEmails(disc, 'chief@sil.org', 'Psalms Workshop', DEFAULT_SCALE)
     expect(chief.subject).toBe(evalA.subject)
     expect(evalA.subject).toBe(evalB.subject)
     expect(chief.subject).toContain('CIT One')
     expect(chief.subject).toContain('GENRE')
+  })
+})
+
+describe('the discrepancy email prints against the workshop scale', () => {
+  // The debt tl-16 found here and disclosed rather than fixing: four literal `/3`
+  // on three lines, in the one DocKind still on shipped code. tl-29 removed them, and
+  // this is the assertion that keeps them removed.
+  const fivePoint = () =>
+    buildScale(
+      'w-5',
+      [0, 1, 2, 3, 4].map<ScalePoint>((value, i) => ({
+        pk: `w-5::${value}`,
+        workshop_id: 'w-5',
+        value,
+        label: `p${value}`,
+        description: null,
+        is_low_trigger: value <= 1,
+        sort_order: i,
+      })),
+    )
+
+  /** One two-evaluator discrepancy, annotated, the way the block above builds it. */
+  function fixtureDiscrepancy() {
+    const observations = [
+      obs({ id: 'sc1', participant_id: 'p-1', ksa_code: 'GENRE', evidence_designation: 0, evaluator_email: 'low@sil.org', capture_client_id: 'sc-a' }),
+      obs({ id: 'sc2', participant_id: 'p-1', ksa_code: 'GENRE', evidence_designation: 3, evaluator_email: 'high@sil.org', capture_client_id: 'sc-b' }),
+    ]
+    const { discrepancies } = buildDiscrepancies(observations)
+    const annotated = annotateObservations(observations, [])
+    return { ...discrepancies[0], observations: annotated }
+  }
+
+  it('uses the top point of a five-point scale in the range and in every evidence block', () => {
+    const disc = fixtureDiscrepancy()
+    const [chief] = renderDiscrepancyEmails(disc, 'chief@sil.org', 'Psalms Workshop', fivePoint())
+    expect(chief.body).toContain(`Score range: ${disc.lo}/4 to ${disc.hi}/4`)
+    expect(chief.body).toContain('/4')
+    expect(chief.body).not.toContain('/3')
+  })
+
+  it('still prints /3 on a four-point workshop, which is what byte-identity means here', () => {
+    const disc = fixtureDiscrepancy()
+    const [chief] = renderDiscrepancyEmails(disc, 'chief@sil.org', 'Psalms Workshop', DEFAULT_SCALE)
+    expect(chief.body).toContain(`Score range: ${disc.lo}/3 to ${disc.hi}/3`)
   })
 })
