@@ -16,6 +16,7 @@ import { DataTable } from '../../components/data/DataTable'
 import type { Column } from '../../components/data/DataTable'
 import { EmptyState } from '../../components/data/EmptyState'
 import { useScopedWorkshopId } from '../../layout/roles'
+import { useWorkshopEvidence } from '../../hooks/useWorkshopEvidence'
 import { countsForParticipant, countsForTeam } from '../../setup/counts'
 import { diffFields } from '../../setup/impact'
 import { useSetupSave } from '../../setup/useSetupSave'
@@ -71,31 +72,16 @@ export function Roster({ embedded = false }: { embedded?: boolean }) {
     [workshopId],
     undefined,
   ) as Workshop | undefined
-  // Scoped to `workshopId` (tl-29). This page already resolved the workshop correctly
+  // Scoped through the shared seam (tl-29). This page resolved the workshop correctly
   // and then read the roster across every workshop on the device, so an admin of two
   // could see, edit and delete the other workshop's participants and teams from here.
   // Worse than a mis-scoped report, because a report is wrong and this WRITES.
-  const teams = useLiveQuery(
-    () => (workshopId ? db.teams.where('workshop_id').equals(workshopId).toArray() : db.teams.toArray()),
-    [workshopId],
-    [] as Team[],
-  )
-  const participants = useLiveQuery(
-    () =>
-      workshopId
-        ? db.participants.where('workshop_id').equals(workshopId).toArray()
-        : db.participants.toArray(),
-    [workshopId],
-    [] as Participant[],
-  )
-  const observations = useLiveQuery(
-    () =>
-      workshopId
-        ? db.observations.where('workshop_id').equals(workshopId).toArray()
-        : db.observations.toArray(),
-    [workshopId],
-    [],
-  )
+  //
+  // The hook rather than `where('workshop_id')` on each table, and specifically for the
+  // observations: `observation.workshop_id` is nullable, the count below is what a
+  // delete confirm quotes, and a plain filter would have told an admin that deleting
+  // somebody strands nothing while the confirm dialog said fourteen.
+  const { teams, participants, observations } = useWorkshopEvidence()
 
   const [newTeam, setNewTeam] = useState('')
   const [newName, setNewName] = useState('')
@@ -162,15 +148,15 @@ export function Roster({ embedded = false }: { embedded?: boolean }) {
     })
   }
 
-  const myTeams = (teams ?? []).filter((t) => t.workshop_id === workshop?.id)
-  const myParticipants = (participants ?? []).filter((p) => p.workshop_id === workshop?.id)
+  const myTeams = teams
+  const myParticipants = participants
   const unassigned = membersOf(myParticipants, null)
 
   // How much evidence a delete would strand. Shown in the confirm, because
   // "delete Amos" and "delete Amos and detach his 14 observations" are
   // different decisions and only one of them is visible from the name alone.
   const obsCount = (participantId: string) =>
-    (observations ?? []).filter((o) => o.participant_id === participantId).length
+    observations.filter((o) => o.participant_id === participantId).length
 
   // A control inside a clickable row must not also navigate. Every interactive
   // cell stops the row's click here rather than leaving each call site to

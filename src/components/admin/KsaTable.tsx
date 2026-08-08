@@ -6,6 +6,8 @@ import { MeanWithN } from '../data/DesignationChip'
 import { DistributionBar } from '../viz/DistributionBar'
 import { Sparkline } from '../viz/Sparkline'
 import { EmptyState } from '../data/EmptyState'
+import { useScale } from '../../hooks/useScale'
+import { maxValue } from '../../lib/scale'
 
 /**
  * One row per KSA, sorted by trouble rather than by average.
@@ -27,6 +29,8 @@ export function KsaTable({
   byKsa: KsaAnalytics[]
   emphasizeRisk?: boolean
 }) {
+  // The ACTIVE workshop's scale (tl-29); this table only renders on its dashboard.
+  const top = maxValue(useScale())
   const columns: Column<KsaAnalytics>[] = [
     {
       key: 'code',
@@ -76,7 +80,7 @@ export function KsaTable({
         k.weakParticipants.length === 0 ? (
           <span className="muted">—</span>
         ) : (
-          <span title={k.weakParticipants.map((w) => `${w.participant_name} ${w.value}/3`).join(', ')}>
+          <span title={k.weakParticipants.map((w) => `${w.participant_name} ${w.value}/${top}`).join(', ')}>
             {k.weakParticipants.length}
           </span>
         ),

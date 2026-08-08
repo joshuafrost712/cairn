@@ -53,9 +53,11 @@
  *    and wonder why that page did not change.
  *  - **The discrepancy email** (src/reports/discrepancyEmail.ts). The one `DocKind`
  *    left on shipped code, and not for want of time: it is a line-array builder with
- *    no segment ids, and it hardcodes `/3` in six places, so on a 5-point workshop it
- *    already prints "4/3" today. Templating its prose would freeze that bug into
- *    authored text. Fixing the scale first is the honest order; see the tl-16 record.
+ *    no segment ids. It also hardcoded `/3`, so on a 5-point workshop it printed
+ *    "4/3"; templating its prose would have frozen that bug into authored text, and
+ *    fixing the scale first was the honest order. **tl-29 did that** (it now takes the
+ *    workshop's scale and prints its top point), so the remaining reason it is not
+ *    templated is the segment ids, and it is now a candidate rather than a hazard.
  */
 
 import type { AiFunction } from '../lib/aiConfig'

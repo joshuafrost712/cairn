@@ -88,6 +88,17 @@ const ofWorkshop = <T extends { workshop_id?: string | null }>(
  * are in scope. `annotateObservations` already matches on `observation_id`, so a
  * verdict whose observation is out of scope contributes to nothing; this only makes
  * the counts on screen agree with that.
+ *
+ * **Captures are the union of this workshop's own and the ones the scoped
+ * observations came from**, which the first draft of this file got wrong by filtering
+ * them on their nullable `workshop_id` alone. `evaluation.workshop_id` is null on
+ * captures older than tl-04, and the tl-04 Dexie upgrade backfills the OBSERVATION
+ * from the capture or the participant while leaving the capture itself null. So a
+ * plain filter kept a stranded observation and dropped the very capture that situates
+ * it, which silently costs the evaluator's quick read on the verification queue, the
+ * time-gap note on a discrepancy email, and the day and activity of that observation
+ * in every dashboard. `db/drafts.ts` had already written the rule down: an
+ * observation is situated by its own capture, whichever workshop that capture is in.
  */
 export function scopeEvidence(input: EvidenceInput): ScopedEvidence {
   const { workshopId } = input
@@ -101,6 +112,13 @@ export function scopeEvidence(input: EvidenceInput): ScopedEvidence {
   const verdicts = workshopId
     ? (input.verdicts ?? []).filter((v) => scopedIds.has(v.observation_id))
     : (input.verdicts ?? [])
+
+  const capturesBehindScope = new Set(observations.map((o) => o.capture_client_id))
+  const evaluations = workshopId
+    ? evaluationsAll.filter(
+        (e) => e.workshop_id === workshopId || capturesBehindScope.has(e.client_id),
+      )
+    : evaluationsAll
 
   const ksas = ofWorkshop(input.ksas ?? [], workshopId)
   const goals = ofWorkshop(input.goals ?? [], workshopId)
@@ -116,7 +134,12 @@ export function scopeEvidence(input: EvidenceInput): ScopedEvidence {
     ),
     observations,
     verdicts,
-    evaluations: ofWorkshop(evaluationsAll, workshopId),
-    unresolved: unresolvedObservations(input.observations ?? [], evaluationsAll, input.participants ?? []),
+    evaluations,
+    // Nothing is hidden when nothing is scoped, so there is nothing to disclose. The
+    // banner that reads this says these rows "appear in no report", which would be
+    // false on an unscoped device where they appear in all of them.
+    unresolved: workshopId
+      ? unresolvedObservations(input.observations ?? [], evaluationsAll, input.participants ?? [])
+      : [],
   }
 }

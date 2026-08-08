@@ -404,12 +404,42 @@ try {
   check(!(await bodyOverflow()), 'no horizontal body overflow on reports at 1400px')
 
   // 5. The export, which leaves the app.
+  //
+  // Read from the COPIED JSON rather than from the page text, and only after the
+  // export is non-empty. The first version of this block asserted on `body.innerText`,
+  // where the active workshop's name is in the page chrome on every route and the
+  // export block was empty (B's one observation is unverified and "only finalized" is
+  // on by default). Both assertions passed against nothing at all — exactly the failure
+  // the day-email guard above exists to prevent, one section further down.
   await page.goto(BASE + 'export', { waitUntil: 'domcontentloaded' })
   await page.waitForTimeout(1200)
+  await page.getByRole('checkbox').first().setChecked(false)
+  await page.waitForTimeout(600)
   await page.screenshot({ path: `${SHOTS}/export-B.png`, fullPage: true })
-  const exportText = await page.locator('body').innerText()
-  check(exportText.includes(B_NAME), 'the CBC export names B', B_NAME)
-  check(!exportText.includes(A_PERSON), 'the CBC export carries no participant of A', A_PERSON)
+  await ctx.grantPermissions(['clipboard-read', 'clipboard-write'])
+  await page.getByRole('button', { name: 'Copy JSON' }).click()
+  const exportJson = await page.evaluate(() => navigator.clipboard.readText())
+  check(exportJson.length > 200, 'the CBC export is a real payload before anything is asserted about it', `${exportJson.length} chars`)
+  const parsed = (() => {
+    try {
+      return JSON.parse(exportJson)
+    } catch {
+      return null
+    }
+  })()
+  check(parsed?.workshop?.name === B_NAME, 'the CBC export payload names B', parsed?.workshop?.name)
+  const exportNames = (parsed?.participants ?? []).map((p) => p.participant_name)
+  check(
+    exportNames.length === 1 && exportNames[0] === B_PERSON,
+    "the CBC export payload carries only B's participant",
+    exportNames.join(', ') || 'none',
+  )
+  const exportTops = JSON.stringify(parsed?.participants ?? [])
+  check(
+    !exportTops.includes(A_CODE),
+    "the CBC export payload names none of A's questions",
+    A_CODE,
+  )
 
   // 6. The verification queue.
   await page.goto(BASE + 'observations', { waitUntil: 'domcontentloaded' })

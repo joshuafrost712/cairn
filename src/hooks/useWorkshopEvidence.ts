@@ -91,7 +91,7 @@ export function useWorkshopEvidence(): WorkshopEvidence {
   const value = useLiveQuery(
     async (): Promise<WorkshopEvidence> => {
       const [
-        workshop,
+        workshops,
         participants,
         teams,
         ksas,
@@ -103,7 +103,7 @@ export function useWorkshopEvidence(): WorkshopEvidence {
         scale,
         templates,
       ] = await Promise.all([
-        workshopId ? db.workshops.get(workshopId) : db.workshops.toCollection().first(),
+        db.workshops.toArray(),
         db.participants.toArray(),
         db.teams.toArray(),
         db.ksas.toArray(),
@@ -115,6 +115,23 @@ export function useWorkshopEvidence(): WorkshopEvidence {
         scaleForWorkshop(workshopId),
         templatesForWorkshop(workshopId),
       ])
+
+      /**
+       * With a workshop selected, that workshop. With none, the ONLY workshop on the
+       * device, and otherwise nothing.
+       *
+       * The middle case is a real device: local-only, or mid-sign-in, where there is
+       * one workshop and it is unambiguous. The last case is the pairing this whole
+       * spec exists to prevent — one workshop's NAME over every workshop's people —
+       * and the first draft of this hook still permitted it by falling back to
+       * `toCollection().first()` while `scopeEvidence` passed everything through. A
+       * generic heading is worse-looking and honest; a specific wrong one is not.
+       */
+      const workshop = workshopId
+        ? (workshops.find((w) => w.id === workshopId) ?? null)
+        : workshops.length === 1
+          ? workshops[0]
+          : null
 
       const scoped = scopeEvidence({
         workshopId,
@@ -130,7 +147,7 @@ export function useWorkshopEvidence(): WorkshopEvidence {
 
       return {
         ...scoped,
-        workshop: workshop ?? null,
+        workshop,
         workshopName: workshop?.name ?? 'Workshop',
         scale,
         templates,

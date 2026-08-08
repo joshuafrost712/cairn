@@ -1,6 +1,8 @@
 import { Link } from 'react-router-dom'
 import type { FlaggedParticipant, RiskReason } from '../../reports/analytics'
 import { EmptyState } from '../data/EmptyState'
+import { useScale } from '../../hooks/useScale'
+import { maxValue } from '../../lib/scale'
 
 /**
  * Turn a machine reason into a sentence a human can act on.
@@ -9,10 +11,10 @@ import { EmptyState } from '../data/EmptyState'
  * the moment a score attaches to a person's name, a reader treats it as a
  * verdict on them rather than on the state of the evidence.
  */
-function describe(reason: RiskReason): string {
+function describe(reason: RiskReason, top: number): string {
   switch (reason.kind) {
     case 'low_representative':
-      return `${reason.ksa_code} ${reason.value}/3`
+      return `${reason.ksa_code} ${reason.value}/${top}`
     case 'conflict':
       return `${reason.ksa_code} conflict ${reason.lo}↔${reason.hi}`
     case 'disputed':
@@ -36,6 +38,9 @@ export function AttentionQueue({
   flagged: FlaggedParticipant[]
   limit?: number
 }) {
+  // The ACTIVE workshop's scale: this queue only ever renders on that workshop's
+  // dashboard. It printed a literal "/3" until tl-29.
+  const top = maxValue(useScale())
   if (flagged.length === 0) {
     return (
       <EmptyState title="Nothing needs your attention">
@@ -59,7 +64,7 @@ export function AttentionQueue({
             </Link>
             {f.team_name && <span className="muted small"> · {f.team_name}</span>}
             <br />
-            <span className="muted small">{f.reasons.map(describe).join(' · ')}</span>
+            <span className="muted small">{f.reasons.map((r) => describe(r, top)).join(' · ')}</span>
           </span>
           <span className="row">
             {f.gate?.status === 'ready' ? (

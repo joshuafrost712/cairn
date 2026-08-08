@@ -156,6 +156,41 @@ describe('scopeEvidence narrows one device cache to one workshop', () => {
     expect(s.unresolved.map((o) => o.id)).toEqual(['o-9'])
   })
 
+  it('keeps the capture behind a scoped observation even when the capture names no workshop', () => {
+    // The defect the second-AI review of tl-29 found. `evaluation.workshop_id` is
+    // nullable and the tl-04 upgrade backfills the OBSERVATION from the capture or the
+    // participant while leaving the capture null, so filtering captures on their own
+    // column kept a stranded observation and dropped the row that situates it: no quick
+    // read on the verification queue, no time-gap note on a discrepancy, no day or
+    // activity in any dashboard.
+    const f = fixture()
+    f.evaluations.push(evaluation({ client_id: 'c-legacy', workshop_id: null }))
+    f.observations.push(
+      obs({ id: 'o-legacy', workshop_id: 'w-1', capture_client_id: 'c-legacy', participant_id: 'p-1' }),
+    )
+    const s = scopeEvidence({ workshopId: 'w-1', ...f })
+    expect(s.observations.map((o) => o.id)).toEqual(['o-1', 'o-legacy'])
+    expect(s.evaluations.map((e) => e.client_id).sort()).toEqual(['c-1', 'c-legacy'])
+  })
+
+  it('does not drag in a foreign capture just because it names no workshop', () => {
+    const f = fixture()
+    f.evaluations.push(evaluation({ client_id: 'c-stray', workshop_id: null }))
+    const s = scopeEvidence({ workshopId: 'w-1', ...f })
+    expect(s.evaluations.map((e) => e.client_id)).toEqual(['c-1'])
+  })
+
+  it('discloses nothing when nothing is scoped, because nothing is hidden', () => {
+    // The banner reading `unresolved` says these rows "appear in no report". On an
+    // unscoped device they appear in all of them, so the honest count is zero.
+    const f = fixture()
+    f.observations.push(
+      obs({ id: 'o-9', workshop_id: null, capture_client_id: 'gone', participant_id: 'gone' }),
+    )
+    expect(scopeEvidence({ workshopId: null, ...f }).unresolved).toEqual([])
+    expect(scopeEvidence({ workshopId: 'w-1', ...f }).unresolved.map((o) => o.id)).toEqual(['o-9'])
+  })
+
   it('treats a workshop with nothing in the cache as empty rather than as unscoped', () => {
     const s = scopeEvidence({ workshopId: 'w-3', ...fixture() })
     expect(s.participants).toEqual([])

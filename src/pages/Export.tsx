@@ -6,6 +6,7 @@ import { annotateObservations, participantGate, getRequiredConfirmations, type G
 import { buildCbcExport, cbcKsaCsv, cbcSubpointCsv } from '../reports/cbcExport'
 import { downloadText } from '../lib/download'
 import { useWorkshopEvidence } from '../hooks/useWorkshopEvidence'
+import { maxValue } from '../lib/scale'
 
 // CBC export: the interchange artifact for the (deferred) platform submission adapter.
 // Only verified evidence drives designations; "only finalized" limits to reports whose
@@ -114,7 +115,10 @@ export function Export() {
               <div className="small muted" style={{ marginTop: '0.25rem' }}>
                 {p.competencies
                   .filter((c) => c.designation !== null)
-                  .map((c) => `${c.subpoint}: ${c.designation}/3`)
+                  // The workshop's own top point (tl-29). This line used to print /3
+                  // beside a JSON payload that already carried the real scale, so the
+                  // screen contradicted the file it was handing over.
+                  .map((c) => `${c.subpoint}: ${c.designation}/${maxValue(scale)}`)
                   .join(' · ') || 'no verified designations'}
               </div>
             </div>

@@ -13,6 +13,7 @@ import { Link } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db, newId } from '../db/local'
 import { useWorkshopEvidence } from '../hooks/useWorkshopEvidence'
+import { maxValue, type Scale } from '../lib/scale'
 import { buildParticipantReport } from '../reports/build'
 import { annotateObservations, type AnnotatedObservation } from '../reports/verification'
 import { reconcileMentoringConversations } from '../db/mentoring'
@@ -24,9 +25,18 @@ import type { Activity, MentoringConversation, ObservationRecord, Participant } 
 // Helpers
 // ---------------------------------------------------------------------------
 
-function designationLabel(d: number | null): string {
+/**
+ * A designation printed against the workshop's own top point (tl-29).
+ *
+ * This said `${d}/3` while tl-09 had made the scale two to six points, on the one
+ * screen an administrator uses to CORRECT a score. The scale travels as an argument
+ * rather than being read from the active-workshop mirror, per the rule segments.ts
+ * states: a helper that resolves its own scale is a helper that will resolve the
+ * wrong one the day somebody views a workshop they are not switched into.
+ */
+function designationLabel(d: number | null, scale: Scale): string {
   if (d === null) return 'none'
-  return `${d}/3`
+  return `${d}/${maxValue(scale)}`
 }
 
 function statusPill(vstatus: string) {
@@ -56,11 +66,12 @@ function fmtDate(iso: string | null): string {
 
 interface ObsEditorProps {
   obs: AnnotatedObservation
+  scale: Scale
   onSaved: () => void
   onCancel: () => void
 }
 
-function ObsEditor({ obs, onSaved, onCancel }: ObsEditorProps) {
+function ObsEditor({ obs, scale, onSaved, onCancel }: ObsEditorProps) {
   const [designation, setDesignation] = useState<number>(obs.evidence_designation)
   const [text, setText] = useState(obs.text)
   const [saving, setSaving] = useState(false)
@@ -71,10 +82,9 @@ function ObsEditor({ obs, onSaved, onCancel }: ObsEditorProps) {
     setSaving(true)
     setErr(null)
     try {
-      await db.observations.update(obs.id, {
-        evidence_designation: designation as 0 | 1 | 2 | 3,
-        text,
-      })
+      // No `as 0 | 1 | 2 | 3` cast: the designation is a point on this workshop's scale
+      // since tl-09, and the cast was asserting a shape the type had already dropped.
+      await db.observations.update(obs.id, { evidence_designation: designation, text })
       onSaved()
     } catch (ex) {
       setErr(ex instanceof Error ? ex.message : String(ex))
@@ -93,10 +103,13 @@ function ObsEditor({ obs, onSaved, onCancel }: ObsEditorProps) {
         onChange={(e) => setDesignation(Number(e.target.value))}
         style={{ marginBottom: '0.5rem' }}
       >
-        <option value={0}>0 — Not demonstrated</option>
-        <option value={1}>1 — Partially demonstrated</option>
-        <option value={2}>2 — Demonstrated</option>
-        <option value={3}>3 — Clearly demonstrated</option>
+        {/* This workshop's own points (tl-29), not four 0-3 literals on a form that
+            OVERWRITES a stored designation. */}
+        {scale.points.map((p) => (
+          <option key={p.value} value={p.value}>
+            {p.value} — {p.label}
+          </option>
+        ))}
       </select>
       <label htmlFor={`text-${obs.id}`}>Observation text</label>
       <textarea
@@ -123,9 +136,10 @@ function ObsEditor({ obs, onSaved, onCancel }: ObsEditorProps) {
 
 interface ObsRowProps {
   obs: AnnotatedObservation
+  scale: Scale
 }
 
-function ObsRow({ obs }: ObsRowProps) {
+function ObsRow({ obs, scale }: ObsRowProps) {
   const [editing, setEditing] = useState(false)
 
   return (
@@ -135,9 +149,9 @@ function ObsRow({ obs }: ObsRowProps) {
     >
       <div className="row" style={{ marginBottom: '0.2rem' }}>
         <span className="small">
-          <strong>{designationLabel(obs.effective_designation)}</strong>
+          <strong>{designationLabel(obs.effective_designation, scale)}</strong>
           {obs.effective_designation !== obs.evidence_designation && (
-            <span className="muted"> (orig {designationLabel(obs.evidence_designation)})</span>
+            <span className="muted"> (orig {designationLabel(obs.evidence_designation, scale)})</span>
           )}
           {obs.origin === 'group' && <span className="muted"> (group)</span>}
         </span>
@@ -162,7 +176,12 @@ function ObsRow({ obs }: ObsRowProps) {
         Evaluator: {obs.evaluator_email ?? 'unknown'} · imported {obs.imported_at.slice(0, 10)}
       </p>
       {editing && (
-        <ObsEditor obs={obs} onSaved={() => setEditing(false)} onCancel={() => setEditing(false)} />
+        <ObsEditor
+          obs={obs}
+          scale={scale}
+          onSaved={() => setEditing(false)}
+          onCancel={() => setEditing(false)}
+        />
       )}
     </div>
   )
@@ -176,14 +195,15 @@ interface AppendFormProps {
   participant: Participant
   activities: Activity[]
   ksas: ResolvedKsa[]
+  scale: Scale
   evaluatorEmail: string
   onAdded: () => void
 }
 
-function AppendForm({ participant, activities, ksas, evaluatorEmail, onAdded }: AppendFormProps) {
+function AppendForm({ participant, activities, ksas, scale, evaluatorEmail, onAdded }: AppendFormProps) {
   const [activityId, setActivityId] = useState(activities[0]?.id ?? '')
   const [ksaId, setKsaId] = useState(ksas[0]?.id ?? '')
-  const [designation, setDesignation] = useState<number>(1)
+  const [designation, setDesignation] = useState<number>(scale.points[0]?.value ?? 1)
   const [text, setText] = useState('')
   const [excerpt, setExcerpt] = useState('')
   const [saving, setSaving] = useState(false)
@@ -214,7 +234,7 @@ function AppendForm({ participant, activities, ksas, evaluatorEmail, onAdded }: 
         participant_id: participant.id,
         participant_name: participant.name,
         ksa_code: selectedKsa.code,
-        evidence_designation: designation as 0 | 1 | 2 | 3,
+        evidence_designation: designation,
         text: text.trim(),
         source_excerpt: excerpt.trim(),
         sentiment_flag: 'neutral',
@@ -279,10 +299,17 @@ function AppendForm({ participant, activities, ksas, evaluatorEmail, onAdded }: 
         onChange={(e) => setDesignation(Number(e.target.value))}
         style={{ marginBottom: '0.5rem' }}
       >
-        <option value={0}>0 — Not demonstrated</option>
-        <option value={1}>1 — Partially demonstrated</option>
-        <option value={2}>2 — Demonstrated</option>
-        <option value={3}>3 — Clearly demonstrated</option>
+        {/*
+          This workshop's own points (tl-29). The four literals here were a 0-3 form
+          writing into a two-to-six-point scale, on the one path that CREATES an
+          observation by hand, so a five-point workshop could store a designation its
+          own scale does not define.
+        */}
+        {scale.points.map((p) => (
+          <option key={p.value} value={p.value}>
+            {p.value} — {p.label}
+          </option>
+        ))}
       </select>
 
       <label htmlFor="af-text">Observation</label>
@@ -343,6 +370,7 @@ export function RecordsBrowser({ participantId, onSelectParticipant }: RecordsBr
     activities: sortedActivities,
     observations: allObservations,
     verdicts,
+    scale,
   } = useWorkshopEvidence()
   const allConversations = useLiveQuery(
     () =>
@@ -452,7 +480,7 @@ export function RecordsBrowser({ participantId, onSelectParticipant }: RecordsBr
                       <strong>{r.ksa_code}</strong>
                       <span className="muted small"> {r.goal_title}</span>
                     </span>
-                    <span className="pill">{designationLabel(r.representative)}</span>
+                    <span className="pill">{designationLabel(r.representative, scale)}</span>
                     {r.conflict && (
                       <span className="pill queued">conflict</span>
                     )}
@@ -493,7 +521,7 @@ export function RecordsBrowser({ participantId, onSelectParticipant }: RecordsBr
                     {k.code} — {k.short_label}
                   </p>
                   {(obsByKsa.get(k.code) ?? []).map((o) => (
-                    <ObsRow key={o.id} obs={o} />
+                    <ObsRow key={o.id} obs={o} scale={scale} />
                   ))}
                 </div>
               ))}
@@ -560,6 +588,7 @@ export function RecordsBrowser({ participantId, onSelectParticipant }: RecordsBr
                 participant={selected}
                 activities={sortedActivities}
                 ksas={sortedKsas}
+                scale={scale}
                 evaluatorEmail={identity?.email ?? ''}
                 onAdded={() => setShowAppend(false)}
               />

@@ -77,7 +77,7 @@ describe('segmentsToMarkdown', () => {
 describe('endBlock', () => {
   it('closes the last segment rather than emitting an empty one', () => {
     const out: DocSegment[] = []
-    push(out, { id: 'x', scale: DEFAULT_SCALE, kind: 'paragraph', text: 'a' })
+    push(out, { id: 'x', kind: 'paragraph', text: 'a' })
     endBlock(out)
     expect(out).toHaveLength(1)
     expect(out[0].gapAfter).toBe(true)
@@ -169,7 +169,7 @@ describe('derivationNote', () => {
   })
 
   it('counts what was set aside, because that is the difference between what was said and what counted', () => {
-    const r = rollup({ representative: 2, designations: [2], toVerify: [one(obs({ id: 'x', scale: DEFAULT_SCALE }))] })
+    const r = rollup({ representative: 2, designations: [2], toVerify: [one(obs({ id: 'x' }))] })
     expect(derivationNote(r, DEFAULT_SCALE)).toContain('1 set aside pending review')
     expect(derivationNote(r, DEFAULT_SCALE)).toContain('1 counting designation (2)')
   })
@@ -181,7 +181,9 @@ describe('derivationNote', () => {
 
   it('distinguishes no evidence at all from evidence that is all set aside', () => {
     expect(derivationNote(rollup(), DEFAULT_SCALE)).toBe('No evidence captured for this area yet.')
-    expect(derivationNote(rollup({ toVerify: [one(obs({ id: 'x', scale: DEFAULT_SCALE }))] }))).toContain('1 observation is still set aside')
+    expect(
+      derivationNote(rollup({ toVerify: [one(obs({ id: 'x' }))] }), DEFAULT_SCALE),
+    ).toContain('1 observation is still set aside')
   })
 })
 
@@ -202,6 +204,7 @@ describe('claimEvidence', () => {
  */
 function fivePointScale() {
   const points: ScalePoint[] = [0, 1, 2, 3, 4].map((value, i) => ({
+    pk: `w-5::${value}`,
     workshop_id: 'w-5',
     value,
     label: `p${value}`,

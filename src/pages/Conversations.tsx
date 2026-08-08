@@ -15,7 +15,7 @@ import { useAuth } from '../auth/AuthContext'
 import { Copy } from '../components/Copy'
 import { c } from '../lib/content/chrome'
 import { EvidenceList } from '../components/admin/EvidenceList'
-import { useScopedWorkshopId } from '../layout/roles'
+import { DEFAULT_SCALE, buildScale, maxValue, type Scale, type ScalePoint } from '../lib/scale'
 import { markConversationViewed, readConversationViews } from '../lib/conversationViews'
 import type { ConversationViews } from '../lib/conversationViews'
 import type { Activity, Ksa, MentoringConversation } from '../lib/types'
@@ -105,6 +105,14 @@ function GuidancePanel({
 // Evidence
 // ---------------------------------------------------------------------------
 
+/**
+ * A question is identified by its workshop AND its code (tl-08 made codes
+ * per-workshop, so two workshops may both define EXEG and mean different things).
+ * Every lookup on this page goes through this, because the page shows conversations
+ * from more than one workshop at a time.
+ */
+const ksaKey = (workshopId: string | null, code: string) => `${workshopId ?? 'none'}::${code}`
+
 function EvidencePanel({
   conv,
   annotated,
@@ -120,7 +128,9 @@ function EvidencePanel({
     () => conversationEvidence(conv, annotated),
     [conv, annotated],
   )
-  const ksa = conv.trigger_ksa_code ? ksaByCode.get(conv.trigger_ksa_code) : undefined
+  const ksa = conv.trigger_ksa_code
+    ? ksaByCode.get(ksaKey(conv.workshop_id, conv.trigger_ksa_code))
+    : undefined
   const activity = conv.trigger_activity_id ? activityById.get(conv.trigger_activity_id) : undefined
 
   return (
@@ -347,6 +357,7 @@ function ConvCard({
   annotated,
   ksaByCode,
   activityById,
+  scale,
   recordedBy,
   expanded,
   onToggle,
@@ -356,6 +367,8 @@ function ConvCard({
   annotated: AnnotatedObservation[]
   ksaByCode: Map<string, Ksa>
   activityById: Map<string, Activity>
+  /** THIS conversation's workshop's scale, not the active workshop's (tl-29). */
+  scale: Scale
   recordedBy: string
   expanded: boolean
   onToggle: () => void
@@ -371,7 +384,9 @@ function ConvCard({
           <strong>{conv.participant_name}</strong>
           <span className="muted small"> · {conv.trigger_ksa_code ?? 'KSA'}</span>
           {conv.trigger_designation !== null && (
-            <span className="pill" style={{ marginLeft: '0.4rem' }}>{conv.trigger_designation}/3</span>
+            <span className="pill" style={{ marginLeft: '0.4rem' }}>
+              {conv.trigger_designation}/{maxValue(scale)}
+            </span>
           )}
         </span>
         <span className="spacer" />
@@ -473,7 +488,6 @@ export function Conversations() {
   // cannot narrow this page on its own: every device derives conversations locally
   // from the observations it holds, and an evaluator holds the workshop's
   // observations because verifying them is their job.
-  const workshopId = useScopedWorkshopId()
   const conversations = useLiveQuery(
     () =>
       myEmail
@@ -483,33 +497,55 @@ export function Conversations() {
     [] as MentoringConversation[],
   )
 
-  // Questions and events scoped to the active workshop (tl-29). Codes are per-workshop
-  // since tl-08, so an unscoped lookup can label a conversation's evidence with another
-  // workshop's question of the same code. Observations and verdicts stay unscoped here
-  // deliberately: a conversation names its trigger observation by id, and an evaluator
-  // holding an assignment must be able to read that evidence.
+  // DELIBERATELY UNSCOPED, and tl-29 tried the other way first (see below).
+  //
+  // This page is keyed on the evaluator's own assignments, which legitimately span the
+  // workshops they work in: tl-25 put real people in two at once. So its labels have to
+  // resolve across workshops too. Scoping the questions and events here — which looks
+  // like the safe change and is the same one this spec made everywhere else — deleted
+  // the question TEXT from every conversation belonging to the workshop the device was
+  // not currently switched into, leaving an evaluator a bare code and no prompt on the
+  // one screen whose job is to help them hold a hard conversation.
+  //
+  // Codes are per-workshop since tl-08 and can therefore collide, so the label maps are
+  // keyed on `${workshop_id}::${code}` and resolved against each conversation's OWN
+  // workshop rather than the active one. That is the honest version of the fix: not a
+  // narrower read, a more specific key.
   const observations = useLiveQuery(() => db.observations.toArray(), [], [])
   const verdicts = useLiveQuery(() => db.verifications.toArray(), [], [])
-  const ksas = useLiveQuery(
-    () => (workshopId ? db.ksas.where('workshop_id').equals(workshopId).toArray() : db.ksas.toArray()),
-    [workshopId],
-    [],
-  )
-  const activities = useLiveQuery(
-    () =>
-      workshopId
-        ? db.activities.where('workshop_id').equals(workshopId).toArray()
-        : db.activities.toArray(),
-    [workshopId],
-    [],
-  )
+  const ksas = useLiveQuery(() => db.ksas.toArray(), [], [])
+  const activities = useLiveQuery(() => db.activities.toArray(), [], [])
 
   const annotated = useMemo(
     () => annotateObservations(observations ?? [], verdicts ?? []),
     [observations, verdicts],
   )
-  const ksaByCode = useMemo(() => new Map((ksas ?? []).map((k) => [k.code, k])), [ksas])
+  const ksaByCode = useMemo(
+    () => new Map((ksas ?? []).map((k) => [ksaKey(k.workshop_id, k.code), k])),
+    [ksas],
+  )
   const activityById = useMemo(() => new Map((activities ?? []).map((a) => [a.id, a])), [activities])
+
+  /**
+   * A scale per workshop, for the same reason the question lookup is keyed on one: the
+   * conversations on this page can come from more than one workshop, and a designation
+   * printed against the active workshop's scale is a score labelled by a scale that did
+   * not produce it (tl-26's sharpest finding). Falls back to the app default for a
+   * workshop that has authored no points.
+   */
+  const scalePointRows = useLiveQuery(() => db.scalePoints.toArray(), [], [] as ScalePoint[])
+  const scaleFor = useMemo(() => {
+    const byWorkshop = new Map<string, ScalePoint[]>()
+    for (const row of scalePointRows ?? []) {
+      const list = byWorkshop.get(row.workshop_id) ?? []
+      list.push(row)
+      byWorkshop.set(row.workshop_id, list)
+    }
+    return (workshopId: string | null): Scale => {
+      const rows = workshopId ? byWorkshop.get(workshopId) : undefined
+      return rows && rows.length > 0 ? buildScale(workshopId, rows) : DEFAULT_SCALE
+    }
+  }, [scalePointRows])
 
   // Not `conversations ?? []`: useLiveQuery already carries a default, and the
   // fallback literal would be a new array on every render, so both memos below
@@ -540,6 +576,7 @@ export function Conversations() {
     annotated,
     ksaByCode,
     activityById,
+    scale: scaleFor(conv.workshop_id),
     recordedBy,
     expanded: expandedId === conv.id,
     onToggle: () => handleToggle(conv.id),

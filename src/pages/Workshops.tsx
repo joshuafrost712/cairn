@@ -105,12 +105,16 @@ function useWorkshopCards(memberships: WorkshopMember[]): WorkshopCard[] | null 
             // ACTIVE workshop's value, so using it here would grade every other
             // card against the wrong rule and silently move its numbers.
             const settings = await getSettings(id)
+            const roster = participants.filter((p) => p.workshop_id === id)
             return {
               membership,
               workshop: byId.get(id) ?? null,
-              participants: participants.filter((p) => p.workshop_id === id).length,
+              participants: roster.length,
               evaluations: evaluations.filter((e) => e.workshop_id === id),
-              observations: observationsForWorkshop(observations, evaluations, id),
+              // The roster is passed so a stranded observation resolves through its
+              // participant (tl-29). Without it this card under-reported against the
+              // report it links to, which is the one number a card must not do.
+              observations: observationsForWorkshop(observations, evaluations, id, roster),
               verdicts,
               threshold: settings.requiredConfirmations,
             }
