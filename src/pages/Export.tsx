@@ -1,40 +1,42 @@
 import { useMemo, useState } from 'react'
 
-import { useResolvedKsas } from '../hooks/useResolvedKsas'
 import { Link } from 'react-router-dom'
-import { useLiveQuery } from 'dexie-react-hooks'
-import { db } from '../db/local'
 import { buildAllReports } from '../reports/build'
 import { annotateObservations, participantGate, getRequiredConfirmations, type Gate } from '../reports/verification'
 import { buildCbcExport, cbcKsaCsv, cbcSubpointCsv } from '../reports/cbcExport'
 import { downloadText } from '../lib/download'
-import { useScale } from '../hooks/useScale'
-import type { ObservationRecord, Participant, Team, VerificationVerdict } from '../lib/types'
+import { useWorkshopEvidence } from '../hooks/useWorkshopEvidence'
 
 // CBC export: the interchange artifact for the (deferred) platform submission adapter.
 // Only verified evidence drives designations; "only finalized" limits to reports whose
 // gate is ready. JSON is canonical; the two CSVs are for pivoting / spreadsheet import.
+//
+// SCOPED TO THE ACTIVE WORKSHOP (tl-29), which matters more here than on any screen:
+// this file is the one artefact that leaves the app for somebody else's platform, and
+// it used to be assembled from every workshop on the device under whichever workshop
+// name Dexie returned first.
 export function Export() {
-  const participants = useLiveQuery(() => db.participants.toArray(), [], [] as Participant[])
-  const ksas = useResolvedKsas()
-  const teams = useLiveQuery(() => db.teams.toArray(), [], [] as Team[])
-  const observations = useLiveQuery(() => db.observations.toArray(), [], [] as ObservationRecord[])
-  const verdicts = useLiveQuery(() => db.verifications.toArray(), [], [] as VerificationVerdict[])
-  const workshop = useLiveQuery(() => db.workshops.toCollection().first(), [])
-  const scale = useScale()
+  const {
+    participants,
+    teams,
+    ksas: sortedKsas,
+    observations,
+    verdicts,
+    workshop,
+    scale,
+  } = useWorkshopEvidence()
 
   const [onlyFinalized, setOnlyFinalized] = useState(true)
   const [msg, setMsg] = useState<string | null>(null)
 
-  const sortedKsas = useMemo(() => [...(ksas ?? [])].sort((a, b) => a.code.localeCompare(b.code)), [ksas])
-  const annotated = useMemo(() => annotateObservations(observations ?? [], verdicts ?? []), [observations, verdicts])
+  const annotated = useMemo(() => annotateObservations(observations, verdicts), [observations, verdicts])
   const reports = useMemo(
-    () => buildAllReports(participants ?? [], sortedKsas, annotated, teams ?? []),
+    () => buildAllReports(participants, sortedKsas, annotated, teams),
     [participants, sortedKsas, annotated, teams],
   )
   const gates = useMemo(() => {
     const m = new Map<string, Gate>()
-    for (const p of participants ?? []) m.set(p.id, participantGate(annotated.filter((o) => o.participant_id === p.id)))
+    for (const p of participants) m.set(p.id, participantGate(annotated.filter((o) => o.participant_id === p.id)))
     return m
   }, [participants, annotated])
 
@@ -51,7 +53,7 @@ export function Export() {
     [reports, gates, workshop, generatedOn, onlyFinalized, scale],
   )
 
-  const total = (participants ?? []).filter((p) => (gates.get(p.id)?.total ?? 0) > 0).length
+  const total = participants.filter((p) => (gates.get(p.id)?.total ?? 0) > 0).length
   const finalized = [...gates.values()].filter((g) => g.status === 'ready').length
 
   const copy = async (text: string, label: string) => {

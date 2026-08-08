@@ -11,14 +11,14 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { db } from '../db/local'
-import { useResolvedKsas } from '../hooks/useResolvedKsas'
+import { db, newId } from '../db/local'
+import { useWorkshopEvidence } from '../hooks/useWorkshopEvidence'
 import { buildParticipantReport } from '../reports/build'
 import { annotateObservations, type AnnotatedObservation } from '../reports/verification'
 import { reconcileMentoringConversations } from '../db/mentoring'
 import { useAuth } from '../auth/AuthContext'
 import type { ResolvedKsa } from '../lib/goals'
-import type { Activity, MentoringConversation, ObservationRecord, Participant, Team, VerificationVerdict } from '../lib/types'
+import type { Activity, MentoringConversation, ObservationRecord, Participant } from '../lib/types'
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -198,8 +198,10 @@ function AppendForm({ participant, activities, ksas, evaluatorEmail, onAdded }: 
     setErr(null)
 
     try {
-      const count = await db.observations.count()
-      const id = `manual-${Date.now()}-${count}`
+      // `newId()` rather than a row count (tl-29). The count was a deployment-wide read
+      // for a value that only had to be unique, and it was not even reliably that: two
+      // rows deleted and two appended reuse an id and overwrite an observation.
+      const id = `manual-${newId()}`
       const captureId = `manual::${id}`
       const now = new Date().toISOString()
 
@@ -330,13 +332,26 @@ interface RecordsBrowserProps {
 export function RecordsBrowser({ participantId, onSelectParticipant }: RecordsBrowserProps = {}) {
   const { identity } = useAuth()
 
-  const participants = useLiveQuery(() => db.participants.toArray(), [], [] as Participant[])
-  const ksas = useResolvedKsas()
-  const activities = useLiveQuery(() => db.activities.toArray(), [], [] as Activity[])
-  const teams = useLiveQuery(() => db.teams.toArray(), [], [] as Team[])
-  const allObservations = useLiveQuery(() => db.observations.toArray(), [], [] as ObservationRecord[])
-  const verdicts = useLiveQuery(() => db.verifications.toArray(), [], [] as VerificationVerdict[])
-  const allConversations = useLiveQuery(() => db.mentoringConversations.toArray(), [], [] as MentoringConversation[])
+  // SCOPED TO THE ACTIVE WORKSHOP (tl-29), like every other surface that shows a
+  // participant's evidence. An admin of two workshops was offered both rosters in one
+  // picker here, and the appended-observation form drew its event list from both.
+  const {
+    workshopId,
+    participants,
+    teams,
+    ksas: sortedKsas,
+    activities: sortedActivities,
+    observations: allObservations,
+    verdicts,
+  } = useWorkshopEvidence()
+  const allConversations = useLiveQuery(
+    () =>
+      workshopId
+        ? db.mentoringConversations.where('workshop_id').equals(workshopId).toArray()
+        : db.mentoringConversations.toArray(),
+    [workshopId],
+    [] as MentoringConversation[],
+  )
 
   const controlled = participantId !== undefined && onSelectParticipant !== undefined
   const [localId, setLocalId] = useState<string>('')
@@ -347,29 +362,20 @@ export function RecordsBrowser({ participantId, onSelectParticipant }: RecordsBr
   }
   const [showAppend, setShowAppend] = useState(false)
 
-  const sortedKsas = useMemo(
-    () => [...(ksas ?? [])].sort((a, b) => a.code.localeCompare(b.code)),
-    [ksas],
-  )
-
-  const sortedActivities = useMemo(
-    () => [...(activities ?? [])].sort((a, b) => a.sort_order - b.sort_order),
-    [activities],
-  )
 
   const annotated = useMemo(
-    () => annotateObservations(allObservations ?? [], verdicts ?? []),
+    () => annotateObservations(allObservations, verdicts),
     [allObservations, verdicts],
   )
 
   const selected = useMemo(
-    () => (participants ?? []).find((p) => p.id === selectedId) ?? null,
+    () => participants.find((p) => p.id === selectedId) ?? null,
     [participants, selectedId],
   )
 
   const report = useMemo(() => {
     if (!selected) return null
-    return buildParticipantReport(selected, sortedKsas, annotated, teams ?? [])
+    return buildParticipantReport(selected, sortedKsas, annotated, teams)
   }, [selected, sortedKsas, annotated, teams])
 
   const participantObs = useMemo(
@@ -393,7 +399,7 @@ export function RecordsBrowser({ participantId, onSelectParticipant }: RecordsBr
     [allConversations, selectedId],
   )
 
-  if ((participants ?? []).length === 0) {
+  if (participants.length === 0) {
     return (
       <p className="small muted">No participants loaded. Load a workshop first.</p>
     )
@@ -409,7 +415,7 @@ export function RecordsBrowser({ participantId, onSelectParticipant }: RecordsBr
         style={{ marginBottom: '0.75rem' }}
       >
         <option value="">— choose —</option>
-        {(participants ?? []).map((p) => (
+        {participants.map((p) => (
           <option key={p.id} value={p.id}>{p.name}</option>
         ))}
       </select>

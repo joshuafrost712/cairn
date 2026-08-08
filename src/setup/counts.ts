@@ -1,4 +1,5 @@
 import { db } from '../db/local'
+import { observationsForWorkshop } from '../reports/workshopOverview'
 import { observationsCrossingThreshold, type ImpactCounts } from './impact'
 import { annotateObservations } from '../reports/verification'
 import { isOpenConversation } from '../db/mentoring'
@@ -35,18 +36,20 @@ import type {
  * `workshop_id` would UNDERSTATE what a delete costs on precisely the devices
  * holding the most at-risk evidence, so they are resolved through the participant
  * instead of skipped.
+ *
+ * That reasoning is now the third fallback inside `observationsForWorkshop`, which
+ * tl-29 made the one resolver for this question. This function used to implement it
+ * here, in parallel with a version in reports/ that resolved through the capture
+ * instead, so the two disagreed about a row neither was wrong about. It reads
+ * everything the resolver needs and delegates the decision.
  */
 async function workshopObservations(workshopId: string): Promise<ObservationRecord[]> {
-  const [byWorkshop, participants] = await Promise.all([
-    db.observations.where('workshop_id').equals(workshopId).toArray(),
+  const [observations, evaluations, participants] = await Promise.all([
+    db.observations.toArray(),
+    db.evaluations.toArray(),
     db.participants.where('workshop_id').equals(workshopId).toArray(),
   ])
-  const participantIds = new Set(participants.map((p) => p.id))
-  const seen = new Set(byWorkshop.map((o) => o.id))
-  const orphans = (await db.observations.toArray()).filter(
-    (o) => !seen.has(o.id) && o.workshop_id == null && o.participant_id && participantIds.has(o.participant_id),
-  )
-  return [...byWorkshop, ...orphans]
+  return observationsForWorkshop(observations, evaluations, workshopId, participants)
 }
 
 /** Submitted (attested) captures in a workshop. A draft capture invalidates nothing. */

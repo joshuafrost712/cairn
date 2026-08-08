@@ -11,6 +11,7 @@
 //
 // Formatting rules: no em dashes, short paragraphs, no horizontal rules.
 
+import { getActiveScale, maxValue, type Scale } from '../lib/scale'
 import type { Discrepancy } from './discrepancy'
 import type { AnnotatedObservation } from './verification'
 
@@ -22,14 +23,14 @@ function evaluatorLabel(email: string | null | undefined): string {
 }
 
 /** One evidence block shown inside an email. */
-function evidenceBlock(o: AnnotatedObservation): string {
+function evidenceBlock(o: AnnotatedObservation, top: number): string {
   const who = evaluatorLabel(o.evaluator_email)
   const eff = o.effective_designation
   const adjusted = eff !== o.evidence_designation ? ` (adjusted from ${o.evidence_designation})` : ''
   const group = o.origin === 'group' ? ' [group observation]' : ''
   const lines: string[] = []
   lines.push(`Evaluator: ${who}`)
-  lines.push(`Score: ${eff}/3${adjusted}${group}`)
+  lines.push(`Score: ${eff}/${top}${adjusted}${group}`)
   lines.push(`Observation: ${o.text}`)
   if (o.source_excerpt) lines.push(`Excerpt: "${o.source_excerpt}"`)
   return lines.join('\n')
@@ -55,7 +56,20 @@ export function renderDiscrepancyEmails(
   d: Discrepancy,
   chiefEmail: string,
   workshopName: string,
+  /**
+   * The workshop's grading scale (tl-09), used only for the denominator a score
+   * prints against. Defaults to the ACTIVE workshop's, matching every other
+   * renderer in this folder, and a caller generating documents for a workshop it is
+   * not switched into passes it explicitly.
+   *
+   * This file printed a literal `/3` in four places until tl-29. tl-09 made the
+   * scale two-to-six points, tl-16 found the hardcoding and disclosed it rather
+   * than fixing it, and it renders identically on today's four-point workshops,
+   * which is exactly why it needed a spec to remove rather than a reader to notice.
+   */
+  scale: Scale = getActiveScale(),
 ): DiscrepancyEmailDraft[] {
+  const top = maxValue(scale)
   // Sort contributing observations by effective_designation so we can find the extremes.
   const sorted = [...d.observations].sort(
     (a, b) => a.effective_designation - b.effective_designation,
@@ -76,7 +90,7 @@ export function renderDiscrepancyEmails(
   chiefLines.push(``)
   chiefLines.push(`Participant: ${d.participant_name}`)
   chiefLines.push(`KSA: ${d.ksa_code} — ${d.goal_title}`)
-  chiefLines.push(`Score range: ${d.lo}/3 to ${d.hi}/3 (spread of ${d.hi - d.lo})`)
+  chiefLines.push(`Score range: ${d.lo}/${top} to ${d.hi}/${top} (spread of ${d.hi - d.lo})`)
   chiefLines.push(``)
   if (d.timeGapNote) {
     chiefLines.push(`Note on timing: ${d.timeGapNote}`)
@@ -84,13 +98,13 @@ export function renderDiscrepancyEmails(
   }
   chiefLines.push(`Evidence:`)
   chiefLines.push(``)
-  chiefLines.push(evidenceBlock(loObs))
+  chiefLines.push(evidenceBlock(loObs, top))
   chiefLines.push(``)
-  chiefLines.push(evidenceBlock(hiObs))
+  chiefLines.push(evidenceBlock(hiObs, top))
   if (middleObs.length > 0) {
     chiefLines.push(``)
     chiefLines.push(
-      `Additional observations (${middleObs.length}): ${middleObs.map((o) => `${evaluatorLabel(o.evaluator_email)} (${o.effective_designation}/3)`).join(', ')}.`,
+      `Additional observations (${middleObs.length}): ${middleObs.map((o) => `${evaluatorLabel(o.evaluator_email)} (${o.effective_designation}/${top})`).join(', ')}.`,
     )
   }
   chiefLines.push(``)
@@ -111,11 +125,11 @@ export function renderDiscrepancyEmails(
   evalALines.push(``)
   evalALines.push(`Your observation:`)
   evalALines.push(``)
-  evalALines.push(evidenceBlock(loObs))
+  evalALines.push(evidenceBlock(loObs, top))
   evalALines.push(``)
   evalALines.push(`Colleague's observation:`)
   evalALines.push(``)
-  evalALines.push(evidenceBlock(hiObs))
+  evalALines.push(evidenceBlock(hiObs, top))
   if (d.timeGapNote) {
     evalALines.push(``)
     evalALines.push(`Timing note: ${d.timeGapNote}`)
@@ -138,11 +152,11 @@ export function renderDiscrepancyEmails(
   evalBLines.push(``)
   evalBLines.push(`Your observation:`)
   evalBLines.push(``)
-  evalBLines.push(evidenceBlock(hiObs))
+  evalBLines.push(evidenceBlock(hiObs, top))
   evalBLines.push(``)
   evalBLines.push(`Colleague's observation:`)
   evalBLines.push(``)
-  evalBLines.push(evidenceBlock(loObs))
+  evalBLines.push(evidenceBlock(loObs, top))
   if (d.timeGapNote) {
     evalBLines.push(``)
     evalBLines.push(`Timing note: ${d.timeGapNote}`)

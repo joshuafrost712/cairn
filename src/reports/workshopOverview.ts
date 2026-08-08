@@ -13,6 +13,7 @@
 import type {
   EvaluationRecord,
   ObservationRecord,
+  Participant,
   VerificationVerdict,
   Workshop,
   WorkshopMember,
@@ -76,24 +77,67 @@ function compareOptions(a: WorkshopOption, b: WorkshopOption): number {
 }
 
 /**
- * Which observations belong to a workshop.
+ * Which observations belong to a workshop. The ONE answer to that question (tl-29).
  *
- * `observation.workshop_id` is the answer whenever it is set (tl-04 resolves it
- * at ingest). It is nullable for rows imported before tl-04 whose capture is no
- * longer on the device, so the capture's own workshop is consulted as a fallback
- * rather than dropping the row: an observation counted into no workshop at all
- * would quietly deflate whichever card should have carried it.
+ * Three sources, consulted in order, and the order is the confidence order:
+ *
+ *   1. `observation.workshop_id`, which tl-04 resolves at ingest and which is
+ *      authoritative whenever it is set.
+ *   2. The workshop of the capture it came from, for the nullable rows whose
+ *      capture is still on this device.
+ *   3. The workshop of the participant it is about.
+ *
+ * The third fallback arrived with tl-29 and it is not decoration. `setup/counts.ts`
+ * carried a second resolver that used it INSTEAD of the capture, and its comment
+ * said why: the null rows are the stranded phone-evaluation history tl-18
+ * recovered, they are attached to real participants, and the devices holding the
+ * most at-risk evidence are exactly the ones whose captures have gone. Both
+ * readings were right about a different subset, and two resolvers that disagree
+ * about which workshop an observation is in is the shape of defect this spec
+ * exists to end. Passing `participants` is therefore how a caller opts into the
+ * fuller answer; omitting it keeps the old two-source behaviour for callers that
+ * have no roster to hand.
+ *
+ * An observation that resolves to nothing belongs to no workshop and appears on no
+ * scoped surface, which is a real state rather than an error: see
+ * `unresolvedObservations` for the count a screen can show instead of losing it.
  */
 export function observationsForWorkshop(
   observations: ObservationRecord[],
   evaluations: EvaluationRecord[],
   workshopId: string,
+  participants: Participant[] = [],
 ): ObservationRecord[] {
   const captureWorkshop = new Map(evaluations.map((e) => [e.client_id, e.workshop_id ?? null]))
-  return observations.filter((o) =>
-    o.workshop_id != null
-      ? o.workshop_id === workshopId
-      : captureWorkshop.get(o.capture_client_id) === workshopId,
+  const participantWorkshop = new Map(participants.map((p) => [p.id, p.workshop_id ?? null]))
+  return observations.filter((o) => {
+    if (o.workshop_id != null) return o.workshop_id === workshopId
+    const byCapture = captureWorkshop.get(o.capture_client_id)
+    if (byCapture != null) return byCapture === workshopId
+    return o.participant_id != null && participantWorkshop.get(o.participant_id) === workshopId
+  })
+}
+
+/**
+ * The observations no workshop can claim: null `workshop_id`, no capture on this
+ * device, and no participant this device knows either.
+ *
+ * Scoping a surface hides these, and hiding evidence silently is the failure mode
+ * this wave has paid for more than once ("when a key resolves to nothing, render
+ * the row"). So the count is available for a surface to disclose.
+ */
+export function unresolvedObservations(
+  observations: ObservationRecord[],
+  evaluations: EvaluationRecord[],
+  participants: Participant[],
+): ObservationRecord[] {
+  const captureWorkshop = new Map(evaluations.map((e) => [e.client_id, e.workshop_id ?? null]))
+  const participantWorkshop = new Map(participants.map((p) => [p.id, p.workshop_id ?? null]))
+  return observations.filter(
+    (o) =>
+      o.workshop_id == null &&
+      captureWorkshop.get(o.capture_client_id) == null &&
+      (o.participant_id == null || participantWorkshop.get(o.participant_id) == null),
   )
 }
 

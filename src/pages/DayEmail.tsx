@@ -1,40 +1,48 @@
 import { useMemo, useState } from 'react'
 
-import { useResolvedKsas } from '../hooks/useResolvedKsas'
 import { Link } from 'react-router-dom'
-import { useLiveQuery } from 'dexie-react-hooks'
-import { db } from '../db/local'
 import { useAuth } from '../auth/AuthContext'
 import { ADMIN_ROLES, useHasWorkshopRole } from '../layout/roles'
+import { useWorkshopEvidence } from '../hooks/useWorkshopEvidence'
 import { buildAllReports } from '../reports/build'
 import { renderDayEmailMarkdown } from '../reports/dayEmail'
 import { annotateObservations, participantGate, type Gate } from '../reports/verification'
-import type { ObservationRecord, Participant, Team, VerificationVerdict } from '../lib/types'
 
 // End-of-day email: one summary across every participant evaluated today, rolled up
 // from the same pipeline the Reports page uses (annotate → buildAllReports →
 // participantGate). Its job is to make the multi-evaluator merge visible — where two
 // of us agreed on a participant and where we conflicted — and hand back email-ready
 // text. No backend send: copy it (full content) or open the mail app prefilled.
+//
+// SCOPED TO THE ACTIVE WORKSHOP (tl-29). This page read all five tables with a bare
+// `toArray()` and took `db.workshops.toCollection().first()` as the workshop, so on a
+// device holding both the Crash Course and Psalms it generated ONE document under
+// Psalms' name carrying the Crash Course's four people, permanently and regardless of
+// which workshop was selected. It also printed each designation against the active
+// workshop's scale labels while drawing the designations from everywhere, which is a
+// score labelled by a scale that did not produce it. `useWorkshopEvidence` resolves
+// all of it in one place.
 export function DayEmail() {
   const { identity } = useAuth()
   const isAdmin = useHasWorkshopRole(ADMIN_ROLES)
-  const participants = useLiveQuery(() => db.participants.toArray(), [], [] as Participant[])
-  const ksas = useResolvedKsas()
-  const teams = useLiveQuery(() => db.teams.toArray(), [], [] as Team[])
-  const observations = useLiveQuery(() => db.observations.toArray(), [], [] as ObservationRecord[])
-  const verdicts = useLiveQuery(() => db.verifications.toArray(), [], [] as VerificationVerdict[])
-  const workshop = useLiveQuery(() => db.workshops.toCollection().first(), [])
+  const {
+    participants,
+    teams,
+    ksas: sortedKsas,
+    observations,
+    verdicts,
+    workshopName,
+    scale,
+  } = useWorkshopEvidence()
 
-  const sortedKsas = useMemo(() => [...(ksas ?? [])].sort((a, b) => a.code.localeCompare(b.code)), [ksas])
-  const annotated = useMemo(() => annotateObservations(observations ?? [], verdicts ?? []), [observations, verdicts])
+  const annotated = useMemo(() => annotateObservations(observations, verdicts), [observations, verdicts])
   const reports = useMemo(
-    () => buildAllReports(participants ?? [], sortedKsas, annotated, teams ?? []),
+    () => buildAllReports(participants, sortedKsas, annotated, teams),
     [participants, sortedKsas, annotated, teams],
   )
   const gates = useMemo(() => {
     const m = new Map<string, Gate>()
-    for (const p of participants ?? []) m.set(p.id, participantGate(annotated.filter((o) => o.participant_id === p.id)))
+    for (const p of participants) m.set(p.id, participantGate(annotated.filter((o) => o.participant_id === p.id)))
     return m
   }, [participants, annotated])
 
@@ -45,13 +53,14 @@ export function DayEmail() {
 
   const markdown = useMemo(
     () =>
-      renderDayEmailMarkdown(reports, gates, workshop?.name ?? 'Workshop', dateLabel, {
+      renderDayEmailMarkdown(reports, gates, workshopName, dateLabel, {
         fromName: identity?.name,
+        scale,
       }),
-    [reports, gates, workshop, dateLabel, identity],
+    [reports, gates, workshopName, dateLabel, identity, scale],
   )
 
-  const subject = `End-of-day evaluation summary — ${workshop?.name ?? 'Workshop'} (${dateLabel})`
+  const subject = `End-of-day evaluation summary — ${workshopName} (${dateLabel})`
   const mailto = `mailto:${encodeURIComponent(to)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(markdown)}`
 
   const copy = async () => {

@@ -433,6 +433,10 @@
       "label": "No shared database reachable, so this device can only offer the captures it recorded itself."
     },
     {
+      "id": "reports.unresolved-workshop",
+      "label": "observation(s) on this device belong to no workshop it can identify, so they appear in no report. They are usually captures pulled before the workshop was recorded; re-sync, or open Observations to attribute them."
+    },
+    {
       "id": "reports.nothing-yet",
       "label": "No observations to report yet. They appear here once submitted captures have been processed."
     },

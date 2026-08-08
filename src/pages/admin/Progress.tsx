@@ -117,7 +117,15 @@ export function Progress() {
     [workshopId],
     [] as ReportAssignment[],
   )
-  const drafts = useLiveQuery(() => db.docDrafts.toArray(), [], [] as DraftDoc[])
+  // Scoped like the Outgoing queue it summarises (tl-29), null-workshop rows included.
+  const drafts = useLiveQuery(
+    async () => {
+      const all = await db.docDrafts.toArray()
+      return workshopId ? all.filter((d) => d.workshopId === workshopId || d.workshopId == null) : all
+    },
+    [workshopId],
+    [] as DraftDoc[],
+  )
   const settings = useLiveQuery(
     async () =>
       workshopId

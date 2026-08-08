@@ -33,7 +33,18 @@ export function Outgoing() {
   const [day, setDay] = useState(() => new Date().toISOString().slice(0, 10))
   const [facilitators, setFacilitators] = useState('')
 
-  const drafts = useLiveQuery(() => db.docDrafts.toArray(), [], [] as DraftDoc[])
+  // Scoped to the active workshop (tl-29). A draft holds one participant's assessment,
+  // so an unscoped queue offers to send the other workshop's documents from this
+  // workshop's screen. A null-workshop draft stays visible on purpose: those are the
+  // rows `draftSync` refuses to push and names, and hiding them would hide the problem.
+  const drafts = useLiveQuery(
+    async () => {
+      const all = await db.docDrafts.toArray()
+      return workshopId ? all.filter((d) => d.workshopId === workshopId || d.workshopId == null) : all
+    },
+    [workshopId],
+    [] as DraftDoc[],
+  )
   const activeDrafts = (drafts ?? []).filter((d) => d.status !== 'superseded')
 
   const run = async (fn: () => Promise<DraftDoc[]>, label: string) => {

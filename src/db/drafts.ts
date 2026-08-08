@@ -151,7 +151,7 @@ export async function generateParticipantEmails(opts: GenerateOptions): Promise<
   ])
   const fingerprint = templateFingerprint(templates)
 
-  const observations = observationsForWorkshop(allObservations, evaluations, opts.workshopId)
+  const observations = observationsForWorkshop(allObservations, evaluations, opts.workshopId, participants)
   const workshopName = workshop?.name ?? 'Workshop'
   const sortedKsas = [...ksas].sort((a, b) => a.code.localeCompare(b.code))
   const annotated = annotateObservations(observations, verdicts)

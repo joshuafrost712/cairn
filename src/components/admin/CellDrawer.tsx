@@ -5,6 +5,7 @@ import { Drawer } from '../data/Drawer'
 import { DesignationChip } from '../data/DesignationChip'
 import { EvidenceList } from './EvidenceList'
 import { derivationNote } from '../../reports/segments'
+import { useScale } from '../../hooks/useScale'
 
 export interface CellSelection {
   participantId: string
@@ -21,6 +22,10 @@ export function CellDrawer({
   selection: CellSelection | null
   onClose: () => void
 }) {
+  // The ACTIVE workshop's scale, which is the right one here: this drawer opens over
+  // the heatmap of the workshop the operator is looking at. A generator producing
+  // documents for a workshop it is not switched into passes its own (tl-29).
+  const scale = useScale()
   if (!selection) return null
   const { rollup } = selection
 
@@ -36,7 +41,7 @@ export function CellDrawer({
           value={rollup?.representative ?? null}
           conflict={rollup?.conflict ?? false}
         />
-        <span className="small muted">{rollup ? derivationNote(rollup) : 'No data for this cell.'}</span>
+        <span className="small muted">{rollup ? derivationNote(rollup, scale) : 'No data for this cell.'}</span>
       </div>
 
       <EvidenceList observations={rollup?.contributing ?? []} />

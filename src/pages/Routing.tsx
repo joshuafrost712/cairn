@@ -65,10 +65,23 @@ export function Routing() {
   const routingOffReason = aiUnavailableReason('observation_routing', config)
 
   const pending = useLiveQuery(async () => (await listPendingCaptures()).length, [], 0)
-  const observationCount = useLiveQuery(() => db.observations.count(), [], 0)
+  // Scoped (tl-29): this number tells an admin how much of THIS workshop is routed.
+  const observationCount = useLiveQuery(
+    () =>
+      workshopId
+        ? db.observations.where('workshop_id').equals(workshopId).count()
+        : db.observations.count(),
+    [workshopId],
+    0,
+  )
   const needsReview = useLiveQuery(
-    async () => (await db.observations.toArray()).filter((o) => o.needs_review).length,
-    [],
+    async () => {
+      const rows = workshopId
+        ? await db.observations.where('workshop_id').equals(workshopId).toArray()
+        : await db.observations.toArray()
+      return rows.filter((o) => o.needs_review).length
+    },
+    [workshopId],
     0,
   )
 

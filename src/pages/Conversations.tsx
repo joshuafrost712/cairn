@@ -15,6 +15,7 @@ import { useAuth } from '../auth/AuthContext'
 import { Copy } from '../components/Copy'
 import { c } from '../lib/content/chrome'
 import { EvidenceList } from '../components/admin/EvidenceList'
+import { useScopedWorkshopId } from '../layout/roles'
 import { markConversationViewed, readConversationViews } from '../lib/conversationViews'
 import type { ConversationViews } from '../lib/conversationViews'
 import type { Activity, Ksa, MentoringConversation } from '../lib/types'
@@ -472,6 +473,7 @@ export function Conversations() {
   // cannot narrow this page on its own: every device derives conversations locally
   // from the observations it holds, and an evaluator holds the workshop's
   // observations because verifying them is their job.
+  const workshopId = useScopedWorkshopId()
   const conversations = useLiveQuery(
     () =>
       myEmail
@@ -481,10 +483,26 @@ export function Conversations() {
     [] as MentoringConversation[],
   )
 
+  // Questions and events scoped to the active workshop (tl-29). Codes are per-workshop
+  // since tl-08, so an unscoped lookup can label a conversation's evidence with another
+  // workshop's question of the same code. Observations and verdicts stay unscoped here
+  // deliberately: a conversation names its trigger observation by id, and an evaluator
+  // holding an assignment must be able to read that evidence.
   const observations = useLiveQuery(() => db.observations.toArray(), [], [])
   const verdicts = useLiveQuery(() => db.verifications.toArray(), [], [])
-  const ksas = useLiveQuery(() => db.ksas.toArray(), [], [])
-  const activities = useLiveQuery(() => db.activities.toArray(), [], [])
+  const ksas = useLiveQuery(
+    () => (workshopId ? db.ksas.where('workshop_id').equals(workshopId).toArray() : db.ksas.toArray()),
+    [workshopId],
+    [],
+  )
+  const activities = useLiveQuery(
+    () =>
+      workshopId
+        ? db.activities.where('workshop_id').equals(workshopId).toArray()
+        : db.activities.toArray(),
+    [workshopId],
+    [],
+  )
 
   const annotated = useMemo(
     () => annotateObservations(observations ?? [], verdicts ?? []),

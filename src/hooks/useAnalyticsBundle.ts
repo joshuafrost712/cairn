@@ -30,7 +30,8 @@ import type {
   WorkbenchSummary,
 } from '../reports/analytics'
 import type { ParticipantReport } from '../reports/build'
-import { withGoalTitles, type ResolvedKsa } from '../lib/goals'
+import { scopeEvidence } from '../reports/scope'
+import { type ResolvedKsa } from '../lib/goals'
 import type { Activity, Goal, Ksa, Participant, Team, Workshop } from '../lib/types'
 
 export interface DashboardFilters {
@@ -110,28 +111,55 @@ export function useAnalyticsBundle(filters: DashboardFilters = {}): AnalyticsBun
   const { day = null, teamId = null, evaluator = null, sort = 'roster' } = filters
 
   return useMemo(() => {
-    const wsId = workshop?.id ?? null
-    const myActivities = (activities ?? [])
-      .filter((a) => !wsId || a.workshop_id === wsId)
-      .sort((a, b) => a.sort_order - b.sort_order)
-    const myParticipantsAll = (participants ?? []).filter((p) => !wsId || p.workshop_id === wsId)
+    /**
+     * Scoped to the active workshop through the shared rules (tl-29).
+     *
+     * This function used to filter participants, activities, questions and goals
+     * inline and correctly, which is why the thirteen pages behind it were not among
+     * tl-26's findings. Two gaps survived that pass and neither was visible in a
+     * report: `annotateObservations` ran over EVERY observation on the device, so the
+     * evaluator table, the attribution health and the workbench summary counted the
+     * other workshop's work, and `teams` came back unfiltered, so every team picker
+     * behind this hook offered the other workshop's teams. The reports themselves were
+     * accidentally safe, because `buildAllReports` keys off the scoped participant
+     * list. Accidentally safe is the state this spec exists to remove.
+     */
+    const scoped = scopeEvidence({
+      workshopId: workshop?.id ?? null,
+      participants,
+      teams,
+      ksas,
+      goals,
+      activities,
+      observations,
+      verdicts,
+      evaluations,
+    })
+    const myActivities = scoped.activities
+    const myParticipantsAll = scoped.participants
     const myParticipants = teamId
       ? myParticipantsAll.filter((p) => p.team_id === teamId)
       : myParticipantsAll
-    // Stable KSA order everywhere: code-sorted, matching what the rest of the app does.
-    // Scoped to the workshop as of tl-08, the same way activities and participants
-    // already were: questions belong to a workshop now, and a report that enumerated
-    // the whole deployment's library would list another organization's questions as
-    // "no evidence recorded" on every participant.
-    const sortedKsas = withGoalTitles(
-      [...(ksas ?? [])]
-        .filter((k) => !wsId || k.workshop_id === wsId)
-        .sort((a, b) => a.code.localeCompare(b.code)),
-      (goals ?? []).filter((g) => !wsId || g.workshop_id === wsId),
-    )
+    const sortedKsas = scoped.ksas
+    const myTeams = scoped.teams
+    /**
+     * Conversations carry their own `workshop_id` (nullable, like observations), and
+     * `conversationsNeeded` on the summary counted every workshop's. Resolutions are
+     * deliberately NOT scoped: they are consumed as a set of ids matched against
+     * discrepancies that are already in scope, and a `disc::<participant>::<code>` id
+     * from another workshop cannot match one of these.
+     */
+    const wsId = scoped.workshopId
+    const myConversations = wsId
+      ? (conversations ?? []).filter(
+          (c) =>
+            c.workshop_id === wsId ||
+            (c.workshop_id == null && myParticipantsAll.some((p) => p.id === c.participant_id)),
+        )
+      : (conversations ?? [])
 
-    const annotatedAll = annotateObservations(observations ?? [], verdicts ?? [])
-    const situatedAll = situate(annotatedAll, buildCaptureIndex(evaluations ?? []))
+    const annotatedAll = annotateObservations(scoped.observations, scoped.verdicts)
+    const situatedAll = situate(annotatedAll, buildCaptureIndex(scoped.evaluations))
 
     const dayOf = new Map(myActivities.map((a) => [a.id, a.day]))
     const participantIds = new Set(myParticipants.map((p) => p.id))
@@ -145,7 +173,7 @@ export function useAnalyticsBundle(filters: DashboardFilters = {}): AnalyticsBun
       return true
     })
 
-    const reports = buildAllReports(myParticipants, sortedKsas, situatedFiltered, teams ?? [])
+    const reports = buildAllReports(myParticipants, sortedKsas, situatedFiltered, myTeams)
     const gates = new Map<string, Gate>()
     for (const r of reports) {
       gates.set(
@@ -154,14 +182,14 @@ export function useAnalyticsBundle(filters: DashboardFilters = {}): AnalyticsBun
       )
     }
 
-    const discrepancies = findDiscrepancies(reports, buildCaptureTimeMap(evaluations ?? []))
+    const discrepancies = findDiscrepancies(reports, buildCaptureTimeMap(scoped.evaluations))
     const activitiesInScope = day ? myActivities.filter((a) => a.day === day) : myActivities
 
     return {
       loading,
       workshop: workshop ?? null,
       participants: myParticipants,
-      teams: teams ?? [],
+      teams: myTeams,
       ksas: sortedKsas,
       activities: myActivities,
       annotated: annotatedAll,
@@ -174,13 +202,13 @@ export function useAnalyticsBundle(filters: DashboardFilters = {}): AnalyticsBun
         activitiesInScope,
         sortedKsas,
         situatedFiltered,
-        evaluations ?? [],
+        scoped.evaluations,
       ),
       byKsa: ksaAnalytics(sortedKsas, myParticipants, reports, situatedFiltered, myActivities),
       byEvaluator: evaluatorAnalytics(
         situatedFiltered,
-        verdicts ?? [],
-        evaluations ?? [],
+        scoped.verdicts,
+        scoped.evaluations,
         myActivities,
       ),
       heatmap: buildHeatmap(reports, sortedKsas, { sort }),
@@ -191,8 +219,8 @@ export function useAnalyticsBundle(filters: DashboardFilters = {}): AnalyticsBun
         situated: situatedFiltered,
         discrepancies,
         resolutions: resolutions ?? [],
-        conversations: conversations ?? [],
-        evaluations: evaluations ?? [],
+        conversations: myConversations,
+        evaluations: scoped.evaluations,
       }),
       days: [...new Set(myActivities.map((a) => a.day).filter((d): d is string => d != null))].sort(),
     }

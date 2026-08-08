@@ -1,23 +1,17 @@
 import { useMemo, useState } from 'react'
 
-import { useResolvedKsas } from '../hooks/useResolvedKsas'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { useLiveQuery } from 'dexie-react-hooks'
-import { db } from '../db/local'
-import { scaleForWorkshop } from '../db/scale'
-import { templatesForWorkshop } from '../db/templates'
-import { DEFAULT_SCALE } from '../lib/scale'
-import { DEFAULT_TEMPLATES } from '../templates/resolve'
+import { maxValue } from '../lib/scale'
+import { useWorkshopEvidence } from '../hooks/useWorkshopEvidence'
 import { buildAllReports, unattributedObservations, type ParticipantReport } from '../reports/build'
 import { renderParticipantReportMarkdown } from '../reports/markdown'
 import { annotateObservations, participantGate, type AnnotatedObservation, type Gate } from '../reports/verification'
 import { PageHeader } from '../layout/PageHeader'
 import { EmptyState } from '../components/data/EmptyState'
 import { DesignationChip } from '../components/data/DesignationChip'
-import { ADMIN_ROLES, useHasWorkshopRole, useScopedWorkshopId } from '../layout/roles'
+import { ADMIN_ROLES, useHasWorkshopRole } from '../layout/roles'
 import { c } from '../lib/content/chrome'
 import { Copy } from '../components/Copy'
-import type { ObservationRecord, Participant, Team, VerificationVerdict } from '../lib/types'
 
 /**
  * Per-participant 0–3 rollup with the multi-evaluator gate. A report can be
@@ -34,7 +28,7 @@ export function Reports() {
   const isAdmin = useHasWorkshopRole(ADMIN_ROLES)
 
   /**
-   * SCOPED TO THE ACTIVE WORKSHOP (tl-16, from the second-AI review).
+   * SCOPED TO THE ACTIVE WORKSHOP (tl-16, then finished by tl-29).
    *
    * This page read `db.participants.toArray()` and took `db.workshops.toCollection()
    * .first()` as the workshop — the same `workshops[0]` defect tl-17 fixed in
@@ -48,48 +42,36 @@ export function Reports() {
    * all three plausible and all three wrong. It is a visible behaviour change — an admin
    * of two workshops now sees one workshop's participants here — and it is the change
    * tl-17 made everywhere else.
+   *
+   * tl-16 scoped four of the seven reads and left observations, verdicts and QUESTIONS
+   * unscoped, which is how tl-26's rehearsal produced a Crash Course report reading
+   * "1/16 areas evidenced" over Psalms' seven question codes. All seven now come from
+   * one hook, so the next spec cannot scope some of them.
    */
-  const workshopId = useScopedWorkshopId()
-  const participants = useLiveQuery(
-    () => (workshopId ? db.participants.where('workshop_id').equals(workshopId).toArray() : db.participants.toArray()),
-    [workshopId],
-    [] as Participant[],
-  )
-  const ksas = useResolvedKsas()
-  const teams = useLiveQuery(
-    () => (workshopId ? db.teams.where('workshop_id').equals(workshopId).toArray() : db.teams.toArray()),
-    [workshopId],
-    [] as Team[],
-  )
-  const observations = useLiveQuery(() => db.observations.toArray(), [], [] as ObservationRecord[])
-  const verdicts = useLiveQuery(() => db.verifications.toArray(), [], [] as VerificationVerdict[])
-  const workshop = useLiveQuery(
-    () => (workshopId ? db.workshops.get(workshopId) : db.workshops.toCollection().first()),
-    [workshopId],
-  )
-  // Resolved for the workshop this page is scoped to, not read off the mirror. The
-  // renderer defaults both to the active workshop's, which is the same thing here today
-  // and stops being so the moment somebody renders a report from a background job.
-  const scale = useLiveQuery(() => scaleForWorkshop(workshopId), [workshopId], DEFAULT_SCALE)
-  const templates = useLiveQuery(
-    () => templatesForWorkshop(workshopId),
-    [workshopId],
-    DEFAULT_TEMPLATES,
-  )
+  const {
+    participants,
+    teams,
+    ksas: sortedKsas,
+    observations,
+    verdicts,
+    unresolved,
+    workshopName,
+    scale,
+    templates,
+  } = useWorkshopEvidence()
 
-  const sortedKsas = useMemo(() => [...(ksas ?? [])].sort((a, b) => a.code.localeCompare(b.code)), [ksas])
-  const annotated = useMemo(() => annotateObservations(observations ?? [], verdicts ?? []), [observations, verdicts])
+  const annotated = useMemo(() => annotateObservations(observations, verdicts), [observations, verdicts])
 
   const reports = useMemo(
-    () => buildAllReports(participants ?? [], sortedKsas, annotated, teams ?? []),
+    () => buildAllReports(participants, sortedKsas, annotated, teams),
     [participants, sortedKsas, annotated, teams],
   )
   const gates = useMemo(() => {
     const m = new Map<string, Gate>()
-    for (const p of participants ?? []) m.set(p.id, participantGate(annotated.filter((o) => o.participant_id === p.id)))
+    for (const p of participants) m.set(p.id, participantGate(annotated.filter((o) => o.participant_id === p.id)))
     return m
   }, [participants, annotated])
-  const unattributed = useMemo(() => unattributedObservations(observations ?? []), [observations])
+  const unattributed = useMemo(() => unattributedObservations(observations), [observations])
 
   const withEvidence = reports.filter(
     (r) => r.totals.evidencedKsas > 0 || (gates.get(r.participant_id)?.total ?? 0) > 0,
@@ -104,7 +86,7 @@ export function Reports() {
   const copyMarkdown = async (report: ParticipantReport<AnnotatedObservation>, gate?: Gate) => {
     const md = renderParticipantReportMarkdown(
       report,
-      workshop?.name ?? 'Workshop',
+      workshopName,
       generatedOn,
       gate,
       scale,
@@ -131,6 +113,12 @@ export function Reports() {
         Per-participant evidence rolled up from observations. A report is cleared to finalize only
         when every observation behind it is verified by the required number of evaluators.
       </p>
+
+      {unresolved.length > 0 && (
+        <div className="banner warn">
+          {unresolved.length} {c('reports.unresolved-workshop')}
+        </div>
+      )}
 
       {unattributed.length > 0 && (
         <div className="banner warn">
@@ -226,7 +214,7 @@ export function Reports() {
                       </div>
                       {r.contributing.map((o) => (
                         <div key={o.id} className="small" style={{ marginTop: 'var(--s-1)' }}>
-                          <strong>{o.effective_designation}/3</strong>
+                          <strong>{o.effective_designation}/{maxValue(scale)}</strong>
                           {o.origin === 'group' ? ' (group)' : ''}{' '}
                           <span className="muted">[{o.vstatus}]</span>: {o.text}
                         </div>

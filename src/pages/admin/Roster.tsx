@@ -71,9 +71,31 @@ export function Roster({ embedded = false }: { embedded?: boolean }) {
     [workshopId],
     undefined,
   ) as Workshop | undefined
-  const teams = useLiveQuery(() => db.teams.toArray(), [], [] as Team[])
-  const participants = useLiveQuery(() => db.participants.toArray(), [], [] as Participant[])
-  const observations = useLiveQuery(() => db.observations.toArray(), [], [])
+  // Scoped to `workshopId` (tl-29). This page already resolved the workshop correctly
+  // and then read the roster across every workshop on the device, so an admin of two
+  // could see, edit and delete the other workshop's participants and teams from here.
+  // Worse than a mis-scoped report, because a report is wrong and this WRITES.
+  const teams = useLiveQuery(
+    () => (workshopId ? db.teams.where('workshop_id').equals(workshopId).toArray() : db.teams.toArray()),
+    [workshopId],
+    [] as Team[],
+  )
+  const participants = useLiveQuery(
+    () =>
+      workshopId
+        ? db.participants.where('workshop_id').equals(workshopId).toArray()
+        : db.participants.toArray(),
+    [workshopId],
+    [] as Participant[],
+  )
+  const observations = useLiveQuery(
+    () =>
+      workshopId
+        ? db.observations.where('workshop_id').equals(workshopId).toArray()
+        : db.observations.toArray(),
+    [workshopId],
+    [],
+  )
 
   const [newTeam, setNewTeam] = useState('')
   const [newName, setNewName] = useState('')

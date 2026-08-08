@@ -158,13 +158,14 @@ export function buildParticipantReportSegments(
       participantId: pid,
       ksaCode: r.ksa_code,
       evidence: claimEvidence(r),
-      note: derivationNote(r),
+      note: derivationNote(r, scale),
     })
     endBlock(out)
     for (const o of r.contributing) {
       out.push(
         evidenceSegment(o, {
           id: segId(kRoot, `ev:${slug(o.id)}`),
+          scale,
           participantId: pid,
           ksaCode: r.ksa_code,
         }),
