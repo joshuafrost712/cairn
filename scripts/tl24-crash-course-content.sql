@@ -16,7 +16,9 @@
 -- Two properties this file is built around, both of them Joshua's explicit
 -- constraint that the Bali Psalms workshop is not touched:
 --   * every statement names the Crash Course workshop id in its VALUES or its
---     WHERE. There is no unscoped UPDATE and no DELETE anywhere in the file.
+--     WHERE. There is no unscoped UPDATE. The single DELETE, added by the
+--     2026-08-18 revision in section 7, names two Crash Course ids in its WHERE
+--     and can reach nothing else.
 --   * ids are fixed and deterministic (cc1 = goals, cc2 = questions, cc3 =
 --     activities), so a second run updates the same nine rows rather than
 --     inserting nine more. `importScenarioDraft` would have suffixed duplicates;
@@ -26,6 +28,36 @@
 --   nine questions (CC-WF1 and CC-WF2 NOT merged); scale labels as drafted;
 --   CC-TR1 at three sessions, dropped at Passage 2 Draft and Record; seventeen
 --   activities, no eighteenth passage yet.
+--
+-- Revision of 2026-08-18. The Day One orality lesson was written after these
+-- questions were, and it does not do what they assumed. The lesson (Drive id
+-- 1XATTFQl0Xu56F-uOYzeILIVLtjT7JWcWr48Ga1jUVxs) derives orality inductively from
+-- a tabernacle enactment, a bead-and-container activity, and the four shifts that
+-- literacy produced, then closes on the process/product distinction and on tone
+-- of voice. It never builds the OBT process on a board and never discusses team
+-- composition, which is precisely what CC-WF1's and CC-WF2's prompts told an
+-- evaluator to watch for. Joshua's decisions, 2026-08-18:
+--   * CC-WF1 and CC-WF2 move off the orality session. Both now sit at Welcome and
+--     Overview as a provisional first read, and at a new Day Five discussion,
+--     which is the session to settle the score at. Welcome and Overview is mostly
+--     presented rather than discussed, so its two prompts say so and tell the
+--     evaluator it is fine to leave the question unrated there.
+--   * the orality slot is renamed 'Orality and OBT'. The old title's second
+--     clause, "and what does it take to make it happen?", promised the workflow
+--     content the lesson does not carry.
+--   * the devotion enactment that opens the session stays unrated, consistent
+--     with devotionals being off the calendar. Rating begins at the debrief.
+--   * prompts and guiding questions were rewritten; the 0-3 descriptors were not,
+--     with one authorized exception. CC-OR1's point 3 awarded a 3 for reasoning
+--     from skopos, a term this lesson never raises, so that point was unreachable
+--     as written. It is rewritten against the reasoning the session does reach.
+--   * eighteen activities now, not seventeen.
+--
+-- Three `ai_facing_rubric` values also gained a router note. That is not a
+-- descriptor edit: the router is a reader of these questions exactly as an
+-- evaluator is, and a rubric that still asks it for board-built evidence would
+-- mark participants down for the absence of something the course never collects.
+-- CC-WF1's rubric already carried such a note; this follows its precedent.
 
 begin;
 
@@ -97,44 +129,47 @@ insert into ksa (
 ('cc200000-0000-4000-8000-000000000001', '74d1c3ac-ce6e-433f-b2b6-54ab4e01e21b', 'cc100000-0000-4000-8000-000000000001',
  'CC-OR1', 'Defines orality, adapts steps',
  'Defines orality as a preference for holistic, internally stored communication rather than as a lack of literacy, and reasons about how translation steps change for an oral community. Canonical evaluation line: "How well the participants define orality and are able to reason about the way to adapt translation steps for oral communication."',
- 'How does this person talk about orality once the discussion gets specific, and what do they contribute when the group works out which steps would change for an oral team?',
- 'Knowledge: orality is not a lack of literacy but a preference for holistic communication, shaped by the need or preference to have all information stored mentally rather than reference-able through an external source, and it has been the primary way people think and communicate throughout history. Attitude: sees orality as a beautiful aspect of how God created humans, acted in sacred history, and sanctioned for the growth of his church. Skill: can assess how oral a people group is and think critically about a translation team''s skopos and stated workflow in light of that orality. Evaluation: how well they define orality and reason about adapting translation steps for oral communication, including whether they can tell an OBT process from an audio recording of a written translation.',
- '{"0":"Talks about orality as illiteracy, or as a problem to work around. When the group reasons about adapting a step, they wait rather than contribute, or they offer the written-translation answer unchanged.","1":"States a definition close to the one taught, but it stays a definition. Asked what would change for an oral team, they say that something should change without naming which step or why.","2":"Defines orality as a preference for holistic, internally stored communication rather than as a deficit, and reasons about at least one step concretely: names the step, says what changes, and ties the reason to how this community would actually receive the text. Can tell an OBT process from an audio recording of a written translation.","3":"Reasons from skopos rather than from a checklist, asking what the translation is for in this community and letting that drive which steps change and by how much. Can say where the line is beyond which a process stops being OBT. Their contributions move the group''s thinking rather than following it."}'::jsonb,
+ 'How does this person talk about orality once the discussion gets specific, and what do they say has to change about a translation when the audience listens rather than reads?',
+ 'Knowledge: orality is not a lack of literacy but a preference for holistic communication, shaped by the need or preference to have all information stored mentally rather than reference-able through an external source, and it has been the primary way people think and communicate throughout history. Attitude: sees orality as a beautiful aspect of how God created humans, acted in sacred history, and sanctioned for the growth of his church. Skill: can assess how oral a people group is and think critically about a translation team''s skopos and stated workflow in light of that orality. Evaluation: how well they define orality and reason about adapting translation steps for oral communication, including whether they can tell an OBT process from an audio recording of a written translation. Note for the router: the lesson builds the definition inductively, from a tabernacle enactment, a bead-and-container activity about oral transmission and writing, and the four shifts literacy produced, and it closes on the process/product distinction and on tone of voice. It never uses the word skopos and never walks the OBT steps, so judge the reasoning rather than the vocabulary, and do not treat the absence of either term as weakness.',
+ '{"0":"Talks about orality as illiteracy, or as a problem to work around. When the group reasons about adapting a step, they wait rather than contribute, or they offer the written-translation answer unchanged.","1":"States a definition close to the one taught, but it stays a definition. Asked what would change for an oral team, they say that something should change without naming which step or why.","2":"Defines orality as a preference for holistic, internally stored communication rather than as a deficit, and reasons about at least one step concretely: names the step, says what changes, and ties the reason to how this community would actually receive the text. Can tell an OBT process from an audio recording of a written translation.","3":"Reasons from what the translation is actually for in a particular community, and lets that drive which steps change and by how much, rather than working from a checklist. Can say where the line is beyond which a process stops being OBT, and what an oral product needs that an audio recording of a written translation will never have. Their contributions move the group''s thinking rather than following it."}'::jsonb,
  ARRAY['Modes of communication','Hermeneutics','Adult Education']::text[],
  ARRAY[
    'Do they treat orality as a lack of literacy, or as a preference for holistic communication?',
-   'Do they reach for the Lausanne material and the Frost, Mustin and Beal definition unprompted?',
-   'Can they say where a process stops being OBT and becomes an audio recording of a written translation?',
-   'Does skopos enter their reasoning at all?'
+   'When the group names symbol, ritual, story and community, do they contribute or wait?',
+   'Can they say why recording a written translation does not make it oral, and what an oral product would need instead?',
+   'Do they connect the shifts literacy produced to how a community they know actually receives a text?',
+   'Once the discussion turns to Bible translation, do they reach for the Lausanne course or the Frost, Mustin and Beal article?'
  ]::text[]),
 
 -- CC-WF1 ---------------------------------------------------------------------
 ('cc200000-0000-4000-8000-000000000002', '74d1c3ac-ce6e-433f-b2b6-54ab4e01e21b', 'cc100000-0000-4000-8000-000000000002',
  'CC-WF1', 'Names the OBT steps and why',
  'Names the core steps of the OBT process in order and says what quality problem each step exists to catch. Canonical evaluation line: "name the steps in the OBT process, describe their importance." The guide deferred this evaluation to an MTT training activity that the course is not running, so what is collected here is reasoning in discussion rather than a demonstration of teaching.',
- 'As the group builds the OBT process on the board, what can this person name unprompted, and what do they say is lost when a step is skipped?',
- 'Knowledge: all the core components necessary for an OBT workflow to produce a quality translation, the significance of each step, and what competencies and relationships each step needs. Attitude: values each component of the process and will advocate for it being done to the highest quality. Skill: can state all the core processes and their order. Evaluation: how well they name the steps and describe their importance, and whether they treat the sequence as load-bearing rather than conventional. Note for the router: the guide originally deferred this to an MTT training activity that is not happening, so the available evidence is reasoning in discussion, not a demonstration of teaching. Do not mark a participant down for the absence of evidence the course never collects.',
+ 'What can this person name of the OBT process unprompted, and what do they say is lost when a step is skipped?',
+ 'Knowledge: all the core components necessary for an OBT workflow to produce a quality translation, the significance of each step, and what competencies and relationships each step needs. Attitude: values each component of the process and will advocate for it being done to the highest quality. Skill: can state all the core processes and their order. Evaluation: how well they name the steps and describe their importance, and whether they treat the sequence as load-bearing rather than conventional. Note for the router: the guide deferred this to an MTT training activity that is not happening, and the Day One orality lesson does not build the process on a board as an earlier draft of this question assumed. Two sites collect it instead. Welcome and Overview is mostly presented rather than discussed, so evidence there is a first impression and may be absent entirely; the Day Five discussion is the real capture point, where four days of having worked the process is itself part of what they are drawing on. Do not mark a participant down for the absence of evidence the course never collects.',
  '{"0":"Cannot name the core steps without the board in front of them. Treats the sequence as arbitrary, or as one they would reorder for convenience.","1":"Names most steps in roughly the right order. Explains importance in general terms, \"it''s important to check\", without saying what specifically goes wrong when the step is missing.","2":"Names all the core steps in order and, for at least exegesis, internalization, drafting and community testing, says what quality problem each step exists to catch. Treats the sequence as load-bearing rather than conventional.","3":"Explains the process as a chain of quality checks, naming what each step catches that no other step would, and can reason about where a real team under pressure would be tempted to cut and what that would cost them. Could teach the sequence to a team."}'::jsonb,
  ARRAY['Program design and engagement','Consulting skills','Translation principles','Translation practice','Guiding translation teams']::text[],
  ARRAY[
-   'Can they name the core steps without the board in front of them?',
+   'Can they name the core steps without a list in front of them?',
    'For exegesis, internalization, drafting and community testing, do they say what specifically goes wrong when the step is missing?',
-   'When the group compares its answer to the YWAM OBT Handbook sequence, do they treat the order as load-bearing or as arbitrary?'
+   'Do they treat the order as load-bearing, or as one they would reorder for convenience?',
+   'Having now worked the process for four days, can they say what each step caught that no other step would have?'
  ]::text[]),
 
 -- CC-WF2 ---------------------------------------------------------------------
 ('cc200000-0000-4000-8000-000000000003', '74d1c3ac-ce6e-433f-b2b6-54ab4e01e21b', 'cc100000-0000-4000-8000-000000000002',
  'CC-WF2', 'Team composition and relationships',
- 'Reasons about which competencies and relationships each step of the OBT process requires, and who on a real team would hold them. Canonical evaluation line: "describe what competencies and relationships are necessary for each step", with the session''s own pedagogy note: "At each step of the process, discuss what skills and relationships are necessary to accomplish the step."',
- 'At each step, does this person think in roles and relationships, or only in tasks?',
- 'Knowledge: what competencies and relationships are necessary at each step of an OBT workflow. Attitude: values each component of the process and will advocate for it being done to the highest quality. Skill: can state what is necessary to accomplish each core process. Evaluation: whether they name the competencies a step needs and who on a real team would hold them, whether they identify a relationship the step fails without, and whether they can reason about gaps and substitutions when nobody on the team holds a needed competency.',
+ 'Reasons about which competencies and relationships each step of the OBT process requires, and who on a real team would hold them. Canonical evaluation line: "describe what competencies and relationships are necessary for each step." The pedagogy note this question was authored against, "At each step of the process, discuss what skills and relationships are necessary to accomplish the step", belonged to a board exercise the Day One orality lesson does not contain; the Day Five discussion added on 2026-08-18 is where that discussion now happens.',
+ 'When this person talks about a step of the process, do they think in roles and relationships, or only in tasks?',
+ 'Knowledge: what competencies and relationships are necessary at each step of an OBT workflow. Attitude: values each component of the process and will advocate for it being done to the highest quality. Skill: can state what is necessary to accomplish each core process. Evaluation: whether they name the competencies a step needs and who on a real team would hold them, whether they identify a relationship the step fails without, and whether they can reason about gaps and substitutions when nobody on the team holds a needed competency. Note for the router: this is cumulative. It is capturable in passing all week, provisionally at Welcome and Overview, and properly at the Day Five discussion. Weigh the Day Five evidence most heavily, and read a thin or missing Welcome and Overview capture as a session that gave them little chance to speak rather than as a weak participant.',
  '{"0":"Talks about the work without talking about who does it. Assumes the consultant or the facilitator absorbs whatever is missing.","1":"Names roles such as translator, consultant and community member, but attaches them to steps loosely, and treats relationship as goodwill rather than as a requirement of the work.","2":"For a given step, names the competencies it needs and who on a real team would hold them, and identifies at least one relationship the step fails without: community trust before testing, or team trust before peer critique. Notices when a team as described is missing something.","3":"Reasons about gaps and substitutions. What does a team do when nobody holds a needed competency, who can be trained into it, and what should an outside consultant decline to absorb? Distinguishes what the team must own from what can be borrowed."}'::jsonb,
  ARRAY['Program design and engagement','Consulting skills','Translation principles','Translation practice','Guiding translation teams']::text[],
  ARRAY[
    'For a given step, do they name who is needed and what relationship has to exist first?',
    'Do they treat relationship as goodwill, or as a requirement of the work?',
    'When a team as described is missing a competency, do they notice?',
-   'What do they think an outside consultant should decline to absorb?'
+   'What do they think an outside consultant should decline to absorb?',
+   'Looking back at the week, can they say which relationships their own group depended on to get the passage done?'
  ]::text[]),
 
 -- CC-EX1 ---------------------------------------------------------------------
@@ -233,10 +268,16 @@ on conflict (id) do update set
   ai_facing_rubric = excluded.ai_facing_rubric, evidence_levels = excluded.evidence_levels,
   cbc_subpoint_refs = excluded.cbc_subpoint_refs, guiding_questions = excluded.guiding_questions;
 
--- 6. Seventeen activities on five dated days. The guide labels its days Monday
+-- 6. Eighteen activities on five dated days. The guide labels its days Monday
 -- through Friday; the course runs Tuesday through Saturday because it was moved to
 -- honour Indonesian Independence Day on 17 August, so those labels are ordinals
 -- rather than weekdays. Day One is Tuesday 18 August.
+--
+-- The eighteenth, added 2026-08-18, is the Day Five process discussion. It is not
+-- one of the Passage 2 reps and the guide's "Evaluation: Light" marking does not
+-- cover it: it exists specifically to be the capture point for CC-WF1 and CC-WF2,
+-- whose board exercise the Day One orality lesson turned out not to contain. It
+-- sits before Celebration, which moves from sort_order 17 to 18.
 --
 -- Times stay null: they are not in the guide, and `groupActivitiesByDay` sorts on
 -- `day` then `sort_order`, so a dated session with no time is a first-class citizen.
@@ -245,7 +286,7 @@ on conflict (id) do update set
 -- watching a participant.
 insert into activity (id, workshop_id, title, day, start_time, end_time, sort_order, genre_group) values
   ('cc300000-0000-4000-8000-000000000001','74d1c3ac-ce6e-433f-b2b6-54ab4e01e21b','Welcome and Overview','2026-08-18',null,null,1,'Opening'),
-  ('cc300000-0000-4000-8000-000000000002','74d1c3ac-ce6e-433f-b2b6-54ab4e01e21b','What is "oral" Bible translation, and what does it take to make it happen?','2026-08-18',null,null,2,'Teaching & discussion'),
+  ('cc300000-0000-4000-8000-000000000002','74d1c3ac-ce6e-433f-b2b6-54ab4e01e21b','Orality and OBT','2026-08-18',null,null,2,'Teaching & discussion'),
   ('cc300000-0000-4000-8000-000000000003','74d1c3ac-ce6e-433f-b2b6-54ab4e01e21b','Exegesis for Oral Bible Translation','2026-08-18',null,null,3,'Teaching'),
   ('cc300000-0000-4000-8000-000000000004','74d1c3ac-ce6e-433f-b2b6-54ab4e01e21b','Exegete Passage 1','2026-08-18',null,null,4,'Practice'),
   ('cc300000-0000-4000-8000-000000000005','74d1c3ac-ce6e-433f-b2b6-54ab4e01e21b','Internalization for OBT','2026-08-19',null,null,5,'Teaching'),
@@ -260,16 +301,18 @@ insert into activity (id, workshop_id, title, day, start_time, end_time, sort_or
   ('cc300000-0000-4000-8000-000000000014','74d1c3ac-ce6e-433f-b2b6-54ab4e01e21b','Passage 2 Exegesis','2026-08-22',null,null,14,'Practice (light evaluation)'),
   ('cc300000-0000-4000-8000-000000000015','74d1c3ac-ce6e-433f-b2b6-54ab4e01e21b','Passage 2 Internalization','2026-08-22',null,null,15,'Practice (light evaluation)'),
   ('cc300000-0000-4000-8000-000000000016','74d1c3ac-ce6e-433f-b2b6-54ab4e01e21b','Passage 2 Draft and Record','2026-08-22',null,null,16,'Practice (light evaluation)'),
-  ('cc300000-0000-4000-8000-000000000017','74d1c3ac-ce6e-433f-b2b6-54ab4e01e21b','Celebration','2026-08-22',null,null,17,'Closing')
+  ('cc300000-0000-4000-8000-000000000018','74d1c3ac-ce6e-433f-b2b6-54ab4e01e21b','The OBT Process: Steps, Skills, and Relationships','2026-08-22',null,null,17,'Discussion'),
+  ('cc300000-0000-4000-8000-000000000017','74d1c3ac-ce6e-433f-b2b6-54ab4e01e21b','Celebration','2026-08-22',null,null,18,'Closing')
 on conflict (id) do update set
   title = excluded.title, day = excluded.day, start_time = excluded.start_time,
   end_time = excluded.end_time, sort_order = excluded.sort_order, genre_group = excluded.genre_group;
 
 -- 7. Wiring, with a per-event `prompt_override` wherever the guide's evaluation
--- line is session-specific. Five activities carry no question and each is
--- deliberate: Welcome and Overview, Exegesis for OBT (teaching; CC-EX1 is
--- collected next session), Internalization for OBT (teaching), and Celebration
--- have no evaluation line in the guide at all.
+-- line is session-specific. Three activities carry no question and each is
+-- deliberate: Exegesis for OBT (teaching; CC-EX1 is collected next session),
+-- Internalization for OBT (teaching), and Celebration have no evaluation line in
+-- the guide at all. Welcome and Overview was a fourth until 2026-08-18, when
+-- CC-WF1 and CC-WF2 moved onto it.
 --
 -- CC-TR1 is at three sessions, not four: Joshua dropped it at Passage 2 Draft and
 -- Record on 2026-08-07, since Day Five is light and four capture points for one
@@ -282,13 +325,29 @@ on conflict (id) do update set
 -- question should be and silently deletes the question. The first draft of this
 -- file made exactly that mistake at five sessions; reading Day One back through
 -- the app's own resolver is what caught it.
+-- The 2026-08-18 revision removes two rows: CC-WF1 and CC-WF2 no longer sit on the
+-- orality session. A DELETE is the only way to unwire, since the insert below is an
+-- upsert and would otherwise leave the stale pair in place on a re-run. It is
+-- scoped to two literal Crash Course ids, so it cannot reach Psalms, and it is a
+-- no-op the second time.
+delete from activity_ksa
+ where activity_id = 'cc300000-0000-4000-8000-000000000002'
+   and ksa_id in ('cc200000-0000-4000-8000-000000000002',
+                  'cc200000-0000-4000-8000-000000000003');
+
 insert into activity_ksa (activity_id, ksa_id, sort_order, prompt_override, guiding_questions_override) values
-  -- Day One
-  ('cc300000-0000-4000-8000-000000000002','cc200000-0000-4000-8000-000000000001',0,null,null),
-  ('cc300000-0000-4000-8000-000000000002','cc200000-0000-4000-8000-000000000002',1,
-   'As the group builds the OBT process on the board, what can this person name unprompted, and what do they say is lost when a step is skipped? The guide originally deferred this evaluation to an MTT training activity that is not happening, so what you can collect here is their reasoning in the discussion, not a demonstration of them teaching it to anyone.',null),
-  ('cc300000-0000-4000-8000-000000000002','cc200000-0000-4000-8000-000000000003',2,
-   'At each step, does this person think in roles and relationships, or only in tasks? The session''s own pedagogy note is to discuss, at each step of the process, what skills and relationships are necessary to accomplish it, so listen for that specifically.',null),
+  -- Day One. Welcome and Overview carries CC-WF1 and CC-WF2 as a provisional read
+  -- only: Joshua presents this session rather than building the process with the
+  -- group, so both overrides say out loud that leaving it unrated is the right
+  -- answer when nobody said enough to judge. Rating a participant on a session
+  -- they sat and listened through is the defect this revision exists to fix, and
+  -- it would simply move here if the prompts did not say so.
+  ('cc300000-0000-4000-8000-000000000001','cc200000-0000-4000-8000-000000000002',0,
+   'A first impression of who already knows the shape of an OBT project and who is hearing it for the first time. This session is mostly presented rather than discussed, so you may have nothing to go on: leave it unrated unless something they said gives you grounds. The Day Five process discussion is where this question gets settled.',null),
+  ('cc300000-0000-4000-8000-000000000001','cc200000-0000-4000-8000-000000000003',1,
+   'The same first impression, for roles rather than steps: as the week is laid out, does this person ask who does what, or only what gets done? Mostly presented, so rate only if you have grounds, and leave it unrated otherwise. The Day Five process discussion is the real capture point.',null),
+  ('cc300000-0000-4000-8000-000000000002','cc200000-0000-4000-8000-000000000001',0,
+   'How does this person talk about orality once the discussion gets specific, and what do they say has to change about a translation when the audience listens rather than reads? The devotion enactment that opens the session is not rated, so start at the debrief. The clearest evidence comes late, where the group works out why recording a written translation does not make it oral and what an oral product would need instead.',null),
   ('cc300000-0000-4000-8000-000000000004','cc200000-0000-4000-8000-000000000004',0,
    'Read the notes as the person who has to draft from them tomorrow. Could you? The notes turned in by the end of the evening are the evidence here, not what you watched in the room.',null),
   -- Day Two
@@ -318,15 +377,40 @@ insert into activity_ksa (activity_id, ksa_id, sort_order, prompt_override, guid
   ('cc300000-0000-4000-8000-000000000015','cc200000-0000-4000-8000-000000000005',0,
    'Watch them internalize Passage 2 as a light second look. Day Five is reps rather than measurement, so rate only if this round genuinely changes your first read of their internalization.',null),
   ('cc300000-0000-4000-8000-000000000016','cc200000-0000-4000-8000-000000000006',0,
-   'Watch them draft and record Passage 2 as a light second look. Day Five is reps rather than measurement, so rate only if this round genuinely changes your first read of their drafting.',null)
+   'Watch them draft and record Passage 2 as a light second look. Day Five is reps rather than measurement, so rate only if this round genuinely changes your first read of their drafting.',null),
+  -- The Day Five process discussion, which is NOT light: it is the capture point
+  -- for the two workflow questions, and the only session all week that puts the
+  -- whole process and its roles in front of the group at once.
+  ('cc300000-0000-4000-8000-000000000018','cc200000-0000-4000-8000-000000000002',0,
+   'This is the capture point for the steps. After four days of working the process, what can this person name unprompted, and what do they say is lost when a step is skipped? Rate here rather than at Welcome and Overview, where they had little chance to speak.',null),
+  ('cc300000-0000-4000-8000-000000000018','cc200000-0000-4000-8000-000000000003',1,
+   'This is the capture point for roles and relationships. At each step, who has to be involved, and what relationship does the step fail without? Draw on what you have watched them do all week, not only on what they say in this discussion.',null)
 on conflict (activity_id, ksa_id) do update set
   sort_order = excluded.sort_order, prompt_override = excluded.prompt_override,
   guiding_questions_override = excluded.guiding_questions_override;
 
 commit;
 
--- Acceptance, counted rather than asserted. The Psalms row is the invariant:
--- 22 participants, 17 activities, 7 goals, 7 questions, 2026-08-24 to 2026-09-04.
+-- Acceptance, counted rather than asserted. The Psalms row is the invariant. It
+-- read 22 participants, 17 activities, 7 goals, 7 questions when this file was
+-- written and reads 24 / 18 / 8 / 10 as of 2026-08-18: Psalms grew through later
+-- specs, which is drift in the comment rather than damage from this file. What
+-- makes the invariant hold is structural, not the numbers — every statement here
+-- names Crash Course ids, so none of them can reach Psalms at all.
+--
+-- After the 2026-08-18 revision the Crash Course reads: 18 of this file's
+-- activities dated in range plus tl-30's undated 'Instructor feedback', 5 goals,
+-- this file's 9 questions plus tl-30's 3 instructor questions, 22 wiring rows,
+-- 36 non-empty descriptors, 0 questions missing a point, 0 placeholder hits, 0
+-- unwired questions, 0 null AI rubrics, and exactly three activities without a
+-- question: Exegesis for OBT, Internalization for OBT, Celebration. Day Five now
+-- holds five activities.
+--
+-- `activities_per_day` coalesces the day. tl-30 added an undated activity after
+-- this file was written, and `json_object_agg` rejects a null key, so the original
+-- expression aborted the whole acceptance query with a 22004 once that row
+-- existed. The transaction above had already committed, which made the failure
+-- look worse than it was, but a check that cannot run is not a check.
 select json_build_object(
   'crash_course', (select json_build_object(
       'name', w.name, 'start', w.start_date, 'end', w.end_date,
@@ -337,7 +421,8 @@ select json_build_object(
       'activities_dated_in_range', (select count(*) from activity
          where workshop_id = w.id and day between '2026-08-18' and '2026-08-22'),
       'activities_per_day', (select json_object_agg(day, n) from
-         (select day::text as day, count(*) as n from activity where workshop_id = w.id group by day) d),
+         (select coalesce(day::text, 'undated') as day, count(*) as n
+            from activity where workshop_id = w.id group by 1) d),
       'scale_points_described', (select count(*) from scale_point
          where workshop_id = w.id and description is not null and btrim(description) <> ''),
       'descriptors_non_empty', (select count(*) from ksa k, jsonb_each_text(k.evidence_levels) e
