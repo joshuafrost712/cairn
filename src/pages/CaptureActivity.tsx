@@ -228,6 +228,17 @@ export function CaptureActivity() {
   //
   // Not a security boundary. `evaluation_insert` refuses the write either way;
   // this is here so the refusal happens before the dictation rather than after.
+  //
+  // Review fix, 2026-08-18: the guard waits for the activity. `activity` is a
+  // live query and is `undefined` until it resolves, so `instructorReview` is
+  // false on the first paint of every capture — and this refusal would flash on
+  // the screen of the one person it is written about, on the only screen she has.
+  // A capture with no activity at all resolves the query and falls through here,
+  // which is the case the refusal is actually for.
+  if (record.activity_id && activity === undefined) {
+    return null
+  }
+
   if (!instructorReview && !canEvaluateTrainees) {
     return (
       <div className="banner warn">

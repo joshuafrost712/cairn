@@ -14,6 +14,7 @@ import {
   subjectKindFor,
   traineeRecords,
   trainees,
+  subjectKindForImport,
 } from '../src/lib/instructors'
 import { scopeEvidence } from '../src/reports/scope'
 import type {
@@ -315,5 +316,29 @@ describe('instructorReviewPk', () => {
     expect(instructorReviewPk(CC, 'Nikkicm23@Gmail.com', 'i-josh')).toBe(
       instructorReviewPk(CC, 'nikkicm23@gmail.com', 'i-josh'),
     )
+  })
+})
+
+/**
+ * The review fix of 2026-08-18. The original line was
+ * `local?.subject_kind ?? 'participant'`, which is a relabelling rather than a
+ * default: it ran on the repo-pull path, the one path whose whole purpose is
+ * importing work this device never recorded, and 'participant' is the value that
+ * makes a row readable by every evaluating member of the workshop.
+ */
+describe('subjectKindForImport: what an imported observation is about', () => {
+  it('takes the capture, which is what the insert policy checked', () => {
+    expect(subjectKindForImport('instructor', 'participant')).toBe('instructor')
+    expect(subjectKindForImport('participant', 'instructor')).toBe('participant')
+  })
+
+  it('falls back to the roster when this device does not hold the capture', () => {
+    expect(subjectKindForImport(undefined, 'instructor')).toBe('instructor')
+    expect(subjectKindForImport(null, 'instructor')).toBe('instructor')
+  })
+
+  it('keeps an unrecognized subject as trainee evidence', () => {
+    expect(subjectKindForImport(undefined, undefined)).toBe('participant')
+    expect(subjectKindForImport(undefined, null)).toBe('participant')
   })
 })

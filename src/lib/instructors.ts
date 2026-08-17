@@ -49,6 +49,30 @@ export function categoryOf(p: Pick<Participant, 'category'>): ParticipantCategor
   return p.category === 'instructor' ? 'instructor' : 'participant'
 }
 
+/**
+ * What kind of evidence an imported observation is, when the routed file comes
+ * back (review fix, 2026-08-18).
+ *
+ * The capture wins, always: it is what `evaluation_insert` checked when the
+ * reviewer wrote it, and a router file must never be able to relabel its own
+ * evidence. The second argument is the fallback for the one path that admits a
+ * capture this device never recorded, where the original code went straight to
+ * 'participant' — the value that makes a row readable by every evaluating
+ * member. The roster is the authority there, because `participant.category` is a
+ * fact this device holds rather than a claim in the file being validated.
+ *
+ * A subject this device does not recognize stays trainee evidence, which is the
+ * pre-tl-30 meaning of every row and is safe: it is the write policies, not this
+ * function, that stop an instructor observation being created in the first place.
+ */
+export function subjectKindForImport(
+  captureKind: ParticipantCategory | null | undefined,
+  subjectCategory: ParticipantCategory | null | undefined,
+): ParticipantCategory {
+  if (captureKind) return categoryOf({ category: captureKind })
+  return categoryOf({ category: subjectCategory ?? null })
+}
+
 /** An event's audience. Absent means the trainee roster, as every pre-tl-30 event is. */
 export function audienceOf(a: Pick<Activity, 'audience'> | null | undefined): ActivityAudience {
   return a?.audience === 'instructor' ? 'instructor' : 'participant'

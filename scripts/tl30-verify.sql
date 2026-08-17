@@ -226,8 +226,22 @@ begin
   perform tl30_assert('every pair names an instructor of its own workshop', _n = 0, format('%s', _n));
 
   -- The rosters this spec must not have disturbed.
+  --
+  -- Amended 2026-08-18. This read `_n = 4` and failed on the first morning of the
+  -- course at 8, because four more trainees had legitimately arrived. A count is
+  -- the wrong assertion for a roster that is allowed to grow: it scores the
+  -- workshop filling up as a defect, and the next reader's cheapest fix is to bump
+  -- the number, which quietly retires the invariant. What tl-30 must not do is
+  -- REMOVE a trainee or relabel one as an instructor, so that is what is asserted:
+  -- every one of tl-25's four is still on file and still a trainee.
+  select count(*) into _n from participant
+   where workshop_id = _cc and category = 'participant'
+     and id in ('cc400000-0000-4000-8000-000000000001','cc400000-0000-4000-8000-000000000002',
+                'cc400000-0000-4000-8000-000000000003','cc400000-0000-4000-8000-000000000004');
+  perform tl30_assert('tl-25''s four Crash Course trainees are all still trainees', _n = 4,
+    format('%s of 4', _n));
   select count(*) into _n from participant where workshop_id = _cc and category = 'participant';
-  perform tl30_assert('the Crash Course still has four trainees', _n = 4, format('%s', _n));
+  perform tl30_assert('and the roster has only grown since', _n >= 4, format('%s now', _n));
   select count(*) into _n from participant where workshop_id = _psalms and category = 'participant';
   perform tl30_assert('the songs workshop still has 22 trainees', _n = 22, format('%s', _n));
 
@@ -350,12 +364,18 @@ declare
   _joshapp uuid;
   _rev     uuid := gen_random_uuid();
   _out     uuid := gen_random_uuid();
+  _chf     uuid := gen_random_uuid();
 begin
   select auth_user_id, id into _josh, _joshapp from app_user where email = 'josh_frost@sil.org';
 
   insert into workshop_invitation (workshop_id, email, role, invited_by, invited_by_email, status)
-  values (_cc, 'tl30-reviewer@example.org', 'participant', _joshapp, 'josh_frost@sil.org', 'pending'),
-         (_cc, 'tl30-outsider@example.org', 'evaluator',   _joshapp, 'josh_frost@sil.org', 'pending');
+  values (_cc, 'tl30-reviewer@example.org', 'participant',      _joshapp, 'josh_frost@sil.org', 'pending'),
+         (_cc, 'tl30-outsider@example.org', 'evaluator',        _joshapp, 'josh_frost@sil.org', 'pending'),
+         -- Added 2026-08-18 by the review fixes. The chief evaluator is the role
+         -- that could flip an observation's `subject_kind`, and no fixture held it,
+         -- so the write policies on `observation` were never exercised by anyone
+         -- entitled to write one.
+         (_cc, 'tl30-chief@example.org',    'chief_evaluator',  _joshapp, 'josh_frost@sil.org', 'pending');
 
   insert into auth.users (id, instance_id, aud, role, email, encrypted_password,
                           email_confirmed_at, raw_app_meta_data, raw_user_meta_data,
@@ -367,7 +387,11 @@ begin
          (_out, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated',
           'tl30-outsider@example.org', crypt('never-used', gen_salt('bf')), now(),
           '{"provider":"email","providers":["email"]}'::jsonb,
-          '{"name":"TL30 Outsider"}'::jsonb, now(), now());
+          '{"name":"TL30 Outsider"}'::jsonb, now(), now()),
+         (_chf, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated',
+          'tl30-chief@example.org', crypt('never-used', gen_salt('bf')), now(),
+          '{"provider":"email","providers":["email"]}'::jsonb,
+          '{"name":"TL30 Chief Evaluator"}'::jsonb, now(), now());
 
   -- One pair for the reviewer-only account: Joshua, on the Crash Course.
   insert into instructor_reviewer (workshop_id, reviewer_email, instructor_participant_id, granted_by)
@@ -571,9 +595,148 @@ begin
 end $$;
 
 -- ---------------------------------------------------------------------------
+-- D. THE ROUTED HALF, added 2026-08-18 by the second-AI review.
+--
+--    The block above asks the sharpest question in this file — "may another
+--    reviewer of the same person read it?" — and asks it of `evaluation`, where
+--    the answer was already no. It never asked it of `observation`, which holds
+--    the same sentences after routing, and the answer there was YES: the policy
+--    reached for `may_read_instructor_subject()`, whose first arm is holding a
+--    pair. In the live matrix every instructor has three or four reviewers, so
+--    this was the ordinary case.
+--
+--    Three more shapes go with it, each one a way to reach the same rows without
+--    ever asking a SELECT policy: relabel a capture after inserting it, relabel an
+--    observation as being about a trainee, or read the verdict instead of the
+--    observation it is about.
+-- ---------------------------------------------------------------------------
+
+do $$
+declare
+  _cc      uuid := '74d1c3ac-ce6e-433f-b2b6-54ab4e01e21b';
+  _josh_cc uuid := '30400000-0000-4000-8000-000000000011';
+  _josh    uuid;
+  _trainee text;
+begin
+  select auth_user_id into _josh from app_user where email = 'josh_frost@sil.org';
+  select id::text into _trainee from participant
+   where workshop_id = _cc and category = 'participant' limit 1;
+
+  -- The routed instructor observation, written by the administrator who routes
+  -- (tl-03), carrying the reviewer as its author. And a trainee observation beside
+  -- it, which is the control for every negative below: without it, a `blocked`
+  -- result could just mean the query shape is wrong.
+  perform tl30_try('allowed', 'the chief admin CAN write an instructor observation', _josh,
+    format($q$insert into observation (id, capture_client_id, workshop_id, participant_id,
+              participant_name, ksa_code, text, source_excerpt, evidence_designation,
+              sentiment_flag, confidence, origin, evaluator_email, subject_kind)
+            values ('tl30-obs-instructor', 'tl30-cap-ok', %L, %L, 'TL30 Instructor',
+                    'CC-INS1', 'routed sentence about a colleague', 'x', 2,
+                    'neutral', 'medium', 'individual',
+                    'tl30-reviewer@example.org', 'instructor')$q$, _cc, _josh_cc));
+
+  perform tl30_try('allowed', 'and a trainee observation beside it, as the control', _josh,
+    format($q$insert into observation (id, capture_client_id, workshop_id, participant_id,
+              participant_name, ksa_code, text, source_excerpt, evidence_designation,
+              sentiment_flag, confidence, origin, evaluator_email, subject_kind)
+            values ('tl30-obs-trainee', 'tl30-cap-ok', %L, %L, 'TL30 Trainee',
+                    'CC-EX1', 'routed sentence about a trainee', 'x', 2,
+                    'neutral', 'medium', 'individual',
+                    'tl30-outsider@example.org', 'participant')$q$, _cc, _trainee));
+end $$;
+
+do $$
+declare
+  _cc     uuid := '74d1c3ac-ce6e-433f-b2b6-54ab4e01e21b';
+  _josh   uuid;
+  _mathew uuid;
+  _rev    uuid;
+  _out    uuid;
+  _chf    uuid;
+begin
+  select auth_user_id into _josh   from app_user where email = 'josh_frost@sil.org';
+  select auth_user_id into _mathew from app_user where email = 'mathewtperumal@gmail.com';
+  select auth_user_id into _rev    from app_user where email = 'tl30-reviewer@example.org';
+  select auth_user_id into _out    from app_user where email = 'tl30-outsider@example.org';
+  select auth_user_id into _chf    from app_user where email = 'tl30-chief@example.org';
+
+  -- The read rule on the routed row, in the same order as the capture block above,
+  -- so the two can be compared line by line. They must now agree.
+  perform tl30_try('allowed', 'the author reads their own routed instructor observation', _rev,
+    $q$select 1 from observation where id = 'tl30-obs-instructor'$q$);
+  perform tl30_try('allowed', 'the subject reads it (Joshua, also chief admin)', _josh,
+    $q$select 1 from observation where id = 'tl30-obs-instructor'$q$);
+  -- THE ONE THIS FILE WAS MISSING. Mathew holds a pair on Joshua, so he may write
+  -- about him; he may not read what Angie wrote about him.
+  perform tl30_try('blocked', 'another reviewer of the SAME instructor CANNOT read it', _mathew,
+    $q$select 1 from observation where id = 'tl30-obs-instructor'$q$);
+  perform tl30_try('blocked', 'an outsider evaluator CANNOT read it', _out,
+    $q$select 1 from observation where id = 'tl30-obs-instructor'$q$);
+  perform tl30_try('blocked', 'a chief evaluator CANNOT read it', _chf,
+    $q$select 1 from observation where id = 'tl30-obs-instructor'$q$);
+  perform tl30_try('allowed', 'and all three read the trainee observation, so the shape works', _out,
+    $q$select 1 from observation where id = 'tl30-obs-trainee'$q$);
+  perform tl30_try('allowed', 'the chief evaluator too', _chf,
+    $q$select 1 from observation where id = 'tl30-obs-trainee'$q$);
+
+  -- Relabelling, which is how you reach a row without a SELECT policy ever being
+  -- asked. USING sees the OLD row, so an instructor observation is untouchable by
+  -- the role that could previously publish it in one statement.
+  perform tl30_try('blocked', 'a chief evaluator CANNOT flip an instructor observation to trainee', _chf,
+    $q$update observation set subject_kind = 'participant'
+        where id = 'tl30-obs-instructor' returning 1$q$);
+  perform tl30_try('allowed', 'but CAN still edit a trainee observation, so the block is about the kind', _chf,
+    $q$update observation set needs_review = true
+        where id = 'tl30-obs-trainee' returning 1$q$);
+
+  -- The same move on the capture: insert as a trainee capture, which any evaluating
+  -- member may do, then PATCH it into an instructor review the pair gate would have
+  -- refused. WITH CHECK now asks for the pair, which is what the insert policy asks.
+  perform tl30_try('allowed', 'an outsider evaluator CAN write an ordinary trainee capture', _out,
+    $q$insert into evaluation (client_id, evaluator_email, activity_id, workshop_id,
+          source_language, answers, source_text, participant_scope, attestation,
+          edit_history, created_at, updated_at, subject_kind)
+        values ('tl30-cap-flip', 'tl30-outsider@example.org', null,
+                '74d1c3ac-ce6e-433f-b2b6-54ab4e01e21b', 'English', '{}'::jsonb, '', '[]'::jsonb,
+                true, '[]'::jsonb, now(), now(), 'participant') returning 1$q$);
+  perform tl30_raises('...and CANNOT then relabel it as an instructor review', _out,
+    $q$update evaluation
+          set subject_kind = 'instructor',
+              focus_participant_id = '30400000-0000-4000-8000-000000000011'
+        where client_id = 'tl30-cap-flip'$q$,
+    'row-level security');
+
+  -- The verdict, which carries a free-text note and was readable by every member.
+  perform tl30_try('allowed', 'the author of the evidence CAN record a verdict on it', _rev,
+    format($q$insert into verification_verdict (id, observation_id, capture_client_id,
+              workshop_id, evaluator_email, decision, note)
+            values ('tl30-vv-instructor', 'tl30-obs-instructor', 'tl30-cap-ok', %L,
+                    'tl30-reviewer@example.org', 'confirm',
+                    'a sentence about a colleague that nobody else may read')
+            returning 1$q$, _cc));
+  perform tl30_try('allowed', 'and reads it back', _rev,
+    $q$select 1 from verification_verdict where id = 'tl30-vv-instructor'$q$);
+  perform tl30_try('blocked', 'another reviewer of the same instructor CANNOT read that verdict', _mathew,
+    $q$select 1 from verification_verdict where id = 'tl30-vv-instructor'$q$);
+  perform tl30_try('blocked', 'nor can an outsider evaluator', _out,
+    $q$select 1 from verification_verdict where id = 'tl30-vv-instructor'$q$);
+  perform tl30_try('allowed', 'a verdict on TRAINEE evidence stays readable by every member', _out,
+    format($q$insert into verification_verdict (id, observation_id, capture_client_id,
+              workshop_id, evaluator_email, decision, note)
+            values ('tl30-vv-trainee', 'tl30-obs-trainee', 'tl30-cap-ok', %L,
+                    'tl30-outsider@example.org', 'confirm', 'ordinary verification')
+            returning 1$q$, _cc));
+  perform tl30_try('allowed', 'read by a colleague, which is the whole point of the gate', _mathew,
+    $q$select 1 from verification_verdict where id = 'tl30-vv-trainee'$q$);
+end $$;
+
+-- ---------------------------------------------------------------------------
 -- Teardown. On the tl30- prefix only, and before the report so a failure in the
 -- middle of the file still leaves the database clean.
 -- ---------------------------------------------------------------------------
+
+delete from verification_verdict where id like 'tl30-vv-%';
+delete from observation where id like 'tl30-obs-%';
 
 delete from evaluation where client_id like 'tl30-cap-%';
 delete from instructor_reviewer where reviewer_email like 'tl30-%@example.org';
