@@ -12,7 +12,7 @@
 --
 -- Joshua's rules very nearly reduce to "everyone reviews everyone except
 -- themselves". They do not, because of one person: **Viji Mathew is reviewed only
--- by Nikki Mustin and Angie Seow**, while himself reviewing all the other
+-- by Nikki Mustin and Angeline Foo**, while himself reviewing all the other
 -- facilitators. He is at both workshops as a lead rather than as a co-teacher,
 -- and Joshua's instruction was specific. So every grant is written out. Eighteen
 -- rows is more typing than a flag and it is the only form in which the exception
@@ -27,7 +27,7 @@
 --
 --   Psalms / songs workshop (two instructors: Joshua, Viji)
 --     Nikki Mustin    -> Joshua, Viji
---     Angie Seow      -> Joshua, Viji
+--     Angeline Foo    -> Joshua, Viji
 --     Viji Mathew     -> Joshua
 --
 -- Nobody reviews themselves, and the trigger installed by the migration refuses
@@ -55,6 +55,14 @@
 --     invitation and their Psalms membership from the allowlist's
 --     `default_workshop_id`. Verified by reading the function, asserted in
 --     scripts/tl30-verify.sql rather than assumed.
+--
+-- ## Angeline Foo, who goes by Angie
+--
+-- Joshua, 2026-08-17: her SIL official name is **Angeline Foo**, which is the name
+-- on the account she will sign up with; she usually goes by **Angie**, and is also
+-- referred to as **Angie Seow**. All three name one person, and the display string
+-- on her `person` row below carries the first two so a reader recognizes her under
+-- either. Nothing in this file keys on a name.
 --
 -- ## Angie gets `participant`, which nobody has held before
 --
@@ -92,11 +100,52 @@ begin;
 --    signs up, because the primary email matches.
 -- ---------------------------------------------------------------------------
 
+-- Angeline gets one too, for a different reason: she is a REVIEWER rather than an
+-- instructor, so she has no roster row, and until she signs up there is nothing in
+-- the database carrying her name at all. The Setup grid would show an administrator
+-- a bare address in the row where a person should be. See the note on her name
+-- below for why the display string carries three forms of it.
 insert into person (id, display_name, primary_email, created_by) values
   ('30600000-0000-4000-8000-000000000001', 'Viji Mathew', 'viji_mathew@sil.org',
+   'b7e5f597-de75-4116-bcc3-f24b27b33407'),
+  ('30600000-0000-4000-8000-000000000002', 'Angeline Foo (Angie)', 'angeline_foo@sil.org',
    'b7e5f597-de75-4116-bcc3-f24b27b33407')
 on conflict (id) do update set
   display_name = excluded.display_name, primary_email = excluded.primary_email;
+
+-- ---------------------------------------------------------------------------
+-- 1b. Angeline's name, and why it is written the way it is.
+--
+--    Joshua, 2026-08-17: "Angie doesn't have a name that fits into Western naming
+--    conventions easily. Her email Angeline Foo is her SIL official name, though
+--    she often goes by Angie. She should be referenceable by either name, as well
+--    as Angie Seow as we are talking."
+--
+--    Three forms, and `person` holds ONE `display_name` with no alias column. The
+--    options were to add one for a single person, or to put the forms in the string
+--    somebody actually reads. The string wins: nothing in this app searches people
+--    by name — `mergeCandidates` matches names only to propose merging duplicates,
+--    which is a different question — so "referenceable" here means legible to a
+--    human scanning a list, and a column no surface reads would not deliver it.
+--
+--    So: `display_name` carries the official name with the everyday one beside it,
+--    the headline carries her actual role, and `notes` records "Angie Seow" as a
+--    third form in use. If a real people-search ever lands, that note is the
+--    evidence an alias column is owed, and this comment is the reason.
+--
+--    `visibility` is 'workshop', the default, and deliberately not narrowed: her
+--    title is the reason her feedback on a facilitator carries weight, and it is
+--    public professional information rather than anything personal.
+-- ---------------------------------------------------------------------------
+
+insert into person_profile (person_id, headline, notes, visibility, updated_at, updated_by) values
+  ('30600000-0000-4000-8000-000000000002',
+   'International Coordinator for Translation Research and Practice; Senior Translation Consultant; Board Member, SIL International',
+   'Officially Angeline Foo, which is the name on her SIL account. Usually goes by Angie, and is also referred to as Angie Seow. All three name the same person.',
+   'workshop', now(), 'josh_frost@sil.org')
+on conflict (person_id) do update set
+  headline = excluded.headline, notes = excluded.notes,
+  updated_at = excluded.updated_at, updated_by = excluded.updated_by;
 
 -- ---------------------------------------------------------------------------
 -- 2. The instructor roster rows.
@@ -208,10 +257,10 @@ begin
   begin
     _out := invite_to_workshop('11111111-1111-1111-1111-111111111111',
                                'angeline_foo@sil.org', 'participant');
-    _log := _log || jsonb_build_object('who', 'Angie Seow', 'email', 'angeline_foo@sil.org',
+    _log := _log || jsonb_build_object('who', 'Angeline Foo (Angie)', 'email', 'angeline_foo@sil.org',
                                        'role', 'participant', 'outcome', _out->>'outcome');
   exception when others then
-    _log := _log || jsonb_build_object('who', 'Angie Seow', 'email', 'angeline_foo@sil.org',
+    _log := _log || jsonb_build_object('who', 'Angeline Foo (Angie)', 'email', 'angeline_foo@sil.org',
                                        'role', 'participant',
                                        'outcome', format('REFUSED [%s] %s', sqlstate, sqlerrm));
   end;
@@ -256,6 +305,12 @@ select jsonb_pretty(jsonb_build_object(
                    on lower(i.email) = l.email and i.workshop_id = '11111111-1111-1111-1111-111111111111'),
   -- Joshua asked for Mathew and Irene to lose songs-workshop access. They never
   -- had it. This is the count that must stay at zero.
+  'angeline', (select jsonb_build_object(
+      'display_name', p.display_name, 'email', p.primary_email,
+      'headline', pr.headline, 'pairs', (select count(*) from instructor_reviewer r
+                                          where r.reviewer_email = p.primary_email))
+    from person p left join person_profile pr on pr.person_id = p.id
+   where p.id = '30600000-0000-4000-8000-000000000002'),
   'mathew_irene_songs_memberships', (select count(*) from workshop_member m
                                      join app_user u on u.id = m.app_user_id
                                      where m.workshop_id = '11111111-1111-1111-1111-111111111111'

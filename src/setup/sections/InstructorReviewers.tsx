@@ -7,7 +7,7 @@ import { instructorReviewPk, instructors, normalizeEmail } from '../../lib/instr
 import { useWorkshopRole } from '../../layout/roles'
 import { c } from '../../lib/content/chrome'
 import { Copy } from '../../components/Copy'
-import type { InstructorReviewPair, Participant, Workshop, WorkshopPerson } from '../../lib/types'
+import type { InstructorReviewPair, Participant, Person, Workshop, WorkshopPerson } from '../../lib/types'
 
 /**
  * Who may give each instructor feedback (tl-30).
@@ -50,11 +50,20 @@ export function InstructorReviewers({ workshop }: { workshop: Workshop }) {
     [workshopId],
     [] as WorkshopPerson[],
   )
+  // tl-12's cross-workshop humans, used ONLY to put a name on a reviewer who has
+  // not signed up yet. `workshopPeople` is built from `app_user`, so it knows
+  // nobody until their first sign-in — and three of the five reviewers here had no
+  // account when their pairs were written. Without this the grid shows an
+  // administrator a bare address in the row where a person should be.
+  const persons = useLiveQuery(() => db.persons.toArray(), [], [] as Person[])
 
   const teaching = instructors(roster).sort((a, b) => a.name.localeCompare(b.name))
   if (teaching.length === 0) return null
 
+  // Accounts first, then person rows, so a name somebody chose at sign-up wins over
+  // the one an administrator seeded for them.
   const known = new Map<string, string>()
+  for (const p of persons) if (p.primary_email) known.set(normalizeEmail(p.primary_email), p.display_name)
   for (const p of people) known.set(normalizeEmail(p.email), p.name)
   const rows = [...new Set([...known.keys(), ...pairs.map((r) => normalizeEmail(r.reviewer_email))])]
     .filter(Boolean)

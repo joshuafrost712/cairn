@@ -172,8 +172,27 @@ begin
   select string_agg(p.name, ', ' order by p.name) into _got
     from instructor_reviewer r join participant p on p.id = r.instructor_participant_id
    where r.workshop_id = _psalms and r.reviewer_email = 'angeline_foo@sil.org';
-  perform tl30_assert('Songs: Angie reviews Joshua and Viji',
+  perform tl30_assert('Songs: Angeline Foo reviews Joshua and Viji',
                       _got = 'Joshua C. Frost, Viji Mathew', coalesce(_got, '(none)'));
+
+  -- Joshua confirmed 2026-08-17: "Nikki is never evaluated. She is only an
+  -- evaluator." She facilitates two Crash Course lessons and co-leads the songs
+  -- workshop, so adding her to the instructor roster is the plausible, wrong
+  -- tidy-up. This is the assertion that would fail if somebody made it.
+  select count(*) into _n from participant
+   where category = 'instructor' and lower(coalesce(registered_email, '')) = 'nikkicm23@gmail.com';
+  perform tl30_assert('Nikki is an evaluator only and is never a subject', _n = 0, format('%s', _n));
+
+  -- Angeline has no roster row either (she reviews, she is not reviewed), so the
+  -- only thing carrying her name before she signs up is her `person` row. An
+  -- administrator opening the grid should see a name, not an address.
+  select p.display_name into _got from person p where p.primary_email = 'angeline_foo@sil.org';
+  perform tl30_assert('Angeline Foo has a person row naming her before sign-up',
+                      _got = 'Angeline Foo (Angie)', coalesce(_got, '(no person row)'));
+  select pr.headline into _got from person p join person_profile pr on pr.person_id = p.id
+   where p.primary_email = 'angeline_foo@sil.org';
+  perform tl30_assert('and her SIL role is on file', _got like '%Senior Translation Consultant%',
+                      coalesce(_got, '(no profile)'));
 
   select string_agg(p.name, ', ' order by p.name) into _got
     from instructor_reviewer r join participant p on p.id = r.instructor_participant_id
