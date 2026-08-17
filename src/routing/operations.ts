@@ -18,11 +18,12 @@ import {
   type CaptureFile,
   type ObservationsFile,
 } from '../ai/workspace'
+import { categoryOf, subjectKindForImport } from '../lib/instructors'
 import { listDir, getFile, putFile } from './github'
 import { getRoutingToken } from './config'
 import { getActiveWorkshopId } from '../lib/activeWorkshop'
 import { pickWorkshopId, pushObservations } from '../db/sync'
-import type { EvaluationRecord, ObservationRecord } from '../lib/types'
+import type { EvaluationRecord, ObservationRecord, ParticipantCategory } from '../lib/types'
 
 export const CAPTURE_BUNDLE_SCHEMA_ID = 'cairn.capture-bundle/v1'
 export const OBSERVATIONS_BUNDLE_SCHEMA_ID = 'cairn.observations-bundle/v1'
@@ -551,6 +552,26 @@ async function storeObservationsFile(
   }
   const evaluatorEmail = await resolveEvaluatorEmail(captureId)
   const validated = file.observations.map((raw) => validateObservation(raw))
+  // tl-30 review fix, 2026-08-18. When this device does NOT hold the capture, the
+  // original code defaulted `subject_kind` to 'participant', which is the value
+  // that makes a row readable by every evaluating member. So the one import path
+  // that admits a capture it never recorded — the repo pull, which is exactly the
+  // path an administrator uses for somebody else's work — could relabel instructor
+  // evidence as trainee evidence and publish it.
+  //
+  // The roster is the fallback, not the file: `participant.category` is a fact
+  // this device holds and the file is the thing being validated. It fails closed,
+  // because a row naming an instructor becomes instructor evidence and a row
+  // naming nobody it recognizes stays trainee evidence with the narrow write rules
+  // still in front of it.
+  const subjectCategories = new Map<string, ParticipantCategory>()
+  if (!local) {
+    for (const v of validated) {
+      if (!v.ok || !v.value.participant_id) continue
+      const p = await db.participants.get(v.value.participant_id)
+      if (p) subjectCategories.set(v.value.participant_id, categoryOf(p))
+    }
+  }
   const workshopId = await resolveWorkshopId(
     captureId,
     validated.map((v) => (v.ok ? v.value.participant_id : null)),
@@ -657,10 +678,28 @@ async function storeObservationsFile(
       workshop_id: workshopId,
       imported_at: importedAt,
       evaluator_email: evaluatorEmail,
+      // tl-30. Carried from the capture, never inferred from the participant.
+      //
+      // The capture is the authority because it is what the insert policy checked
+      // when the reviewer wrote it, and because `observation_select` has to agree
+      // with `evaluation_select` about who may read the same evidence in its two
+      // forms. Absent (a capture this device no longer holds) falls back to the
+      // roster category of the participant the row names, per the review fix
+      // above: defaulting straight to 'participant' was a relabelling, and it ran
+      // on the one path that exists to import work this device never recorded.
+      //
+      // Placed AFTER the spread, unlike the fields above it: those are trusted
+      // defaults a router file may legitimately not carry, whereas this one is a
+      // permission fact and a file must never be able to relabel its own evidence
+      // as being about a trainee.
       // Fresh imports start unsynced; db/sync.ts pushes them on the next cycle.
       sync_status: 'local',
       sync_error: null,
       ...v.value,
+      subject_kind: subjectKindForImport(
+        local?.subject_kind,
+        v.value.participant_id ? subjectCategories.get(v.value.participant_id) : null,
+      ),
     })
   })
   /**

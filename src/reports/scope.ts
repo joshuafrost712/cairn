@@ -13,6 +13,7 @@
 
 import { observationsForWorkshop, unresolvedObservations } from './workshopOverview'
 import { withGoalTitles, type ResolvedKsa } from '../lib/goals'
+import { instructors, isInstructorRecord, traineeRecords, trainees } from '../lib/instructors'
 import type {
   Activity,
   EvaluationRecord,
@@ -48,16 +49,43 @@ export interface EvidenceInput {
 
 export interface ScopedEvidence {
   workshopId: string | null
+  /**
+   * The TRAINEE roster (tl-30). Instructors are `participant` rows too, and every
+   * surface downstream of this module means trainees when it says participants:
+   * the heatmap, the day email, the export, the assignment board, the admin
+   * lists. Splitting here rather than at twenty call sites is the same choice
+   * tl-29 made about workshop scoping, for the same reason.
+   */
   participants: Participant[]
+  /** The teaching roster (tl-30). Empty in every workshop that has authored none. */
+  instructorRoster: Participant[]
   teams: Team[]
   /** Code-sorted and joined to their goal titles, which is what every report takes. */
   ksas: ResolvedKsa[]
   goals: Goal[]
   /** In `sort_order`, the order the schedule is authored in. */
   activities: Activity[]
+  /** Evidence about TRAINEES (tl-30). What every existing report means. */
   observations: ObservationRecord[]
   verdicts: VerificationVerdict[]
   evaluations: EvaluationRecord[]
+  /**
+   * Evidence about INSTRUCTORS (tl-30), kept apart rather than filtered out.
+   *
+   * It has to be separated because it must never reach a trainee aggregate: a
+   * facilitator's teamwork score in the workshop heatmap would be nonsense, and a
+   * low one in the mentoring trigger would open a remediation conversation about
+   * a colleague. It has to be RETAINED because the instructor report is built
+   * from it. Dropping it here and re-reading Dexie in the one place that wants it
+   * would put a second scoping rule in the codebase, which is the mistake tl-29
+   * exists to have fixed.
+   *
+   * RLS has already decided which of these rows this account may see, so an
+   * evaluator with no pairs holds an empty array here rather than a filtered one.
+   */
+  instructorObservations: ObservationRecord[]
+  instructorVerdicts: VerificationVerdict[]
+  instructorEvaluations: EvaluationRecord[]
   /**
    * Observations this device cannot attribute to any workshop: no `workshop_id`, no
    * capture, no known participant. Scoping hides them, so the count is handed back
@@ -120,30 +148,51 @@ const ofWorkshop = <T extends { workshop_id?: string | null }>(
  */
 export function scopeEvidence(input: EvidenceInput): ScopedEvidence {
   const { workshopId } = input
-  const participants = ofWorkshop(input.participants ?? [], workshopId)
+  // The WHOLE roster, trainees and instructors together, because the workshop
+  // resolver below uses it to situate an observation whose `workshop_id` is null.
+  // Handing it the trainee half would push every instructor observation into
+  // `unresolved` and then into the banner that says rows appear in no report.
+  const roster = ofWorkshop(input.participants ?? [], workshopId)
   const evaluationsAll = input.evaluations ?? []
-  const observations = workshopId
-    ? observationsForWorkshop(input.observations ?? [], evaluationsAll, workshopId, participants)
+  const scopedObservations = workshopId
+    ? observationsForWorkshop(input.observations ?? [], evaluationsAll, workshopId, roster)
     : (input.observations ?? [])
 
-  const scopedIds = new Set(observations.map((o) => o.id))
-  const verdicts = workshopId
-    ? (input.verdicts ?? []).filter((v) => scopedIds.has(v.observation_id))
-    : (input.verdicts ?? [])
+  // The tl-30 split. Everything below this line is computed twice, once per kind,
+  // so that a surface reading `observations` cannot accidentally receive evidence
+  // about a colleague.
+  const observations = traineeRecords(scopedObservations)
+  const instructorObservations = scopedObservations.filter(isInstructorRecord)
 
-  const capturesBehindScope = new Set(observations.map((o) => o.capture_client_id))
-  const evaluations = workshopId
-    ? evaluationsAll.filter(
-        (e) => e.workshop_id === workshopId || capturesBehindScope.has(e.client_id),
-      )
-    : evaluationsAll
+  const verdictsFor = (rows: ObservationRecord[]): VerificationVerdict[] => {
+    if (!workshopId) return input.verdicts ?? []
+    const ids = new Set(rows.map((o) => o.id))
+    return (input.verdicts ?? []).filter((v) => ids.has(v.observation_id))
+  }
+  const evaluationsFor = (
+    rows: ObservationRecord[],
+    kind: 'participant' | 'instructor',
+  ): EvaluationRecord[] => {
+    const behind = new Set(rows.map((o) => o.capture_client_id))
+    // A capture is in scope if it belongs to this workshop OR an in-scope
+    // observation came from it (tl-29's rule, unchanged). The kind test is the new
+    // half: `subject_kind` is absent on every row written before tl-30, and absent
+    // means trainee, which is what `isInstructorRecord` already encodes.
+    const ofKind = (e: EvaluationRecord) =>
+      kind === 'instructor' ? isInstructorRecord(e) : !isInstructorRecord(e)
+    if (!workshopId) return evaluationsAll.filter(ofKind)
+    return evaluationsAll.filter(
+      (e) => ofKind(e) && (e.workshop_id === workshopId || behind.has(e.client_id)),
+    )
+  }
 
   const ksas = ofWorkshop(input.ksas ?? [], workshopId)
   const goals = ofWorkshop(input.goals ?? [], workshopId)
 
   return {
     workshopId,
-    participants,
+    participants: trainees(roster),
+    instructorRoster: instructors(roster),
     teams: ofWorkshop(input.teams ?? [], workshopId),
     ksas: withGoalTitles([...ksas].sort((a, b) => a.code.localeCompare(b.code)), goals),
     goals,
@@ -151,13 +200,22 @@ export function scopeEvidence(input: EvidenceInput): ScopedEvidence {
       (a, b) => a.sort_order - b.sort_order,
     ),
     observations,
-    verdicts,
-    evaluations,
+    verdicts: verdictsFor(observations),
+    evaluations: evaluationsFor(observations, 'participant'),
+    instructorObservations,
+    instructorVerdicts: verdictsFor(instructorObservations),
+    instructorEvaluations: evaluationsFor(instructorObservations, 'instructor'),
     // Nothing is hidden when nothing is scoped, so there is nothing to disclose. The
     // banner that reads this says these rows "appear in no report", which would be
     // false on an unscoped device where they appear in all of them.
+    //
+    // Instructor rows are dropped from the disclosure rather than counted: the
+    // banner offers to remap a stranded observation onto a participant, and that
+    // repair does not apply to feedback about a colleague.
     unresolved: workshopId
-      ? unresolvedObservations(input.observations ?? [], evaluationsAll, input.participants ?? [])
+      ? traineeRecords(
+          unresolvedObservations(input.observations ?? [], evaluationsAll, input.participants ?? []),
+        )
       : [],
   }
 }

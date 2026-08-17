@@ -158,6 +158,90 @@
       "label": "suggested"
     },
     {
+      "id": "instructor-grid.heading",
+      "label": "Who gives the instructors feedback"
+    },
+    {
+      "id": "instructor-grid.help",
+      "label": "One tick means that person may write feedback about that instructor, and read only what they wrote. A dash is the instructor's own row: nobody reviews themselves."
+    },
+    {
+      "id": "instructor-grid.read-only",
+      "label": "Only the chief admin can change this."
+    },
+    {
+      "id": "instructor-grid.reviewer",
+      "label": "Reviewer"
+    },
+    {
+      "id": "instructor-grid.self",
+      "label": "their own row"
+    },
+    {
+      "id": "instructor-grid.no-account",
+      "label": "has not signed up yet; the grant works from their first sign-in"
+    },
+    {
+      "id": "instructor-grid.granted",
+      "label": "{who} can now give {instructor} feedback."
+    },
+    {
+      "id": "instructor-grid.revoked",
+      "label": "{who} can no longer give {instructor} feedback."
+    },
+    {
+      "id": "nav.group.instructors",
+      "label": "Instructors"
+    },
+    {
+      "id": "nav.instructor-feedback",
+      "label": "Instructor feedback"
+    },
+    {
+      "id": "instructor-report.title",
+      "label": "Instructor feedback"
+    },
+    {
+      "id": "instructor-report.confidentiality",
+      "label": "Read by the person it is about and by the course lead. Not by the rest of the workshop."
+    },
+    {
+      "id": "instructor-report.none-authored",
+      "label": "No instructors on this workshop"
+    },
+    {
+      "id": "instructor-report.none-authored-body",
+      "label": "Add them on the roster with the instructor category, then say who may give each of them feedback."
+    },
+    {
+      "id": "instructor-report.no-evidence",
+      "label": "Nothing yet"
+    },
+    {
+      "id": "instructor-report.no-evidence-body",
+      "label": "Feedback appears here once it has been given and routed."
+    },
+    {
+      "id": "instructor-report.unknown-author",
+      "label": "author not recorded"
+    },
+    {
+      "id": "home.reviewer-only",
+      "label": "You have been asked to give feedback on the people teaching this workshop. That is everything below."
+    },
+    {
+      "id": "home.instructor-heading",
+      "label": "Instructor feedback"
+    },
+    {
+      "id": "home.instructor-help",
+      "label": "Feedback on the people teaching. Read by them and by the course lead, and by nobody else."
+    },
+    {
+      "id": "home.instructor-count",
+      "label": "{n} to give feedback on"
+    },
+    {
       "id": "capture.not-found.before",
       "label": "Evaluation not found."
     },
@@ -216,6 +300,22 @@
     {
       "id": "capture.focus-help",
       "label": "Focus mode: everything you capture is attributed to the one CIT you picked."
+    },
+    {
+      "id": "capture.not-yours",
+      "label": "This capture is not one you have been asked to make."
+    },
+    {
+      "id": "capture.instructor-prompt",
+      "label": "Which instructor is this about?"
+    },
+    {
+      "id": "capture.instructor-help",
+      "label": "One instructor per review. What you write is read by them and by the course lead, and by nobody else."
+    },
+    {
+      "id": "capture.instructor-none",
+      "label": "You have not been asked to give feedback on anyone here."
     },
     {
       "id": "capture.tag-help",

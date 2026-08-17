@@ -12,6 +12,7 @@ import type { AssignmentKind, Workshop, WorkshopPerson } from '../../lib/types'
 import { useSetupSave } from '../useSetupSave'
 import { PeopleDirectory } from './PeopleDirectory'
 import { PersonMergePanel } from './PersonMergePanel'
+import { InstructorReviewers } from './InstructorReviewers'
 
 /**
  * People and roles: who is in this workshop, and how much each of them carries.
@@ -103,6 +104,11 @@ export function PeopleSection({ workshop }: { workshop: Workshop }) {
       <PeopleDirectory workshop={workshop} />
 
       <PersonMergePanel workshop={workshop} />
+
+      {/* tl-30. Below the directory rather than above it, because it is a
+          question about a subset of the people that page lists, and it renders
+          nothing at all in a workshop with no instructors authored. */}
+      <InstructorReviewers workshop={workshop} />
 
       <div className="card form-col">
         <p className="small muted">

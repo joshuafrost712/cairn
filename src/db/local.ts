@@ -7,6 +7,7 @@ import type {
   DiscrepancyResolution,
   EvaluationRecord,
   Goal,
+  InstructorReviewPair,
   Ksa,
   MentoringConversation,
   ObservationRecord,
@@ -72,6 +73,13 @@ class CairnDB extends Dexie {
   aiConfigs!: EntityTable<AiConfigRow, 'workshop_id'>
   aiCallLog!: EntityTable<AiCallLogEntry, 'id'>
   aiTemplates!: EntityTable<AiTemplateRow, 'pk'>
+  /**
+   * tl-30. Which instructors the people on this device may review. Cached so the
+   * Instructor feedback event still opens on a hotel wifi that has dropped, the
+   * same reason every other reference table here is cached — and pruned the same
+   * way, from the workshops the pull was authorized to see.
+   */
+  instructorReviewPairs!: EntityTable<InstructorReviewPair, 'pk'>
 
   constructor() {
     super('cairn')
@@ -382,6 +390,73 @@ class CairnDB extends Dexie {
     this.version(19).stores({
       aiTemplates: 'pk, workshop_id, template_key',
     })
+    // v20 (tl-30): instructor feedback.
+    //
+    // VERSION CLAIM: v20 follows tl-16's v19 with no gap; versions 1 through 19
+    // are all present in this file and none of the unmerged branches claims a
+    // twentieth (checked against 00-program-throughline.md's D5 record).
+    //
+    // A version is owed on BOTH halves of tl-06's rule, which is unusual and worth
+    // naming. New indexes: `instructorReviewPairs` is a new store, and both
+    // `participants` and `activities` gain a column a roster read filters on.
+    // Existing rows needing a value: `category`, `audience` and `subject_kind`
+    // are NOT NULL DEFAULT 'participant' in Postgres, so a cached row that
+    // predates this version has the property absent while the backend considers
+    // it set.
+    //
+    // The upgrade below writes those defaults anyway, even though `categoryOf()`
+    // and its siblings already read absent as 'participant'. The reason is the
+    // index: Dexie cannot match `where('audience').equals('participant')` against
+    // a row where the property does not exist, so an un-stamped cache would make
+    // the whole teaching schedule vanish for anybody who had used the app before
+    // today. Reading defensively and indexing correctly are different jobs.
+    // ONLY THREE STORES ARE REDECLARED, AND `subject_kind` IS NOT INDEXED. The
+    // first draft of this version also listed `evaluations` and `observations` in
+    // order to index it, and that broke the app: `stores()` REPLACES a table's
+    // index list rather than extending it, so re-listing `observations` from
+    // memory of version 2 silently dropped the `workshop_id` and `sync_status`
+    // indexes that version 11 had added, and `SyncStatusBar`'s
+    // `where('sync_status')` threw on every page. The two-viewport audit caught
+    // it; nothing in the unit suite would have.
+    //
+    // The lesson, for whoever claims v21: to add ONE index to an existing table
+    // you must copy that table's LATEST declaration in this file and append to
+    // it, never write the columns you think it has. And the cheaper move is the
+    // one taken here — `subject_kind` is filtered in memory by `traineeRecords()`
+    // over arrays the page has already loaded, so it never needed an index at
+    // all, and not declaring it removes the trap rather than surviving it.
+    this.version(20)
+      .stores({
+        participants: 'id, workshop_id, team_id, person_id, category',
+        activities: 'id, workshop_id, sort_order, audience',
+        instructorReviewPairs: 'pk, workshop_id, reviewer_email, instructor_participant_id',
+      })
+      .upgrade(async (tx) => {
+        await tx
+          .table('participants')
+          .toCollection()
+          .modify((p: Participant) => {
+            if (p.category == null) p.category = 'participant'
+          })
+        await tx
+          .table('activities')
+          .toCollection()
+          .modify((a: Activity) => {
+            if (a.audience == null) a.audience = 'participant'
+          })
+        await tx
+          .table('evaluations')
+          .toCollection()
+          .modify((e: EvaluationRecord) => {
+            if (e.subject_kind == null) e.subject_kind = 'participant'
+          })
+        await tx
+          .table('observations')
+          .toCollection()
+          .modify((o: ObservationRecord) => {
+            if (o.subject_kind == null) o.subject_kind = 'participant'
+          })
+      })
   }
 }
 

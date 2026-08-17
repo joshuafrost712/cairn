@@ -14,7 +14,8 @@ import {
   type ActivityKsaResolved,
   type ResolvedKsa,
 } from '../lib/goals'
-import type { Activity, ActivityKsa, Goal, Ksa } from '../lib/types'
+import { instructorReviewPk } from '../lib/instructors'
+import type { Activity, ActivityKsa, Goal, InstructorReviewPair, Ksa } from '../lib/types'
 
 /**
  * Whether there is a session to read reference data with. Never throws: no
@@ -59,7 +60,7 @@ export async function loadReferenceData(): Promise<void> {
       return
     }
     try {
-      const [w, t, p, a, g, k, ak, st, ra, sp, ac] = await Promise.all([
+      const [w, t, p, a, g, k, ak, st, ra, sp, ac, ir] = await Promise.all([
         supabase.from('workshop').select('*'),
         supabase.from('team').select('*'),
         supabase.from('participant').select('*'),
@@ -75,6 +76,12 @@ export async function loadReferenceData(): Promise<void> {
         // relies on, and the reason `cacheAiConfigRows` prunes from the authorized
         // workshop set rather than from what came back.
         supabase.from('ai_config').select('*'),
+        // tl-30. Member-readable, but narrowly: the policy returns only the pairs
+        // that name you, name you as the subject, or belong to a workshop you
+        // administer. So an evaluator with no pairs legitimately gets an empty
+        // array, which is the same silent filtering every other read here relies
+        // on rather than an error.
+        supabase.from('instructor_reviewer').select('*'),
       ])
       // `ac` is deliberately NOT in this list, and it is the only read here that is
       // not. Every other table is member-readable, so an error from one means
@@ -87,7 +94,7 @@ export async function loadReferenceData(): Promise<void> {
       // of a table that has a legal empty state. No config resolves to the app's
       // pre-tl-13 behaviour, so absence is a correct answer and an error is treated
       // as absence, loudly in the console.
-      const firstError = [w, t, p, a, g, k, ak, st, ra, sp].find((r) => r.error)?.error
+      const firstError = [w, t, p, a, g, k, ak, st, ra, sp, ir].find((r) => r.error)?.error
       if (firstError) throw firstError
       if (ac.error) {
         console.warn('[honest-eval] could not read ai_config; using its defaults', ac.error.message)
@@ -95,7 +102,16 @@ export async function loadReferenceData(): Promise<void> {
 
       await db.transaction(
         'rw',
-        [db.workshops, db.teams, db.participants, db.activities, db.goals, db.ksas, db.activityKsas],
+        [
+          db.workshops,
+          db.teams,
+          db.participants,
+          db.activities,
+          db.goals,
+          db.ksas,
+          db.activityKsas,
+          db.instructorReviewPairs,
+        ],
         async () => {
           await Promise.all([
             db.workshops.clear(),
@@ -105,6 +121,13 @@ export async function loadReferenceData(): Promise<void> {
             db.goals.clear(),
             db.ksas.clear(),
             db.activityKsas.clear(),
+            // tl-30. Cleared and rewritten with the rest of the reference data
+            // rather than pruned like settings, because a REVOKED pair must
+            // disappear from this device. An additive merge would leave somebody
+            // able to open a review Joshua had just taken away from them, and the
+            // insert would then be refused server-side after they had dictated
+            // into it — the worst of both behaviours.
+            db.instructorReviewPairs.clear(),
           ])
           await db.workshops.bulkPut(w.data ?? [])
           await db.teams.bulkPut(t.data ?? [])
@@ -122,6 +145,12 @@ export async function loadReferenceData(): Promise<void> {
               // would have dropped them without failing anything.
               ...row,
               pk: activityKsaPk(row.activity_id, row.ksa_id),
+            })),
+          )
+          await db.instructorReviewPairs.bulkPut(
+            (ir.data ?? []).map((row: Omit<InstructorReviewPair, 'pk'>) => ({
+              ...row,
+              pk: instructorReviewPk(row.workshop_id, row.reviewer_email, row.instructor_participant_id),
             })),
           )
         },

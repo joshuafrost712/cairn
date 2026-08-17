@@ -8,6 +8,8 @@ import { c } from '../lib/content/chrome'
 import { Copy } from '../components/Copy'
 import { useAuth } from '../auth/AuthContext'
 import { createDraft } from '../db/evaluations'
+import { reviewPairsFor } from '../db/instructors'
+import { isInstructorActivity } from '../lib/instructors'
 import { countIn, formatDay, groupActivitiesByDay, suggestActivity } from '../lib/schedule'
 import type { DayGroup } from '../lib/schedule'
 import type { Activity } from '../lib/types'
@@ -29,13 +31,37 @@ export function EvaluatorHome() {
     async () => resolveDisplayWorkshop(await db.workshops.toArray(), activeWorkshopId),
     [activeWorkshopId],
   )
-  const activities = useLiveQuery(
+  const allActivities = useLiveQuery(
     () =>
       workshop
         ? db.activities.where('workshop_id').equals(workshop.id).sortBy('sort_order')
         : Promise.resolve([] as Activity[]),
     [workshop?.id],
     [] as Activity[],
+  )
+  // tl-30. The pairs this account holds here. Empty for everybody except the five
+  // reviewers, which is what keeps the Instructor feedback event off every other
+  // home screen. RLS has already filtered the rows; this only decides rendering.
+  const reviewPairs = useLiveQuery(
+    () => (workshop ? reviewPairsFor(workshop.id, identity?.email) : Promise.resolve([])),
+    [workshop?.id, identity?.email],
+    [],
+  )
+
+  // The teaching schedule and the instructor event are two lists, not one sorted
+  // list, because they answer different questions. The schedule is "what is
+  // happening now"; the instructor event is undated on purpose (Joshua chose one
+  // review per instructor per event, not session by session), so it has no place
+  // in a day fold and would sit at the bottom of "Not yet scheduled" looking like
+  // an authoring mistake.
+  const activities = useMemo(
+    () => (allActivities ?? []).filter((a) => !isInstructorActivity(a)),
+    [allActivities],
+  )
+  const instructorEvents = useMemo(
+    () =>
+      reviewPairs.length === 0 ? [] : (allActivities ?? []).filter((a) => isInstructorActivity(a)),
+    [allActivities, reviewPairs.length],
   )
 
   // The badge counts that used to be computed here (the whole
@@ -125,6 +151,11 @@ export function EvaluatorHome() {
   // out of sight: a half-authored scenario has to stay usable.
   const focusDay = schedule.focusDay
 
+  // A reviewer-only account (Angie holds `participant`, not `evaluator`) reads no
+  // trainee activity at all, so the teaching list is genuinely empty for her and
+  // the "pick an activity" line would be a lie. Her whole app is the one button.
+  const reviewerOnly = activities.length === 0 && instructorEvents.length > 0
+
   return (
     <>
       <div className="card">
@@ -132,8 +163,24 @@ export function EvaluatorHome() {
           {workshop.name}
         </h1>
         <p className="muted small">{workshop.location}</p>
-        <Copy id="home.pick-activity" as="p" className="small" />
+        <Copy id={reviewerOnly ? 'home.reviewer-only' : 'home.pick-activity'} as="p" className="small" />
       </div>
+
+      {instructorEvents.length > 0 && (
+        <div className="card instructor-block">
+          <Copy id="home.instructor-heading" as="h2" style={{ marginTop: 0 }} />
+          <Copy id="home.instructor-help" as="p" className="muted small" />
+          {instructorEvents.map((a) => (
+            <button key={a.id} className="activity-item" onClick={() => start(a.id)}>
+              <span>
+                <strong>{a.title}</strong>
+                <br />
+                <Copy id="home.instructor-count" tokens={{ n: reviewPairs.length }} className="muted small" />
+              </span>
+            </button>
+          ))}
+        </div>
+      )}
 
       {focusDay === null ? (
         (activities ?? []).map(activityButton)

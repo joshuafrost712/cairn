@@ -21,6 +21,7 @@ import {
   eventDigestSubject,
 } from '../reports/eventDigest'
 import { mergeDraft } from '../drafts/merge'
+import { traineeRecords, trainees } from '../lib/instructors'
 import { scaleForWorkshop } from './scale'
 import { templatesForWorkshop } from './templates'
 import { templateFingerprint } from '../templates/resolve'
@@ -125,9 +126,19 @@ export interface GenerateOptions {
  * and the observations.
  */
 export async function generateParticipantEmails(opts: GenerateOptions): Promise<DraftDoc[]> {
+  // tl-30: `trainees()` on the roster read. This function generates the
+  // end-of-workshop email a PARTICIPANT receives about their own progress. An
+  // instructor row reaching it would produce a coaching email to a co-facilitator,
+  // written in the register of a trainee report, from evidence their colleagues
+  // gave in confidence. The observations are filtered for the same reason a few
+  // lines down.
   const [participants, ksas, teams, allObservations, evaluations, verdicts, workshop] =
     await Promise.all([
-      db.participants.where('workshop_id').equals(opts.workshopId).toArray(),
+      db.participants
+        .where('workshop_id')
+        .equals(opts.workshopId)
+        .toArray()
+        .then(trainees),
       ksasForWorkshop(opts.workshopId),
       db.teams.where('workshop_id').equals(opts.workshopId).toArray(),
       db.observations.toArray(),
@@ -151,7 +162,14 @@ export async function generateParticipantEmails(opts: GenerateOptions): Promise<
   ])
   const fingerprint = templateFingerprint(templates)
 
-  const observations = observationsForWorkshop(allObservations, evaluations, opts.workshopId, participants)
+  // tl-30. Filtered AFTER the workshop resolver rather than before it: that
+  // resolver situates an observation whose `workshop_id` is null by looking it up
+  // through the roster, and it has been handed the trainee roster, so an
+  // instructor row would come back stranded rather than excluded. Dropping it by
+  // kind afterwards says what is meant.
+  const observations = traineeRecords(
+    observationsForWorkshop(allObservations, evaluations, opts.workshopId, participants),
+  )
   const workshopName = workshop?.name ?? 'Workshop'
   const sortedKsas = [...ksas].sort((a, b) => a.code.localeCompare(b.code))
   const annotated = annotateObservations(observations, verdicts)
@@ -232,7 +250,12 @@ export async function generateEventDigests(opts: DigestOptions): Promise<DraftDo
   ])
   const fingerprint = templateFingerprint(templates)
 
-  const observations = observationsForWorkshop(allObservations, allEvaluations, opts.workshopId, participants)
+  // tl-30. The event digest is a per-event summary of how the room did; instructor
+  // feedback is not attached to a teaching event at all, so this only guards
+  // against a stranded row being resolved into the wrong digest.
+  const observations = traineeRecords(
+    observationsForWorkshop(allObservations, allEvaluations, opts.workshopId, participants),
+  )
   // Captures stay unscoped for the INDEX (an observation is situated by its own
   // capture, whichever workshop that capture is in) but the analytics below see
   // only this workshop's, so a capture from elsewhere cannot contribute a

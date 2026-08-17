@@ -81,6 +81,11 @@ const ROUTES = [
   { path: 'evaluations', label: 'my-evaluations', auth: true, owned: true },
   { path: 'observations', label: 'observations', auth: true, owned: true },
   { path: 'reports', label: 'reports', auth: true, owned: true },
+  // tl-30. Ungated by role, like /reports and /observations were before this spec:
+  // an instructor with no evaluating role must still be able to read what was said
+  // about them. In local-only mode there are no instructors, so what this walks is
+  // the page's empty state, which is the state most likely to be left unstyled.
+  { path: 'instructor-feedback', label: 'instructor-feedback', auth: true, owned: true },
   { path: 'conversations', label: 'conversations', auth: true, owned: true },
   // tl-05's workshop-wide follow-up queue. The evaluator's own /conversations is
   // already walked above; this is the admin surface that assigns them, and it is
