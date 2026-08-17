@@ -16,6 +16,10 @@ import { QuickRating } from '../components/QuickRating'
 import { useScale } from '../hooks/useScale'
 import { isValidDesignation } from '../lib/scale'
 import { Glossary } from '../components/Glossary'
+import { useAuth } from '../auth/AuthContext'
+import { EVALUATING_ROLES, useHasWorkshopRole } from '../layout/roles'
+import { allReviewPairs } from '../db/instructors'
+import { isInstructorActivity, rosterForActivity } from '../lib/instructors'
 import type { Participant, ParticipantScopeEntry, QuickRatings } from '../lib/types'
 
 
@@ -30,6 +34,7 @@ function evaluatorInitials(email: string): string {
 export function CaptureActivity() {
   const { clientId = '' } = useParams()
   const navigate = useNavigate()
+  const { identity } = useAuth()
 
   const record = useLiveQuery(() => db.evaluations.get(clientId), [clientId])
   const activity = useLiveQuery(
@@ -40,14 +45,31 @@ export function CaptureActivity() {
   // so this screen shows exactly what the Setup preview and the routing capture file
   // show. That is the point of there being one resolution site (tl-08).
   const [ksas, setKsas] = useState<ActivityKsaResolved[]>([])
+  // tl-30. Which roster this event wants, and — for the Instructor feedback
+  // event — which of it this viewer is entitled to. `rosterForActivity` is the
+  // one place that decision is made, so the grid, the coverage line and the Setup
+  // preview cannot disagree about whether a facilitator's name belongs here.
+  //
+  // An administrator opening the instructor event holds no reviewer pairs and
+  // correctly sees nobody: reading the feedback is their job, writing it is not.
   const participants = useLiveQuery(
-    () =>
-      record?.workshop_id
-        ? db.participants.where('workshop_id').equals(record.workshop_id).toArray()
-        : Promise.resolve([] as Participant[]),
-    [record?.workshop_id],
+    async () => {
+      if (!record?.workshop_id) return [] as Participant[]
+      const [roster, pairs] = await Promise.all([
+        db.participants.where('workshop_id').equals(record.workshop_id).toArray(),
+        allReviewPairs(),
+      ])
+      return rosterForActivity(activity, roster, pairs, identity?.email, record.workshop_id)
+    },
+    [record?.workshop_id, activity?.id, activity?.audience, identity?.email],
     [] as Participant[],
   )
+
+  // One review names one instructor. The database says so with a check
+  // constraint (`evaluation_instructor_needs_focus`), so the toggle is not
+  // offered here rather than being offered and then refused on submit.
+  const instructorReview = isInstructorActivity(activity)
+  const canEvaluateTrainees = useHasWorkshopRole(EVALUATING_ROLES)
 
   // Live evaluation coverage for this activity: who has already received an
   // evaluation, by whom, and how many. Fed by this device's submissions and, via
@@ -81,7 +103,10 @@ export function CaptureActivity() {
     setScope(record.participant_scope ?? [])
     setQuickRatings(record.quick_ratings ?? {})
     setFocusParticipantId(record.focus_participant_id ?? null)
-    setFocusMode(Boolean(record.focus_participant_id))
+    // tl-30: an instructor review is always a focus capture, even before a name
+    // has been picked. Seeding it off `focus_participant_id` alone would open the
+    // multi-select grid for the one kind of capture that may not be one.
+    setFocusMode(Boolean(record.focus_participant_id) || instructorReview)
   }
 
   const alreadySubmitted = Boolean(record?.attestation)
@@ -195,6 +220,22 @@ export function CaptureActivity() {
     )
   }
 
+  // tl-30. The route gate cannot make this call: whether a capture is allowed
+  // depends on the ACTIVITY behind this record, which the router does not know.
+  // A reviewer-only member (Angie holds `participant`) may reach /capture for
+  // their instructor review and nothing else, and typing another capture's URL
+  // must not put a trainee grid in front of them.
+  //
+  // Not a security boundary. `evaluation_insert` refuses the write either way;
+  // this is here so the refusal happens before the dictation rather than after.
+  if (!instructorReview && !canEvaluateTrainees) {
+    return (
+      <div className="banner warn">
+        <Copy id="capture.not-yours" /> <Link to="/">{c('capture.not-found.link')}</Link>
+      </div>
+    )
+  }
+
   return (
     <>
       <div className="card">
@@ -223,18 +264,34 @@ export function CaptureActivity() {
 
       <div className="card">
         <div className="row" style={{ justifyContent: 'space-between' }}>
-          <Copy id="capture.watching-prompt" as="label" style={{ margin: 0 }} />
-          <button
-            type="button"
-            className={`rubric-toggle ${focusMode ? 'primary' : ''}`}
-            aria-pressed={focusMode}
-            onMouseDown={(e) => e.preventDefault()}
-            onClick={toggleFocusMode}
-          >
-            {focusMode ? c('capture.focus-on') : c('capture.focus-off')}
-          </button>
+          <Copy
+            id={instructorReview ? 'capture.instructor-prompt' : 'capture.watching-prompt'}
+            as="label"
+            style={{ margin: 0 }}
+          />
+          {/* No focus toggle on an instructor review: focus is not a preference
+              there, it is the shape the record must have. Offering the button and
+              then refusing the submit would be the worse of the two. */}
+          {!instructorReview && (
+            <button
+              type="button"
+              className={`rubric-toggle ${focusMode ? 'primary' : ''}`}
+              aria-pressed={focusMode}
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={toggleFocusMode}
+            >
+              {focusMode ? c('capture.focus-on') : c('capture.focus-off')}
+            </button>
+          )}
         </div>
+        {instructorReview && participants.length === 0 && (
+          <Copy id="capture.instructor-none" as="p" className="muted small" style={{ marginTop: 8 }} />
+        )}
         {(() => {
+          // Coverage is a trainee idea: it exists so a room of 26 gets evaluated
+          // evenly. "1 of 3 instructors still to review" would read as a quota on
+          // a colleague, which is not what this event is.
+          if (instructorReview) return null
           const total = participants?.length ?? 0
           const covered = (participants ?? []).filter((p) => (coverage?.get(p.id)?.count ?? 0) > 0).length
           const remaining = total - covered
@@ -317,7 +374,13 @@ export function CaptureActivity() {
           )
         })()}
         <Copy
-          id={focusMode ? 'capture.focus-help' : 'capture.tag-help'}
+          id={
+            instructorReview
+              ? 'capture.instructor-help'
+              : focusMode
+                ? 'capture.focus-help'
+                : 'capture.tag-help'
+          }
           as="p"
           className="muted small"
           style={{ marginTop: 8 }}

@@ -22,6 +22,7 @@ import { db } from './local'
 import { annotateObservations, type AnnotatedObservation } from '../reports/verification'
 import { scaleForWorkshop } from './scale'
 import { DEFAULT_SCALE, isLowTrigger, type Scale } from '../lib/scale'
+import { traineeRecords, trainees } from '../lib/instructors'
 import type { MentoringConversation, Participant } from '../lib/types'
 
 // ---------------------------------------------------------------------------
@@ -168,13 +169,23 @@ export async function reconcileMentoringConversations(): Promise<{
   added: number
   repaired: number
 }> {
-  const [observations, verdicts, participants, evaluations, coverage] = await Promise.all([
+  const [allObservations, verdicts, allParticipants, evaluations, coverage] = await Promise.all([
     db.observations.toArray(),
     db.verifications.toArray(),
     db.participants.toArray(),
     db.evaluations.toArray(),
     db.coverage.toArray(),
   ])
+
+  // tl-30. A mentoring conversation is a remediation: an administrator hands an
+  // evaluator a hard conversation to have with a TRAINEE who is not meeting the
+  // standard. Instructor feedback is a colleague's assessment of a colleague, and
+  // a low score on somebody's teamwork must never queue a corrective conversation
+  // about them. This is the filter that keeps that from happening, and it belongs
+  // at the read rather than inside `deriveNeededConversations`, which stays pure
+  // and is driven by tests with hand-built rows.
+  const observations = traineeRecords(allObservations)
+  const participants = trainees(allParticipants)
 
   const annotated = annotateObservations(observations, verdicts)
 

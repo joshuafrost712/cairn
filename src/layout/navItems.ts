@@ -1,6 +1,6 @@
 import type { WorkshopRole } from '../lib/types'
 import type { NavCounts } from '../hooks/useNavCounts'
-import { ADMIN_ROLES, CHIEF_ROLES } from './roles'
+import { ADMIN_ROLES, CHIEF_ROLES, EVALUATING_ROLES } from './roles'
 
 export interface NavItem {
   /** Chrome content id for the label, so nav wording is editable like the rest. */
@@ -61,20 +61,36 @@ export const NAV_GROUPS: NavGroup[] = [
     labelId: 'nav.group.capture',
     items: [
       { labelId: 'nav.home', to: '/', end: true },
-      { labelId: 'nav.my-evaluations', to: '/evaluations' },
+      // tl-30: EVALUATING_ROLES on both, matching the route gates. A
+      // reviewer-only account holds `participant` and reads neither.
+      { labelId: 'nav.my-evaluations', to: '/evaluations', roles: EVALUATING_ROLES },
       {
         labelId: 'nav.conversations',
         to: '/conversations',
+        roles: EVALUATING_ROLES,
         count: (c) => c.conversationsMine,
       },
     ],
   },
   {
     labelId: 'nav.group.review',
+    // tl-30. Was ungated, which was safe only while `participant` had never been
+    // issued. Angie Seow holds it, and these three pages are all built from the
+    // trainee roster she cannot read.
+    roles: EVALUATING_ROLES,
     items: [
       { labelId: 'nav.observations', to: '/observations' },
       { labelId: 'nav.reports', to: '/reports' },
     ],
+  },
+  {
+    // tl-30. Its own group rather than an item under Review, because the link is
+    // offered on a different question: not "may you evaluate here" but "is there
+    // instructor feedback here you may read". The page itself renders only what
+    // RLS returns, so an evaluator who follows the link with no pairs and no
+    // subject row correctly finds it empty.
+    labelId: 'nav.group.instructors',
+    items: [{ labelId: 'nav.instructor-feedback', to: '/instructor-feedback' }],
   },
   {
     labelId: 'nav.group.workbench',

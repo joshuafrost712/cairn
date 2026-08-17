@@ -2,6 +2,7 @@ import { db } from './local'
 import { pushOutbox } from './sync'
 import { coverageRowFromEvaluation, upsertCoverage } from './coverage'
 import { RULESET_VERSION } from '../lib/ruleset'
+import { subjectKindFor } from '../lib/instructors'
 import type { EvaluationRecord, ParticipantScopeEntry, QuickRatings } from '../lib/types'
 
 // Stable client id without depending on crypto.randomUUID availability quirks.
@@ -16,10 +17,20 @@ interface DraftInput {
   activityId: string | null
 }
 
-/** Create a fresh local draft. Persisted immediately; status 'local'. */
+/**
+ * Create a fresh local draft. Persisted immediately; status 'local'.
+ *
+ * `subject_kind` is resolved HERE, from the activity's audience, and never
+ * afterwards (tl-30). It is what `evaluation_insert` checks, so a draft that
+ * guessed wrong would be refused at submission, after the dictation. Reading the
+ * activity costs one indexed Dexie get on a screen that is about to load the
+ * whole reference set anyway.
+ */
 export async function createDraft(input: DraftInput): Promise<EvaluationRecord> {
   const now = new Date().toISOString()
+  const activity = input.activityId ? await db.activities.get(input.activityId) : undefined
   const record: EvaluationRecord = {
+    subject_kind: subjectKindFor(activity),
     client_id: newClientId(),
     evaluator_email: input.evaluatorEmail,
     activity_id: input.activityId,

@@ -76,6 +76,52 @@ export interface Team {
   name: string
 }
 
+/**
+ * Whether a roster row is somebody being trained or somebody teaching (tl-30).
+ *
+ * An instructor is a `participant` row wearing this word, rather than an entity
+ * of its own, so routing, observation, verification and report building needed no
+ * change to carry instructor feedback. What the word costs is that EVERY roster
+ * read now has to say which kind it wants: a capture screen showing all six
+ * Crash Course rows would put Joshua's name in the trainee grid.
+ *
+ * Optional on the type for the reason `sex` and `organization` are: the column is
+ * NOT NULL DEFAULT 'participant' in Postgres, so an absent property and
+ * 'participant' mean the same thing to every reader here, and requiring it would
+ * force a value into ~45 seed literals and every test factory.
+ */
+export type ParticipantCategory = 'participant' | 'instructor'
+
+/**
+ * Which roster an event evaluates (tl-30). The Instructor feedback event is the
+ * only 'instructor' activity in either Bali workshop, and `activity_select` shows
+ * it solely to somebody holding a reviewer pair.
+ */
+export type ActivityAudience = 'participant' | 'instructor'
+
+/**
+ * One grant: `reviewer_email` may review `instructor_participant_id` (tl-30).
+ *
+ * Keyed on EMAIL rather than on an app_user id, because three of the five
+ * reviewers had no account when the pairs were written. See the header of
+ * supabase/migrations/20260817000100_instructor_feedback.sql for the full
+ * argument, and for why permission is granted per pair rather than by a flag
+ * plus a self-exclusion rule.
+ *
+ * Read-only on the client. The only write path is the `set_instructor_review_pair`
+ * RPC, which is chief-admin-gated server-side.
+ */
+export interface InstructorReviewPair {
+  /** `${workshop_id}::${reviewer_email}::${instructor_participant_id}`, flattened for Dexie. */
+  pk: string
+  workshop_id: string
+  /** Always lowercase; the Postgres column has a check constraint saying so. */
+  reviewer_email: string
+  instructor_participant_id: string
+  granted_by?: string | null
+  granted_at?: string | null
+}
+
 export interface Participant {
   id: string
   workshop_id: string
@@ -107,6 +153,11 @@ export interface Participant {
    * "other trainings in the same track" can be answered.
    */
   person_id?: string | null
+  /**
+   * Trainee or instructor (tl-30). Absent means 'participant'; read it through
+   * `categoryOf()` in lib/instructors.ts rather than defaulting at each call site.
+   */
+  category?: ParticipantCategory | null
 }
 
 export interface Activity {
@@ -118,6 +169,11 @@ export interface Activity {
   end_time: string | null
   sort_order: number
   genre_group: string | null
+  /**
+   * Which roster this event evaluates (tl-30). Absent means 'participant'; read
+   * it through `audienceOf()` in lib/instructors.ts.
+   */
+  audience?: ActivityAudience | null
 }
 
 /**
@@ -470,6 +526,17 @@ export interface EvaluationRecord {
    * 'routed' = observations imported back from outbox/.
    */
   routing_status?: 'sent' | 'routed'
+  /**
+   * Whether this capture is about a trainee or an instructor (tl-30). Stamped at
+   * draft creation from the activity's audience and never changed afterwards.
+   *
+   * Denormalized rather than joined through `activity_id` because it is an RLS
+   * predicate: `evaluation_select` has to decide who may read this row without
+   * reaching into another table whose own policy would then apply. When it reads
+   * 'instructor', `focus_participant_id` is guaranteed non-null by a check
+   * constraint, and that one id is the subject the read rule keys on.
+   */
+  subject_kind?: ParticipantCategory | null
 }
 
 /**
@@ -501,6 +568,13 @@ export interface ObservationRecord {
    * say so through `sync_error`.
    */
   workshop_id: string | null
+  /**
+   * Trainee or instructor (tl-30), carried over from the capture this was routed
+   * from. Every trainee aggregate in src/reports/ and src/db/ filters on it, so an
+   * instructor's teamwork score never lands in a workshop heatmap, a day email, a
+   * discrepancy inbox, or a mentoring trigger.
+   */
+  subject_kind?: ParticipantCategory | null
   participant_id: string | null
   participant_name: string
   ksa_code: string

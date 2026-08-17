@@ -11,7 +11,13 @@ import { mirrorActiveWorkshop } from './db/settings'
 import { AppShell } from './layout/AppShell'
 import { RequireRole } from './layout/RequireRole'
 import { RequireRoleAnywhere } from './layout/RequireRoleAnywhere'
-import { ADMIN_ROLES, CHIEF_ROLES, useHasWorkshopRole, useScopedWorkshopId } from './layout/roles'
+import {
+  ADMIN_ROLES,
+  CHIEF_ROLES,
+  EVALUATING_ROLES,
+  useHasWorkshopRole,
+  useScopedWorkshopId,
+} from './layout/roles'
 import { syncDrafts } from './db/draftSync'
 import { enforceTokenHygiene } from './routing/config'
 import { enforceRelayHygiene } from './relay/config'
@@ -23,6 +29,7 @@ import { MyEvaluations } from './pages/MyEvaluations'
 import { Routing } from './pages/Routing'
 import { Observations } from './pages/Observations'
 import { Reports } from './pages/Reports'
+import { InstructorFeedback } from './pages/InstructorFeedback'
 import { DayEmail } from './pages/DayEmail'
 import { Export } from './pages/Export'
 import { AdminOverview } from './pages/admin/AdminOverview'
@@ -230,18 +237,36 @@ function Shell() {
 
       {/* Narrow: the capture flow. One task at a time, phone-first, no sidebar. */}
       <Route element={<AppShell mode="narrow" />}>
+        {/* Home and capture stay open to any member: tl-30's reviewer-only
+            accounts hold `participant` and need exactly these two. What they may
+            actually capture is decided inside CaptureActivity, against the
+            activity's audience, because it is a per-record question and a route
+            gate cannot see the record. */}
         <Route path="/" element={<EvaluatorHome />} />
         <Route path="/capture/:clientId" element={<CaptureActivity />} />
-        <Route path="/evaluations" element={<MyEvaluations />} />
-        <Route path="/conversations" element={<Conversations />} />
+        <Route element={<RequireRole roles={EVALUATING_ROLES} />}>
+          <Route path="/evaluations" element={<MyEvaluations />} />
+          <Route path="/conversations" element={<Conversations />} />
+        </Route>
       </Route>
 
       {/* Wide: list-and-detail work. Used by evaluators and by the chief alike,
           which is why width is declared per route rather than inferred from role. */}
       <Route element={<AppShell mode="wide" />}>
-        <Route path="/observations" element={<Observations />} />
-        <Route path="/reports" element={<Reports />} />
-        <Route path="/reports/:participantId" element={<Reports />} />
+        {/* tl-30: EVALUATING_ROLES, not "any member". These three pages are built
+            from the trainee roster, and after the tl-30 migration a `participant`
+            member reads none of it — so without the gate they would render as
+            three empty pages rather than as three pages that are not theirs. */}
+        <Route element={<RequireRole roles={EVALUATING_ROLES} />}>
+          <Route path="/observations" element={<Observations />} />
+          <Route path="/reports" element={<Reports />} />
+          <Route path="/reports/:participantId" element={<Reports />} />
+        </Route>
+        {/* tl-30. Ungated by role on purpose: an instructor with no evaluating
+            role must still be able to read what was said about them, and the
+            rows are already narrowed by `observation_select`. A member with
+            nothing to see gets the page's own empty state, which says so. */}
+        <Route path="/instructor-feedback" element={<InstructorFeedback />} />
 
         <Route element={<RequireRole roles={CHIEF_ROLES} />}>
           <Route path="/inbox" element={<Inbox />} />

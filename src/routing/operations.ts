@@ -657,10 +657,24 @@ async function storeObservationsFile(
       workshop_id: workshopId,
       imported_at: importedAt,
       evaluator_email: evaluatorEmail,
+      // tl-30. Carried from the capture, never inferred from the participant.
+      //
+      // The capture is the authority because it is what the insert policy checked
+      // when the reviewer wrote it, and because `observation_select` has to agree
+      // with `evaluation_select` about who may read the same evidence in its two
+      // forms. Absent (a capture this device no longer holds) resolves to
+      // 'participant', which is what the Postgres column defaults to and what
+      // every row written before this migration means.
+      //
+      // Placed AFTER the spread, unlike the fields above it: those are trusted
+      // defaults a router file may legitimately not carry, whereas this one is a
+      // permission fact and a file must never be able to relabel its own evidence
+      // as being about a trainee.
       // Fresh imports start unsynced; db/sync.ts pushes them on the next cycle.
       sync_status: 'local',
       sync_error: null,
       ...v.value,
+      subject_kind: local?.subject_kind ?? 'participant',
     })
   })
   /**

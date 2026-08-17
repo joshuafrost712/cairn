@@ -26,6 +26,11 @@ function toRow(e: EvaluationRecord) {
     edit_history: e.edit_history,
     created_at: e.created_at,
     updated_at: e.updated_at,
+    // tl-30. Same reason as observationRow: the column defaults to 'participant',
+    // so an instructor capture that did not send it would arrive readable by the
+    // whole workshop. It is also what `evaluation_insert` tests, so omitting it
+    // would have the server check the wrong rule rather than reject the row.
+    subject_kind: e.subject_kind ?? 'participant',
   }
 }
 
@@ -381,6 +386,11 @@ export function observationRow(o: ObservationRecord) {
     origin: o.origin,
     imported_at: o.imported_at,
     evaluator_email: o.evaluator_email ?? null,
+    // tl-30. Sent explicitly rather than left to the column default, because the
+    // default is 'participant' and an instructor observation arriving without it
+    // would become readable by every evaluating member of the workshop the
+    // instant it synced.
+    subject_kind: o.subject_kind ?? 'participant',
   }
 }
 
@@ -556,6 +566,10 @@ export function captureRecordFromRow(
     answers: r.answers ?? {},
     quick_ratings: r.quick_ratings ?? {},
     focus_participant_id: r.focus_participant_id ?? null,
+    // tl-30. Adopted from the server rather than defaulted, so an administrator
+    // pulling somebody else's capture down to route it routes it as the kind it
+    // was written as.
+    subject_kind: r.subject_kind ?? 'participant',
     source_text: r.source_text ?? '',
     participant_scope: r.participant_scope ?? [],
     attestation: Boolean(r.attestation),

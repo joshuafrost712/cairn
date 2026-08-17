@@ -136,7 +136,17 @@ describe('observationRow', () => {
       origin: 'individual',
       imported_at: '2026-07-30T09:00:00.000Z',
       evaluator_email: 'viji@example.org',
+      // tl-30. Present on every row, not only on instructor ones, and the
+      // fixture above does not set it — so this also pins the default. Omitting
+      // the column would let an instructor observation arrive at a Postgres
+      // default of 'participant' and become readable by the whole workshop.
+      subject_kind: 'participant',
     })
+  })
+
+  it('sends an instructor observation as one', () => {
+    const row = observationRow({ ...obs, subject_kind: 'instructor' }) as Record<string, unknown>
+    expect(row.subject_kind).toBe('instructor')
   })
 
   it('does not send the local-only sync fields', () => {

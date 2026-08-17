@@ -10,6 +10,29 @@ export const CHIEF_ROLES: WorkshopRole[] = ['chief_evaluator', 'admin', 'chief_a
 export const ADMIN_ROLES: WorkshopRole[] = ['admin', 'chief_admin']
 
 /**
+ * Everyone whose job is to look at trainees (tl-30). Every role except
+ * `participant`.
+ *
+ * The TypeScript twin of `has_evaluating_role()` in
+ * supabase/migrations/20260817000100_instructor_feedback.sql, which is what the
+ * `participant`, `evaluation`, `observation` and `report_assignment` read
+ * policies now ask. Before tl-30 those policies asked `is_workshop_member`, and
+ * that was safe only because `participant` had never been issued to anybody.
+ *
+ * Angie Seow holds it, so that her whole app can be one button. Gate every
+ * trainee-facing route on this list, not on membership: a route that renders for
+ * her would show an empty page built from rows RLS refused, which reads as a
+ * broken app rather than as a boundary working.
+ */
+export const EVALUATING_ROLES: WorkshopRole[] = [
+  'chief_admin',
+  'admin',
+  'chief_evaluator',
+  'consultant',
+  'evaluator',
+]
+
+/**
  * Which workshop the role question is being asked about.
  *
  * The stored selection is re-resolved against the caller's real memberships here
