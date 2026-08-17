@@ -276,32 +276,58 @@ on conflict (id) do update set
 -- The eighteenth, added 2026-08-18, is the Day Five process discussion. It is not
 -- one of the Passage 2 reps and the guide's "Evaluation: Light" marking does not
 -- cover it: it exists specifically to be the capture point for CC-WF1 and CC-WF2,
--- whose board exercise the Day One orality lesson turned out not to contain. It
--- sits before Celebration, which moves from sort_order 17 to 18.
+-- whose board exercise the Day One orality lesson turned out not to contain.
 --
--- Times stay null: they are not in the guide, and `groupActivitiesByDay` sorts on
--- `day` then `sort_order`, so a dated session with no time is a first-class citizen.
+-- Joshua placed it, later the same day, first on Day Five at 90 minutes, with the
+-- rest of the day given to a second round of translation and then Celebration. So
+-- it takes sort_order 14 and the three Passage 2 sessions each shift up one. That
+-- ordering matters beyond tidiness: it is the difference between rating the whole
+-- process before the group re-runs it and rating it after, and only the first
+-- makes the discussion a capture point rather than a debrief of a fresh rep.
+--
+-- It is not a new session. The canonical guide's Schedule Overview already reads
+-- "8:30-9:00—Devotion: Josh: Guided Reflection 9:00-10:30—Reflection conversation"
+-- for Day Five: ninety minutes, first thing, exactly where Joshua put it. tl-24
+-- entered seventeen activities and this was not among them, because the guide
+-- gives it a slot in the schedule table and no lesson plan of its own, and this
+-- file was built by walking the lesson plans. So the eighteenth activity restores
+-- a session the schedule always had rather than inventing one.
+--
+-- Times come from that same Schedule Overview, added 2026-08-18. They are WITA
+-- (UTC+8, no DST), and they were previously null on the reasoning that the guide
+-- did not carry them, which was wrong: it carries them on page 4, and only the
+-- lesson plans omit them.
+--
+-- Two honest gaps in the times:
+--   * Day Four's consultant check is two blocks in the guide, 11:00-13:00 and
+--     14:30-16:00, and it is one activity row here. It is stored as 11:00-16:00,
+--     spanning the lunch between them, because `suggestActivity` treats a running
+--     activity as the one you are there for, and an evaluator opening the app at
+--     15:00 on Friday is there for the consultant check.
+--   * Day Five after the snack is "REST OF DAY" in the guide, with no boundaries
+--     between Passage 2 Exegesis, Internalization, Draft and Record, and
+--     Celebration. Those four keep null times rather than invented ones.
 -- Devotionals are deliberately off the calendar — nothing in the guide evaluates
 -- them, and five question-less cards every morning is attention taken from
 -- watching a participant.
 insert into activity (id, workshop_id, title, day, start_time, end_time, sort_order, genre_group) values
-  ('cc300000-0000-4000-8000-000000000001','74d1c3ac-ce6e-433f-b2b6-54ab4e01e21b','Welcome and Overview','2026-08-18',null,null,1,'Opening'),
-  ('cc300000-0000-4000-8000-000000000002','74d1c3ac-ce6e-433f-b2b6-54ab4e01e21b','Orality and OBT','2026-08-18',null,null,2,'Teaching & discussion'),
-  ('cc300000-0000-4000-8000-000000000003','74d1c3ac-ce6e-433f-b2b6-54ab4e01e21b','Exegesis for Oral Bible Translation','2026-08-18',null,null,3,'Teaching'),
-  ('cc300000-0000-4000-8000-000000000004','74d1c3ac-ce6e-433f-b2b6-54ab4e01e21b','Exegete Passage 1','2026-08-18',null,null,4,'Practice'),
-  ('cc300000-0000-4000-8000-000000000005','74d1c3ac-ce6e-433f-b2b6-54ab4e01e21b','Internalization for OBT','2026-08-19',null,null,5,'Teaching'),
-  ('cc300000-0000-4000-8000-000000000006','74d1c3ac-ce6e-433f-b2b6-54ab4e01e21b','Internalize Passage 1','2026-08-19',null,null,6,'Practice'),
-  ('cc300000-0000-4000-8000-000000000007','74d1c3ac-ce6e-433f-b2b6-54ab4e01e21b','APM + Audacity Training','2026-08-19',null,null,7,'Training'),
-  ('cc300000-0000-4000-8000-000000000008','74d1c3ac-ce6e-433f-b2b6-54ab4e01e21b','Drafting in OBT','2026-08-20',null,null,8,'Teaching & practice'),
-  ('cc300000-0000-4000-8000-000000000009','74d1c3ac-ce6e-433f-b2b6-54ab4e01e21b','Recording Passage 1 in Audio Project Manager','2026-08-20',null,null,9,'Practice'),
-  ('cc300000-0000-4000-8000-000000000010','74d1c3ac-ce6e-433f-b2b6-54ab4e01e21b','Peer Review Passage 1 in Audio Project Manager','2026-08-20',null,null,10,'Checking'),
-  ('cc300000-0000-4000-8000-000000000011','74d1c3ac-ce6e-433f-b2b6-54ab4e01e21b','Revise Passage 1','2026-08-20',null,null,11,'Practice'),
-  ('cc300000-0000-4000-8000-000000000012','74d1c3ac-ce6e-433f-b2b6-54ab4e01e21b','Making Community Testing Questions for OBT','2026-08-21',null,null,12,'Teaching & practice'),
-  ('cc300000-0000-4000-8000-000000000013','74d1c3ac-ce6e-433f-b2b6-54ab4e01e21b','Consultant Check and Second Revision of Passage 1','2026-08-21',null,null,13,'Checking'),
-  ('cc300000-0000-4000-8000-000000000014','74d1c3ac-ce6e-433f-b2b6-54ab4e01e21b','Passage 2 Exegesis','2026-08-22',null,null,14,'Practice (light evaluation)'),
-  ('cc300000-0000-4000-8000-000000000015','74d1c3ac-ce6e-433f-b2b6-54ab4e01e21b','Passage 2 Internalization','2026-08-22',null,null,15,'Practice (light evaluation)'),
-  ('cc300000-0000-4000-8000-000000000016','74d1c3ac-ce6e-433f-b2b6-54ab4e01e21b','Passage 2 Draft and Record','2026-08-22',null,null,16,'Practice (light evaluation)'),
-  ('cc300000-0000-4000-8000-000000000018','74d1c3ac-ce6e-433f-b2b6-54ab4e01e21b','The OBT Process: Steps, Skills, and Relationships','2026-08-22',null,null,17,'Discussion'),
+  ('cc300000-0000-4000-8000-000000000001','74d1c3ac-ce6e-433f-b2b6-54ab4e01e21b','Welcome and Overview','2026-08-18','2026-08-18 08:30+08','2026-08-18 09:15+08',1,'Opening'),
+  ('cc300000-0000-4000-8000-000000000002','74d1c3ac-ce6e-433f-b2b6-54ab4e01e21b','Orality and OBT','2026-08-18','2026-08-18 09:45+08','2026-08-18 11:00+08',2,'Teaching & discussion'),
+  ('cc300000-0000-4000-8000-000000000003','74d1c3ac-ce6e-433f-b2b6-54ab4e01e21b','Exegesis for Oral Bible Translation','2026-08-18','2026-08-18 11:30+08','2026-08-18 13:00+08',3,'Teaching'),
+  ('cc300000-0000-4000-8000-000000000004','74d1c3ac-ce6e-433f-b2b6-54ab4e01e21b','Exegete Passage 1','2026-08-18','2026-08-18 14:30+08','2026-08-18 16:00+08',4,'Practice'),
+  ('cc300000-0000-4000-8000-000000000005','74d1c3ac-ce6e-433f-b2b6-54ab4e01e21b','Internalization for OBT','2026-08-19','2026-08-19 09:00+08','2026-08-19 10:30+08',5,'Teaching'),
+  ('cc300000-0000-4000-8000-000000000006','74d1c3ac-ce6e-433f-b2b6-54ab4e01e21b','Internalize Passage 1','2026-08-19','2026-08-19 11:00+08','2026-08-19 13:00+08',6,'Practice'),
+  ('cc300000-0000-4000-8000-000000000007','74d1c3ac-ce6e-433f-b2b6-54ab4e01e21b','APM + Audacity Training','2026-08-19','2026-08-19 14:30+08','2026-08-19 16:00+08',7,'Training'),
+  ('cc300000-0000-4000-8000-000000000008','74d1c3ac-ce6e-433f-b2b6-54ab4e01e21b','Drafting in OBT','2026-08-20','2026-08-20 09:00+08','2026-08-20 09:45+08',8,'Teaching & practice'),
+  ('cc300000-0000-4000-8000-000000000009','74d1c3ac-ce6e-433f-b2b6-54ab4e01e21b','Recording Passage 1 in Audio Project Manager','2026-08-20','2026-08-20 09:45+08','2026-08-20 11:00+08',9,'Practice'),
+  ('cc300000-0000-4000-8000-000000000010','74d1c3ac-ce6e-433f-b2b6-54ab4e01e21b','Peer Review Passage 1 in Audio Project Manager','2026-08-20','2026-08-20 11:30+08','2026-08-20 13:00+08',10,'Checking'),
+  ('cc300000-0000-4000-8000-000000000011','74d1c3ac-ce6e-433f-b2b6-54ab4e01e21b','Revise Passage 1','2026-08-20','2026-08-20 14:30+08','2026-08-20 16:00+08',11,'Practice'),
+  ('cc300000-0000-4000-8000-000000000012','74d1c3ac-ce6e-433f-b2b6-54ab4e01e21b','Making Community Testing Questions for OBT','2026-08-21','2026-08-21 09:00+08','2026-08-21 10:30+08',12,'Teaching & practice'),
+  ('cc300000-0000-4000-8000-000000000013','74d1c3ac-ce6e-433f-b2b6-54ab4e01e21b','Consultant Check and Second Revision of Passage 1','2026-08-21','2026-08-21 11:00+08','2026-08-21 16:00+08',13,'Checking'),
+  ('cc300000-0000-4000-8000-000000000018','74d1c3ac-ce6e-433f-b2b6-54ab4e01e21b','The OBT Process: Steps, Skills, and Relationships','2026-08-22','2026-08-22 09:00+08','2026-08-22 10:30+08',14,'Discussion'),
+  ('cc300000-0000-4000-8000-000000000014','74d1c3ac-ce6e-433f-b2b6-54ab4e01e21b','Passage 2 Exegesis','2026-08-22',null,null,15,'Practice (light evaluation)'),
+  ('cc300000-0000-4000-8000-000000000015','74d1c3ac-ce6e-433f-b2b6-54ab4e01e21b','Passage 2 Internalization','2026-08-22',null,null,16,'Practice (light evaluation)'),
+  ('cc300000-0000-4000-8000-000000000016','74d1c3ac-ce6e-433f-b2b6-54ab4e01e21b','Passage 2 Draft and Record','2026-08-22',null,null,17,'Practice (light evaluation)'),
   ('cc300000-0000-4000-8000-000000000017','74d1c3ac-ce6e-433f-b2b6-54ab4e01e21b','Celebration','2026-08-22',null,null,18,'Closing')
 on conflict (id) do update set
   title = excluded.title, day = excluded.day, start_time = excluded.start_time,
