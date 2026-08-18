@@ -58,6 +58,49 @@
 -- evaluator is, and a rubric that still asks it for board-built evidence would
 -- mark participants down for the absence of something the course never collects.
 -- CC-WF1's rubric already carried such a note; this follows its precedent.
+--
+-- Second revision of 2026-08-18, applied before Exegete Passage 1 at 14:30 WITA on
+-- Day One. Joshua: "the exegesis evaluations should include a spot for how people
+-- are engaging. Additionally, we may not be reading the notes that they take
+-- during the time. Instead, we need to also be paying attention to how people are
+-- doing exegesis in their groups later in the day."
+--
+-- That reverses a recommendation made in writing the same morning. tl-24's gap
+-- ledger item 3 and tl-27's memo item 3 are the same gap seen twice: the canonical
+-- guide has been asking since April 2025 for "a step ... that allows for
+-- evaluation of how well they can conduct a holistic exegesis conversation", and
+-- Exegete Passage 1 defers "the participants' ability to communicate exegesis
+-- findings in an oral fashion" to a session the week does not contain. The memo
+-- priced closing it as a curriculum change and parked it for Crash Course 3.0.
+-- Joshua's decision is to close it now, in the rubric, and it costs no schedule
+-- change because the session it needs is already on the calendar. The memo's
+-- item 3 is amended rather than left reading as parked.
+--
+-- What changes, and both halves answer one sentence of his each:
+--   * CC-EX1 stops being a notes question. Its evidence is now what a facilitator
+--     watches a team do while it exegetes, with the turned-in notes corroborating
+--     where anybody reads them, so the question still resolves on a night nobody
+--     does. `short_label` moves from 'Exegesis notes' to 'Exegesis' because the
+--     label is what an evaluator sees on the card.
+--   * CC-EX2 is new: the spot for how people are engaging. It is the observed
+--     conversation, which is what a consultant will actually spend their time
+--     doing, and its guiding questions carry the oral-communication half of the
+--     gap that had no site at all.
+--
+-- CC-EX1's four descriptors are rewritten, which is the second authorized
+-- descriptor edit in this file and it discharges an amendment owed since
+-- 2026-08-07. tl-26 routed five real captures against them and found that levels 0,
+-- 2 and 3 all turned on "the eight areas", a clause nobody speaking aloud ever
+-- supplies: the router mentioned the areas zero times in five observations, so
+-- every 2 and 3 it awarded asserted coverage the evidence did not contain. Its two
+-- low descriptors were also conjunctive, and two real participants fitted neither.
+-- Each point now names ONE distinguishing property, which is tl-26's own cheaper
+-- fix. The eight areas survive in the guiding questions and the AI rubric, where a
+-- reader can consult them, rather than in the descriptors, where a rater had to
+-- have counted them.
+--
+-- Ten course questions now, not nine, and forty descriptors, not thirty-six.
+-- Distribution moves to OR 1, WF 3, EID 4, IP 1, TR 1.
 
 begin;
 
@@ -173,18 +216,49 @@ insert into ksa (
  ]::text[]),
 
 -- CC-EX1 ---------------------------------------------------------------------
+-- Revised 2026-08-18. Was 'Exegesis notes', rated off the document turned in at the
+-- end of Day One. It is now rated off the exegesis a facilitator watches the team
+-- actually do, because the notes may go unread and a question whose only evidence
+-- is unread is a question that silently does not get answered.
 ('cc200000-0000-4000-8000-000000000004', '74d1c3ac-ce6e-433f-b2b6-54ab4e01e21b', 'cc100000-0000-4000-8000-000000000003',
- 'CC-EX1', 'Exegesis notes',
- 'Exegesis notes turned in at the end of Day One, read on technical accuracy and coverage of the eight areas of inquiry: the seven from section four of Frost, Mustin and Beal (2024) plus cultural and historical background as the eighth. Canonical evaluation line: "turn in exegesis notes... evaluated by the course facilitators on technical accuracy and coverage of topics."',
- 'Read the notes as the person who has to draft from them tomorrow. Could you?',
- 'Knowledge: exegesis is a core process in OBT, and the best practices for it, including holistic exegesis (Harmelink 2025) and the eight areas of inquiry. Attitude: highly regards exegesis as a core OBT process. Skill: can exegete an OBT passage and explain practices for facilitating the process. Evaluation: technical accuracy and coverage of the eight areas, judged on whether a drafting team could work from these notes and whether conclusions are traceable to a resource or an argument rather than asserted.',
- '{"0":"Notes address the passage''s plain content only. Fewer than half of the eight areas are touched, and at least one conclusion contradicts the text.","1":"Notes cover most areas but stay at the level of summary. Where the passage is difficult, the note restates the difficulty rather than resolving it, and cultural and historical background is absent or generic.","2":"All eight areas are covered and the conclusions are defensible. The team could draft from these notes. Sourcing is thin in places and one or two areas are treated more lightly than the passage warrants.","3":"All eight areas are covered, and the notes anticipate what the drafting team will actually stumble over: the ambiguous term, the implicit participant, the cultural gap. Conclusions are traceable to a resource or an argument rather than asserted."}'::jsonb,
+ 'CC-EX1', 'Exegesis',
+ 'The exegesis this participant actually does on the passage, watched while their group works and corroborated by the notes turned in at the end of the day wherever a facilitator reads them. The eight areas of inquiry are the seven from section four of Frost, Mustin and Beal (2024) plus cultural and historical background as the eighth. Canonical evaluation line: "turn in exegesis notes... evaluated by the course facilitators on technical accuracy and coverage of topics." Joshua''s decision of 2026-08-18 widens that evidence rather than narrowing the question: the notes are one source and the group session is the other, and either can carry the rating on its own.',
+ 'Follow the exegesis this person actually does while their group works. Could you draft from what they worked out?',
+ 'Knowledge: exegesis is a core process in OBT, and the best practices for it, including holistic exegesis (Harmelink 2025) and the eight areas of inquiry. Attitude: highly regards exegesis as a core OBT process. Skill: can exegete an OBT passage and explain practices for facilitating the process. Evaluation: technical accuracy and coverage of the eight areas, judged on whether a drafting team could work from what this person produced and whether conclusions are traceable to a resource or an argument rather than asserted. Note for the router: from 2026-08-18 the evidence is primarily an observed group session and only secondarily the written notes, so a capture that describes what somebody said in their team is on-target rather than off it. Do NOT require an enumeration of the eight areas: an evaluator speaking aloud never supplies one, this rubric''s earlier descriptors did require it, and the result was that every high designation asserted coverage the evidence did not contain. Judge the reasoning that is described. Absence of the notes is not evidence of weakness.',
+ '{"0":"Works only from what the passage plainly says. Reads past the places where it is hard rather than noticing them, so nothing they contribute would change how the team drafts.","1":"Notices where the passage is hard and can name the difficulty, but leaves it named. The team is no closer to knowing what to do about it than before they spoke.","2":"Resolves at least one real difficulty in the passage and can say what the resolution rests on, so the team can draft from it. This is the course''s bar.","3":"Anticipates what the drafting team will stumble over before they reach it, the ambiguous term or the implicit participant or the cultural gap, and brings a resource or an argument to it rather than an opinion."}'::jsonb,
  ARRAY[]::text[],
  ARRAY[
-   'Are all eight areas of inquiry touched, including cultural and historical background?',
-   'Where the passage is difficult, does the note resolve the difficulty or only restate it?',
-   'Are conclusions traceable to a resource or an argument, or asserted?',
-   'Do the notes anticipate what the drafting team will stumble over?'
+   'Follow one hard place in the passage: did this person notice it, and did the group leave it resolved or open?',
+   'What do their conclusions rest on, a resource, an argument, or an assertion?',
+   'Which of the eight areas of inquiry did their work actually reach, and which got skipped?',
+   'If you read the notes tonight, do they say what you watched them work out?',
+   'Would you be willing to draft from this tomorrow?'
+ ]::text[]),
+
+-- CC-EX2 ---------------------------------------------------------------------
+-- New 2026-08-18, and it is the spot for how people are engaging. It closes the
+-- half of tl-24's gap ledger item 3 that had no site anywhere in the week: the
+-- canonical guide asks for evaluation of "how well they can conduct a holistic
+-- exegesis conversation", and Exegete Passage 1 defers "the ability to communicate
+-- exegesis findings in an oral fashion" to a later session that does not exist.
+-- Both are observed here.
+--
+-- It deliberately borrows CC-IP1's rule about temperament, because the failure mode
+-- of an engagement question is rating volume. Point 3 is written so a quiet
+-- participant can reach it and a talkative one cannot reach it by talking.
+('cc200000-0000-4000-8000-000000000010', '74d1c3ac-ce6e-433f-b2b6-54ab4e01e21b', 'cc100000-0000-4000-8000-000000000003',
+ 'CC-EX2', 'Engagement in the exegesis',
+ 'How this participant engages the exegesis work in their group: whether they bring something to the passage unasked, put questions to the text, say a finding aloud in a form the rest of the group can use, and let the group''s work change what they thought. This is the skill the canonical guide has been asking to evaluate since April 2025, "a step needs to be built in that allows for evaluation of how well they can conduct a holistic exegesis conversation", together with the oral-communication half that Exegete Passage 1 defers to a session the week does not hold. Rate engagement with the work, not volume of speech: a quiet participant who moves the group''s reading forward stands above a talkative one who does not.',
+ 'Watch how this person engages the exegesis rather than how much they talk. Did the group''s reading of the passage move because they were in it?',
+ 'Knowledge: exegesis is a core process in OBT, and the best practices for facilitating it, including holistic exegesis (Harmelink 2025). Attitude: highly regards exegesis as a core OBT process and treats a colleague''s question about the text as worth following. Skill: can conduct a holistic exegesis conversation and communicate exegetical findings orally, in a form a team can act on. Evaluation: how the participant engages the group''s exegesis work, judged on what they bring unprompted, whether their contributions answer what somebody else raised, whether a finding can be said aloud usefully rather than only written down, and whether they revise their own reading when the text pushes back. Note for the router: this is a question about an observed conversation, so the evidence is what the participant did in their team and never a document. Rate conduct in the work, not temperament, exactly as CC-IP1 does: silence is not a low score and confidence is not a high one, and a capture describing a quiet participant whose question reframed the group belongs at the top of the scale rather than the middle. This question is new on 2026-08-18 and has no captures behind it, so do not expect corroborating history.',
+ '{"0":"Present but not in the work. Waits to be handed conclusions, or works alone beside the group rather than with it.","1":"Engages when engaged. Answers what is put to them and does the part they are given, but brings nothing to the passage that nobody asked them for.","2":"Brings something to the passage unprompted and says it in a form the rest of the group can use, and listens closely enough that their next contribution answers what somebody else raised. This is the course''s bar.","3":"Conducts the conversation rather than contributing to it: asks the question the group needed, draws in the person who has not spoken, and says out loud when a hard verse has been settled too quickly. Changes their own reading when the text pushes back, and says that is what happened."}'::jsonb,
+ ARRAY[]::text[],
+ ARRAY[
+   'Did they bring anything to the passage that nobody asked them for?',
+   'Does their next contribution answer what somebody else raised, or restart their own point?',
+   'When the group settled a hard verse quickly, did anybody say so, and was it them?',
+   'Can they say a finding aloud in a form the group can use, without reading it off the page?',
+   'Did their own reading change during the session, and did they say why?'
  ]::text[]),
 
 -- CC-IN1 ---------------------------------------------------------------------
@@ -374,8 +448,15 @@ insert into activity_ksa (activity_id, ksa_id, sort_order, prompt_override, guid
    'The same first impression, for roles rather than steps: as the week is laid out, does this person ask who does what, or only what gets done? Mostly presented, so rate only if you have grounds, and leave it unrated otherwise. The Day Five process discussion is the real capture point.',null),
   ('cc300000-0000-4000-8000-000000000002','cc200000-0000-4000-8000-000000000001',0,
    'How does this person talk about orality once the discussion gets specific, and what do they say has to change about a translation when the audience listens rather than reads? The devotion enactment that opens the session is not rated, so start at the debrief. The clearest evidence comes late, where the group works out why recording a written translation does not make it oral and what an oral product would need instead.',null),
+  -- Revised 2026-08-18. The old override read "The notes turned in by the end of
+  -- the evening are the evidence here, not what you watched in the room", which is
+  -- the exact instruction Joshua reversed: the notes may not get read, and the
+  -- room is where the exegesis happens. Both exegesis questions now sit on this
+  -- session, CC-EX1 for the work and CC-EX2 for how they engage it.
   ('cc300000-0000-4000-8000-000000000004','cc200000-0000-4000-8000-000000000004',0,
-   'Read the notes as the person who has to draft from them tomorrow. Could you? The notes turned in by the end of the evening are the evidence here, not what you watched in the room.',null),
+   'Sit with a team and follow the exegesis they actually do. Could you draft from what this person worked out? What you watch in the room is the evidence; the notes turned in tonight confirm or correct it if you read them, and this question still stands on the session if nobody does.',null),
+  ('cc300000-0000-4000-8000-000000000004','cc200000-0000-4000-8000-000000000010',1,
+   'This is the capture point for engagement. Watch how this person engages the exegesis rather than how much they talk: did the group''s reading of the passage move because they were in it? Rate the work, not the volume, and remember that a quiet participant whose one question reframed the passage belongs high on this scale.',null),
   -- Day Two
   ('cc300000-0000-4000-8000-000000000006','cc200000-0000-4000-8000-000000000005',0,null,null),
   ('cc300000-0000-4000-8000-000000000007','cc200000-0000-4000-8000-000000000009',0,
@@ -399,7 +480,9 @@ insert into activity_ksa (activity_id, ksa_id, sort_order, prompt_override, guid
    'Receiving consultant-level feedback and then revising is the evidence: what did this person do when the consultant''s note was hard to hear? The guide gives this session no evaluation line of its own; the question is attached on the strength of the KSA table''s Interpersonal row.',null),
   -- Day Five, which the guide marks "Evaluation: Light. The goal is reps, not measurement, though facilitators continue to observe."
   ('cc300000-0000-4000-8000-000000000014','cc200000-0000-4000-8000-000000000004',0,
-   'Read their Passage 2 notes as a light second look. Day Five is reps rather than measurement, so rate only if this round genuinely changes your first read of their exegesis.',null),
+   'Follow their exegesis of Passage 2 as a light second look. Day Five is reps rather than measurement, so rate only if this round genuinely changes your first read of their exegesis.',null),
+  ('cc300000-0000-4000-8000-000000000014','cc200000-0000-4000-8000-000000000010',1,
+   'A light second look at engagement, now that they have done this once before. Rate only if this round genuinely changes your first read of how they engage the work.',null),
   ('cc300000-0000-4000-8000-000000000015','cc200000-0000-4000-8000-000000000005',0,
    'Watch them internalize Passage 2 as a light second look. Day Five is reps rather than measurement, so rate only if this round genuinely changes your first read of their internalization.',null),
   ('cc300000-0000-4000-8000-000000000016','cc200000-0000-4000-8000-000000000006',0,
@@ -424,13 +507,18 @@ commit;
 -- makes the invariant hold is structural, not the numbers — every statement here
 -- names Crash Course ids, so none of them can reach Psalms at all.
 --
--- After the 2026-08-18 revision the Crash Course reads: 18 of this file's
+-- After the second 2026-08-18 revision the Crash Course reads: 18 of this file's
 -- activities dated in range plus tl-30's undated 'Instructor feedback', 5 goals,
--- this file's 9 questions plus tl-30's 3 instructor questions, 22 wiring rows,
--- 36 non-empty descriptors, 0 questions missing a point, 0 placeholder hits, 0
+-- this file's 10 questions plus tl-30's 3 instructor questions, 24 wiring rows,
+-- 52 non-empty descriptors (this file's 40 plus tl-30's 12, since the query counts
+-- the workshop and not the file), 0 questions missing a point, 0 placeholder hits, 0
 -- unwired questions, 0 null AI rubrics, and exactly three activities without a
 -- question: Exegesis for OBT, Internalization for OBT, Celebration. Day Five now
 -- holds five activities.
+--
+-- The two exegesis sessions each carry two questions after this revision, which is
+-- the one count worth reading directly rather than inferring from the total, so it
+-- is asserted below as `exegesis_sessions`.
 --
 -- `activities_per_day` coalesces the day. tl-30 added an undated activity after
 -- this file was written, and `json_object_agg` rejects a null key, so the original
@@ -468,6 +556,15 @@ select json_build_object(
            and not exists (select 1 from activity_ksa ak where ak.activity_id = a.id)),
       'wiring_rows', (select count(*) from activity_ksa ak
          join activity a on a.id = ak.activity_id where a.workshop_id = w.id),
+      -- Added by the second 2026-08-18 revision. Both sessions where a team does
+      -- exegesis must carry BOTH exegesis questions, and a total row count cannot
+      -- say that: 24 is also what one session with four questions would print.
+      'exegesis_sessions', (select json_object_agg(a.title, (
+           select json_agg(k.code order by ak.sort_order) from activity_ksa ak
+             join ksa k on k.id = ak.ksa_id where ak.activity_id = a.id))
+         from activity a where a.workshop_id = w.id
+           and a.id in ('cc300000-0000-4000-8000-000000000004',
+                        'cc300000-0000-4000-8000-000000000014')),
       'questions_with_null_ai_rubric', (select count(*) from ksa
          where workshop_id = w.id and ai_facing_rubric is null)
     ) from workshop w where w.id = '74d1c3ac-ce6e-433f-b2b6-54ab4e01e21b'),
