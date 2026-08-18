@@ -11,7 +11,7 @@
 --
 -- Three groups of checks, and they answer different questions:
 --
---   A. STATE. Are the eighteen pairs the ones Joshua asked for? No auth needed,
+--   A. STATE. Are the fourteen pairs the ones Joshua asked for? No auth needed,
 --      and this is the half that would catch a data entry error in the roster
 --      script.
 --   B. THE REAL ACCOUNTS. Joshua, Mathew Thomas and Irene van Riezen have signed
@@ -20,9 +20,24 @@
 --      model of it.
 --   C. FIXTURES. Nikki, Viji and Angie have not signed up as of 2026-08-17, so
 --      the behaviours only they exercise — a reviewer-only `participant` account,
---      an evaluator with no pair, the write path — are proved with throwaway
---      accounts. Everything created here is prefixed `tl30-` and removed at the
---      bottom of this same file.
+--      an evaluator with no pair, a second reviewer of the same instructor, the
+--      write path — are proved with throwaway accounts. Everything created here
+--      is prefixed `tl30-` and removed at the bottom of this same file.
+--
+-- AMENDED 2026-08-18, when Joshua narrowed the matrix so that Mathew and Irene,
+-- who evaluate the trainees, review no instructor at all. Two things that change
+-- about this file and are worth reading before editing it again.
+--
+-- Mathew and Irene now hold a shape no fixture had: a trainee-side evaluator who
+-- is ALSO an instructor subject. Group B is rewritten around that, in both
+-- directions — the instructor half closes, the trainee half must not.
+--
+-- And the sharpest question in the file, "may another reviewer of the same person
+-- read this?", was asked with Mathew as the co-reviewer. He is not one any more,
+-- so asking it of him would still pass while testing nothing but the outsider
+-- case that is already covered. A `tl30-coreviewer` fixture now holds the second
+-- pair on Joshua and asks it properly. Narrowing a matrix can quietly downgrade
+-- an assertion from the question it was written for to one that is merely true.
 --
 -- The file is read-only with respect to real data. The only rows it writes are
 -- its own fixtures, and the last block deletes them on the prefix alone.
@@ -127,7 +142,7 @@ declare
   _got text;
 begin
   select count(*) into _n from instructor_reviewer;
-  perform tl30_assert('eighteen pairs in total', _n = 18, format('%s', _n));
+  perform tl30_assert('fourteen pairs in total', _n = 14, format('%s', _n));
 
   -- Each reviewer's list, compared as a sorted string so a missing or extra grant
   -- shows up as the actual value rather than as a count.
@@ -137,17 +152,16 @@ begin
   perform tl30_assert('Crash Course: Joshua reviews Irene and Mathew',
                       _got = 'Irene van Riezen, Mathew Thomas', coalesce(_got, '(none)'));
 
+  -- The 2026-08-18 narrowing, as state. Mathew and Irene teach and also evaluate
+  -- the trainees, and Joshua's rule is that the second job costs them the first
+  -- one's reciprocity. Asserted as an aggregate over BOTH workshops rather than
+  -- over the Crash Course alone, so a grant added somewhere else does not slip
+  -- past a check that only looked where the grants used to be.
   select string_agg(p.name, ', ' order by p.name) into _got
     from instructor_reviewer r join participant p on p.id = r.instructor_participant_id
-   where r.workshop_id = _cc and r.reviewer_email = 'mathewtperumal@gmail.com';
-  perform tl30_assert('Crash Course: Mathew reviews Irene and Joshua',
-                      _got = 'Irene van Riezen, Joshua C. Frost', coalesce(_got, '(none)'));
-
-  select string_agg(p.name, ', ' order by p.name) into _got
-    from instructor_reviewer r join participant p on p.id = r.instructor_participant_id
-   where r.workshop_id = _cc and r.reviewer_email = 'irene@sall.com';
-  perform tl30_assert('Crash Course: Irene reviews Joshua and Mathew',
-                      _got = 'Joshua C. Frost, Mathew Thomas', coalesce(_got, '(none)'));
+   where r.reviewer_email in ('mathewtperumal@gmail.com', 'irene@sall.com');
+  perform tl30_assert('Mathew and Irene review no instructor, in any workshop',
+                      _got is null, coalesce(_got, '(none)'));
 
   select string_agg(p.name, ', ' order by p.name) into _got
     from instructor_reviewer r join participant p on p.id = r.instructor_participant_id
@@ -234,16 +248,24 @@ begin
   -- the number, which quietly retires the invariant. What tl-30 must not do is
   -- REMOVE a trainee or relabel one as an instructor, so that is what is asserted:
   -- every one of tl-25's four is still on file and still a trainee.
+  --
+  -- Amended again 2026-08-18, and NOT by this spec: commit 8e6e643 took Sibaji
+  -- Digal out of the Crash Course after he cancelled, and put Jael and Jillian
+  -- into Psalms. Both assertions below went red on a roster change that was
+  -- deliberate and correct. They are moved to the roster as that commit left it
+  -- rather than loosened, because the invariant is still worth having and a
+  -- harness nobody trusts is a harness nobody reads. `...000003` is Sibaji and
+  -- is deliberately absent from the list.
   select count(*) into _n from participant
    where workshop_id = _cc and category = 'participant'
      and id in ('cc400000-0000-4000-8000-000000000001','cc400000-0000-4000-8000-000000000002',
-                'cc400000-0000-4000-8000-000000000003','cc400000-0000-4000-8000-000000000004');
-  perform tl30_assert('tl-25''s four Crash Course trainees are all still trainees', _n = 4,
-    format('%s of 4', _n));
+                'cc400000-0000-4000-8000-000000000004');
+  perform tl30_assert('tl-25''s trainees, less the one who cancelled, are all still trainees',
+    _n = 3, format('%s of 3', _n));
   select count(*) into _n from participant where workshop_id = _cc and category = 'participant';
-  perform tl30_assert('and the roster has only grown since', _n >= 4, format('%s now', _n));
+  perform tl30_assert('and the roster has only grown since', _n >= 3, format('%s now', _n));
   select count(*) into _n from participant where workshop_id = _psalms and category = 'participant';
-  perform tl30_assert('the songs workshop still has 22 trainees', _n = 22, format('%s', _n));
+  perform tl30_assert('the songs workshop has 24 trainees', _n = 24, format('%s', _n));
 
   select count(*) into _n from activity where audience = 'instructor';
   perform tl30_assert('exactly two instructor events, one per workshop', _n = 2, format('%s', _n));
@@ -289,38 +311,91 @@ begin
   select auth_user_id into _mathew from app_user where email = 'mathewtperumal@gmail.com';
   select auth_user_id into _irene  from app_user where email = 'irene@sall.com';
 
-  -- Mathew Thomas: an evaluator holding two pairs.
-  perform tl30_try('allowed', 'Mathew reads Joshua''s instructor row', _mathew,
+  -- Mathew Thomas, since 2026-08-18: a trainee-side evaluator who is also an
+  -- instructor SUBJECT and holds no pair. Being written about grants a read of
+  -- your own row and of what is written about you, and nothing else. Every
+  -- negative below is paired with the positive of the same shape, because a
+  -- reviewer who has just lost two grants returns zero rows for a great many
+  -- wrong reasons as well as the right one.
+  perform tl30_try('blocked', 'Mathew CANNOT read Joshua''s instructor row any more', _mathew,
     $q$select 1 from participant where id = '30400000-0000-4000-8000-000000000011'$q$);
-  perform tl30_try('allowed', 'Mathew reads Irene''s instructor row', _mathew,
+  perform tl30_try('blocked', 'Mathew CANNOT read Irene''s instructor row any more', _mathew,
     $q$select 1 from participant where id = '30400000-0000-4000-8000-000000000013'$q$);
   perform tl30_try('allowed', 'Mathew reads his OWN instructor row (he is its subject)', _mathew,
     $q$select 1 from participant where id = '30400000-0000-4000-8000-000000000012'$q$);
-  -- The asymmetry, enforced rather than merely configured.
   perform tl30_try('blocked', 'Mathew CANNOT read Viji''s instructor row', _mathew,
     $q$select 1 from participant where id = '30400000-0000-4000-8000-000000000014'$q$);
-  perform tl30_try('allowed', 'Mathew sees the Crash Course Instructor feedback event', _mathew,
+  -- The event leaves his schedule with the pairs: activity_select gates an
+  -- instructor-audience event on reviews_any_instructor(), which is now false for
+  -- him. This is what makes the narrowing visible on his phone rather than only
+  -- at submit time.
+  perform tl30_try('blocked', 'Mathew no longer sees the Crash Course Instructor feedback event', _mathew,
     $q$select 1 from activity where id = '30300000-0000-4000-8000-000000000001'$q$);
   perform tl30_try('allowed', 'Mathew still reads the Crash Course trainees', _mathew,
     $q$select 1 from participant where workshop_id = '74d1c3ac-ce6e-433f-b2b6-54ab4e01e21b'
         and category = 'participant'$q$);
+  perform tl30_try('allowed', 'and still sees the teaching events he evaluates them at', _mathew,
+    $q$select 1 from activity where workshop_id = '74d1c3ac-ce6e-433f-b2b6-54ab4e01e21b'
+        and audience = 'participant'$q$);
   perform tl30_try('blocked', 'Mathew CANNOT read the songs workshop''s instructor event', _mathew,
     $q$select 1 from activity where id = '30300000-0000-4000-8000-000000000002'$q$);
   perform tl30_try('blocked', 'Mathew CANNOT read the songs workshop''s trainees', _mathew,
     $q$select 1 from participant where workshop_id = '11111111-1111-1111-1111-111111111111'$q$);
-  -- He sees the pairs that name him, and not the rest of the matrix.
-  perform tl30_try('allowed', 'Mathew reads his own reviewer pairs', _mathew,
+  -- He holds no pair of his own, and still sees the ones naming him as subject.
+  -- The pair he can read is the evidence that the empty result above is about the
+  -- grants being gone rather than about instructor_reviewer being unreadable.
+  perform tl30_try('blocked', 'Mathew holds no reviewer pair at all', _mathew,
     $q$select 1 from instructor_reviewer where reviewer_email = 'mathewtperumal@gmail.com'$q$);
+  perform tl30_try('allowed', 'but reads the pairs naming HIM, so he knows who may review him', _mathew,
+    $q$select 1 from instructor_reviewer
+        where instructor_participant_id = '30400000-0000-4000-8000-000000000012'$q$);
   perform tl30_try('blocked', 'Mathew CANNOT read who reviews Viji', _mathew,
     $q$select 1 from instructor_reviewer
         where instructor_participant_id = '30400000-0000-4000-8000-000000000014'$q$);
 
   -- Irene: the mirror case, which catches a policy that happens to work for one
   -- person because of something else they hold.
-  perform tl30_try('allowed', 'Irene reads Mathew''s instructor row', _irene,
+  perform tl30_try('blocked', 'Irene CANNOT read Mathew''s instructor row any more', _irene,
     $q$select 1 from participant where id = '30400000-0000-4000-8000-000000000012'$q$);
+  perform tl30_try('blocked', 'Irene CANNOT read Joshua''s instructor row any more', _irene,
+    $q$select 1 from participant where id = '30400000-0000-4000-8000-000000000011'$q$);
+  perform tl30_try('allowed', 'Irene reads her OWN instructor row', _irene,
+    $q$select 1 from participant where id = '30400000-0000-4000-8000-000000000013'$q$);
   perform tl30_try('blocked', 'Irene CANNOT read Viji''s instructor row', _irene,
     $q$select 1 from participant where id = '30400000-0000-4000-8000-000000000014'$q$);
+  perform tl30_try('blocked', 'Irene no longer sees the Instructor feedback event', _irene,
+    $q$select 1 from activity where id = '30300000-0000-4000-8000-000000000001'$q$);
+  perform tl30_try('allowed', 'Irene still reads the Crash Course trainees', _irene,
+    $q$select 1 from participant where workshop_id = '74d1c3ac-ce6e-433f-b2b6-54ab4e01e21b'
+        and category = 'participant'$q$);
+
+  -- The write half of the same rule. A capture is refused by the insert policy
+  -- even from a device that never refreshed and still offers the screen.
+  perform tl30_try('blocked', 'Mathew CANNOT write an instructor capture about Joshua', _mathew,
+    $q$insert into evaluation (client_id, evaluator_email, activity_id, workshop_id,
+          source_language, answers, source_text, participant_scope, attestation,
+          edit_history, created_at, updated_at, subject_kind, focus_participant_id)
+        values ('tl30-cap-mathew-denied', 'mathewtperumal@gmail.com', null,
+                '74d1c3ac-ce6e-433f-b2b6-54ab4e01e21b', 'English', '{}'::jsonb, '', '[]'::jsonb,
+                true, '[]'::jsonb, now(), now(), 'instructor',
+                '30400000-0000-4000-8000-000000000011') returning 1$q$);
+  perform tl30_try('blocked', 'Irene CANNOT write an instructor capture about Mathew', _irene,
+    $q$insert into evaluation (client_id, evaluator_email, activity_id, workshop_id,
+          source_language, answers, source_text, participant_scope, attestation,
+          edit_history, created_at, updated_at, subject_kind, focus_participant_id)
+        values ('tl30-cap-irene-denied', 'irene@sall.com', null,
+                '74d1c3ac-ce6e-433f-b2b6-54ab4e01e21b', 'English', '{}'::jsonb, '', '[]'::jsonb,
+                true, '[]'::jsonb, now(), now(), 'instructor',
+                '30400000-0000-4000-8000-000000000012') returning 1$q$);
+  -- The control. Both refusals above must be about the KIND of capture, not about
+  -- these two having lost the ability to record anything.
+  perform tl30_try('allowed', 'but Mathew CAN still write an ordinary trainee capture', _mathew,
+    $q$insert into evaluation (client_id, evaluator_email, activity_id, workshop_id,
+          source_language, answers, source_text, participant_scope, attestation,
+          edit_history, created_at, updated_at, subject_kind)
+        values ('tl30-cap-mathew-trainee', 'mathewtperumal@gmail.com', null,
+                '74d1c3ac-ce6e-433f-b2b6-54ab4e01e21b', 'English', '{}'::jsonb, '', '[]'::jsonb,
+                true, '[]'::jsonb, now(), now(), 'participant') returning 1$q$);
 
   -- Joshua is chief_admin of both, so he reads everything including Viji.
   perform tl30_try('allowed', 'Joshua reads Viji''s instructor row (chief admin)', _josh,
@@ -348,12 +423,15 @@ end $$;
 -- ---------------------------------------------------------------------------
 -- C. FIXTURES. The accounts that do not exist yet, and the write paths.
 --
---    Three throwaways on the CRASH COURSE, all prefixed tl30-:
---      reviewer  — `participant` role plus one pair. Stands in for Angie.
---      outsider  — `evaluator` role and no pair. The person the feature must
---                  be invisible to.
---      subject   — an instructor with no reviewer pairs at all, to prove that
---                  being written about grants a read and nothing else.
+--    Four throwaways on the CRASH COURSE, all prefixed tl30-:
+--      reviewer   — `participant` role plus one pair. Stands in for Angie.
+--      coreviewer — `participant` role plus the SAME pair. Stands in for Nikki or
+--                   Viji, and exists only to ask whether two people who both
+--                   review Joshua can read each other's words about him.
+--      outsider   — `evaluator` role and no pair. The person the feature must
+--                   be invisible to.
+--      subject    — an instructor with no reviewer pairs at all, to prove that
+--                   being written about grants a read and nothing else.
 -- ---------------------------------------------------------------------------
 
 do $$
@@ -363,6 +441,7 @@ declare
   _josh    uuid;
   _joshapp uuid;
   _rev     uuid := gen_random_uuid();
+  _co      uuid := gen_random_uuid();
   _out     uuid := gen_random_uuid();
   _chf     uuid := gen_random_uuid();
 begin
@@ -370,6 +449,11 @@ begin
 
   insert into workshop_invitation (workshop_id, email, role, invited_by, invited_by_email, status)
   values (_cc, 'tl30-reviewer@example.org', 'participant',      _joshapp, 'josh_frost@sil.org', 'pending'),
+         -- Added 2026-08-18 with the narrowing. Mathew used to be the second
+         -- reviewer of Joshua and is not any more, so the co-reviewer question
+         -- needed a holder or it would have gone on passing while testing the
+         -- outsider case instead.
+         (_cc, 'tl30-coreviewer@example.org', 'participant',    _joshapp, 'josh_frost@sil.org', 'pending'),
          (_cc, 'tl30-outsider@example.org', 'evaluator',        _joshapp, 'josh_frost@sil.org', 'pending'),
          -- Added 2026-08-18 by the review fixes. The chief evaluator is the role
          -- that could flip an observation's `subject_kind`, and no fixture held it,
@@ -384,6 +468,10 @@ begin
           'tl30-reviewer@example.org', crypt('never-used', gen_salt('bf')), now(),
           '{"provider":"email","providers":["email"]}'::jsonb,
           '{"name":"TL30 Reviewer Only"}'::jsonb, now(), now()),
+         (_co, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated',
+          'tl30-coreviewer@example.org', crypt('never-used', gen_salt('bf')), now(),
+          '{"provider":"email","providers":["email"]}'::jsonb,
+          '{"name":"TL30 Co-Reviewer"}'::jsonb, now(), now()),
          (_out, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated',
           'tl30-outsider@example.org', crypt('never-used', gen_salt('bf')), now(),
           '{"provider":"email","providers":["email"]}'::jsonb,
@@ -393,9 +481,11 @@ begin
           '{"provider":"email","providers":["email"]}'::jsonb,
           '{"name":"TL30 Chief Evaluator"}'::jsonb, now(), now());
 
-  -- One pair for the reviewer-only account: Joshua, on the Crash Course.
+  -- One pair each for the two reviewer-only accounts, both naming Joshua. Two
+  -- rows, one instructor: that is the whole point of the second account.
   insert into instructor_reviewer (workshop_id, reviewer_email, instructor_participant_id, granted_by)
-  values (_cc, 'tl30-reviewer@example.org', _josh_cc, _joshapp);
+  values (_cc, 'tl30-reviewer@example.org',   _josh_cc, _joshapp),
+         (_cc, 'tl30-coreviewer@example.org', _josh_cc, _joshapp);
 end $$;
 
 -- The guard trigger and the write path. Run as `postgres` where the actor does not
@@ -575,22 +665,30 @@ declare
   _josh   uuid;
   _mathew uuid;
   _rev    uuid;
+  _co     uuid;
   _out    uuid;
 begin
   select auth_user_id into _josh   from app_user where email = 'josh_frost@sil.org';
   select auth_user_id into _mathew from app_user where email = 'mathewtperumal@gmail.com';
   select auth_user_id into _rev    from app_user where email = 'tl30-reviewer@example.org';
+  select auth_user_id into _co     from app_user where email = 'tl30-coreviewer@example.org';
   select auth_user_id into _out    from app_user where email = 'tl30-outsider@example.org';
 
   perform tl30_try('allowed', 'the author reads their own instructor capture', _rev,
     $q$select 1 from evaluation where client_id = 'tl30-cap-ok'$q$);
   perform tl30_try('allowed', 'the SUBJECT reads it (Joshua, and he is also chief admin)', _josh,
     $q$select 1 from evaluation where client_id = 'tl30-cap-ok'$q$);
-  -- Mathew holds a pair on Joshua, so he may WRITE about him. He may not read what
-  -- somebody else wrote. This is the distinction the whole read policy turns on.
-  perform tl30_try('blocked', 'another reviewer of the same person CANNOT read it', _mathew,
+  -- The co-reviewer holds a pair on Joshua, so he may WRITE about him. He may not
+  -- read what somebody else wrote. This is the distinction the whole read policy
+  -- turns on, and it needs somebody who actually holds the pair: asking it of a
+  -- non-reviewer tests the outsider case twice and this one not at all.
+  perform tl30_try('blocked', 'another reviewer of the same person CANNOT read it', _co,
     $q$select 1 from evaluation where client_id = 'tl30-cap-ok'$q$);
   perform tl30_try('blocked', 'an outsider evaluator CANNOT read it', _out,
+    $q$select 1 from evaluation where client_id = 'tl30-cap-ok'$q$);
+  -- Mathew is now a SUBJECT and not a reviewer, so his exclusion here is a
+  -- different fact from the one above and worth keeping separately.
+  perform tl30_try('blocked', 'an instructor subject CANNOT read a capture about somebody else', _mathew,
     $q$select 1 from evaluation where client_id = 'tl30-cap-ok'$q$);
 end $$;
 
@@ -651,12 +749,14 @@ declare
   _josh   uuid;
   _mathew uuid;
   _rev    uuid;
+  _co     uuid;
   _out    uuid;
   _chf    uuid;
 begin
   select auth_user_id into _josh   from app_user where email = 'josh_frost@sil.org';
   select auth_user_id into _mathew from app_user where email = 'mathewtperumal@gmail.com';
   select auth_user_id into _rev    from app_user where email = 'tl30-reviewer@example.org';
+  select auth_user_id into _co     from app_user where email = 'tl30-coreviewer@example.org';
   select auth_user_id into _out    from app_user where email = 'tl30-outsider@example.org';
   select auth_user_id into _chf    from app_user where email = 'tl30-chief@example.org';
 
@@ -666,9 +766,11 @@ begin
     $q$select 1 from observation where id = 'tl30-obs-instructor'$q$);
   perform tl30_try('allowed', 'the subject reads it (Joshua, also chief admin)', _josh,
     $q$select 1 from observation where id = 'tl30-obs-instructor'$q$);
-  -- THE ONE THIS FILE WAS MISSING. Mathew holds a pair on Joshua, so he may write
-  -- about him; he may not read what Angie wrote about him.
-  perform tl30_try('blocked', 'another reviewer of the SAME instructor CANNOT read it', _mathew,
+  -- THE ONE THIS FILE WAS MISSING. The co-reviewer holds a pair on Joshua, so he
+  -- may write about him; he may not read what Angie wrote about him.
+  perform tl30_try('blocked', 'another reviewer of the SAME instructor CANNOT read it', _co,
+    $q$select 1 from observation where id = 'tl30-obs-instructor'$q$);
+  perform tl30_try('blocked', 'and an instructor subject cannot read it either', _mathew,
     $q$select 1 from observation where id = 'tl30-obs-instructor'$q$);
   perform tl30_try('blocked', 'an outsider evaluator CANNOT read it', _out,
     $q$select 1 from observation where id = 'tl30-obs-instructor'$q$);
@@ -716,7 +818,9 @@ begin
             returning 1$q$, _cc));
   perform tl30_try('allowed', 'and reads it back', _rev,
     $q$select 1 from verification_verdict where id = 'tl30-vv-instructor'$q$);
-  perform tl30_try('blocked', 'another reviewer of the same instructor CANNOT read that verdict', _mathew,
+  perform tl30_try('blocked', 'another reviewer of the same instructor CANNOT read that verdict', _co,
+    $q$select 1 from verification_verdict where id = 'tl30-vv-instructor'$q$);
+  perform tl30_try('blocked', 'nor can an instructor subject who is not this one', _mathew,
     $q$select 1 from verification_verdict where id = 'tl30-vv-instructor'$q$);
   perform tl30_try('blocked', 'nor can an outsider evaluator', _out,
     $q$select 1 from verification_verdict where id = 'tl30-vv-instructor'$q$);

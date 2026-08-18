@@ -8,20 +8,25 @@
 -- rows, 30600000 = person rows this file creates. No DELETE and no unscoped
 -- UPDATE anywhere in the file.
 --
--- ## The eighteen pairs, and why they are not a formula
+-- ## The fourteen pairs, and why they are not a formula
 --
--- Joshua's rules very nearly reduce to "everyone reviews everyone except
--- themselves". They do not, because of one person: **Viji Mathew is reviewed only
--- by Nikki Mustin and Angeline Foo**, while himself reviewing all the other
--- facilitators. He is at both workshops as a lead rather than as a co-teacher,
--- and Joshua's instruction was specific. So every grant is written out. Eighteen
--- rows is more typing than a flag and it is the only form in which the exception
--- is visible to the next person who reads this file.
+-- Instructor feedback flows one way. The course lead reviews his co-facilitators;
+-- the senior consultant and the external reviewer review the facilitators; a
+-- facilitator who is also a trainee-side evaluator reviews trainees and nobody
+-- else. Two people break any formula you might write from that sentence.
+-- **Viji Mathew is reviewed only by Nikki Mustin and Angeline Foo**, while
+-- himself reviewing all the other facilitators, because he is at both workshops
+-- as a lead rather than as a co-teacher. And **Nikki reviews everybody and is
+-- reviewed by nobody**, because she is not being taught or assessed here.
+--
+-- So every grant is written out. Fourteen rows is more typing than a flag and it
+-- is the only form in which the exceptions are visible to the next person who
+-- reads this file.
 --
 --   Crash Course (four instructors: Joshua, Mathew Thomas, Irene, Viji)
 --     Joshua          -> Mathew, Irene
---     Mathew Thomas   -> Joshua, Irene
---     Irene           -> Joshua, Mathew
+--     Mathew Thomas   -> nobody
+--     Irene           -> nobody
 --     Nikki Mustin    -> Joshua, Mathew, Irene, Viji
 --     Viji Mathew     -> Joshua, Mathew, Irene
 --
@@ -32,6 +37,14 @@
 --
 -- Nobody reviews themselves, and the trigger installed by the migration refuses
 -- such a row even if a future edit to this file tries to write one.
+--
+-- **Amended 2026-08-18**, on day one of the Crash Course. This file first wrote
+-- eighteen pairs on the rule "everyone reviews everyone except themselves";
+-- Joshua then narrowed it so that Mathew and Irene, who evaluate the trainees,
+-- review no instructor at all. Their four grants came out. Do not restore them
+-- as a tidy-up, and do not express the rule as a role check: "an `evaluator` may
+-- not hold an instructor pair" would revoke Viji, who is invited to this
+-- workshop as an `evaluator`.
 --
 -- ## Three of the five reviewers have no account yet
 --
@@ -184,7 +197,7 @@ on conflict (id) do update set
   category = excluded.category;
 
 -- ---------------------------------------------------------------------------
--- 3. The eighteen grants.
+-- 3. The fourteen grants.
 --
 --    Written as plain inserts rather than through set_instructor_review_pair(),
 --    for the reason tl-25 gives about its own roster rows: this file runs as
@@ -192,16 +205,27 @@ on conflict (id) do update set
 --    round-tripping through an RLS impersonation block here would test the RPC
 --    rather than establish the data. The guard trigger still fires, so a self-
 --    review pair or a non-instructor target fails here exactly as it would there.
+--
+--    AMENDED 2026-08-18. This block granted eighteen pairs when tl-30 shipped,
+--    on the rule "everyone reviews everyone except themselves". On day one of
+--    the Crash Course Joshua narrowed it: an evaluator reviews trainees and
+--    nobody else. So Mathew's two grants and Irene's two came out, leaving
+--    fourteen. Instructor feedback now flows one way — the course lead reviews
+--    his co-facilitators, and the senior consultant and the external reviewer
+--    review the facilitators. See scripts/tl30-narrow-instructor-reviewers.sql,
+--    which is the change as applied to the live data, and do not "restore the
+--    symmetry" here: the asymmetry IS the rule.
+--
+--    And do not reduce that rule to a role. "An `evaluator` may not hold an
+--    instructor pair" would revoke Viji, who is invited to the Crash Course as
+--    an `evaluator` and is the one person who reviews everybody.
 -- ---------------------------------------------------------------------------
 
 insert into instructor_reviewer (workshop_id, reviewer_email, instructor_participant_id, granted_by) values
-  -- Crash Course: the three co-teachers review each other.
+  -- Crash Course: the course lead reviews his two co-facilitators. They review
+  -- trainees only, so there is no row pointing back at him or at each other.
   ('74d1c3ac-ce6e-433f-b2b6-54ab4e01e21b', 'josh_frost@sil.org',       '30400000-0000-4000-8000-000000000012', 'b7e5f597-de75-4116-bcc3-f24b27b33407'),
   ('74d1c3ac-ce6e-433f-b2b6-54ab4e01e21b', 'josh_frost@sil.org',       '30400000-0000-4000-8000-000000000013', 'b7e5f597-de75-4116-bcc3-f24b27b33407'),
-  ('74d1c3ac-ce6e-433f-b2b6-54ab4e01e21b', 'mathewtperumal@gmail.com', '30400000-0000-4000-8000-000000000011', 'b7e5f597-de75-4116-bcc3-f24b27b33407'),
-  ('74d1c3ac-ce6e-433f-b2b6-54ab4e01e21b', 'mathewtperumal@gmail.com', '30400000-0000-4000-8000-000000000013', 'b7e5f597-de75-4116-bcc3-f24b27b33407'),
-  ('74d1c3ac-ce6e-433f-b2b6-54ab4e01e21b', 'irene@sall.com',           '30400000-0000-4000-8000-000000000011', 'b7e5f597-de75-4116-bcc3-f24b27b33407'),
-  ('74d1c3ac-ce6e-433f-b2b6-54ab4e01e21b', 'irene@sall.com',           '30400000-0000-4000-8000-000000000012', 'b7e5f597-de75-4116-bcc3-f24b27b33407'),
   -- Crash Course: Nikki reviews all four, and is the only route to Viji here
   -- besides Angie, who is not at this workshop.
   ('74d1c3ac-ce6e-433f-b2b6-54ab4e01e21b', 'nikkicm23@gmail.com',      '30400000-0000-4000-8000-000000000011', 'b7e5f597-de75-4116-bcc3-f24b27b33407'),
