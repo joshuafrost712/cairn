@@ -415,7 +415,7 @@ class CairnDB extends Dexie {
     // order to index it, and that broke the app: `stores()` REPLACES a table's
     // index list rather than extending it, so re-listing `observations` from
     // memory of version 2 silently dropped the `workshop_id` and `sync_status`
-    // indexes that version 11 had added, and `SyncStatusBar`'s
+    // indexes that version 11 had added, and `SyncStatusBadge`'s
     // `where('sync_status')` threw on every page. The two-viewport audit caught
     // it; nothing in the unit suite would have.
     //

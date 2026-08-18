@@ -691,7 +691,7 @@
     },
     {
       "id": "sync.stranded",
-      "label": "This version of the app cannot send your work, so nothing you record here is reaching anyone else. Open the app with a connection so it can update itself, then check that the count above drops to zero."
+      "label": "This version of the app cannot send your work, so nothing you record here is reaching anyone else. Open the app with a connection so it can update itself, then check that the count here drops to zero."
     },
     {
       "id": "sync-health.title",

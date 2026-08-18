@@ -117,7 +117,7 @@ const ALLOWED_UNSCOPED = new Map<string, string>([
     "keyed on evaluator_email: this device's own verdicts, which travel per evaluator rather than per workshop",
   ],
   [
-    'src/components/SyncStatusBar.tsx',
+    'src/components/SyncStatusBadge.tsx',
     'keyed on sync_status: what this DEVICE still owes the backend, which is a device question and spans workshops',
   ],
   ['src/db/settings.ts', 'settings rows, which are keyed by workshop already'],

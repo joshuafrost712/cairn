@@ -35,11 +35,14 @@
 
 /* The accent edge is an INSET SHADOW, not a thicker border, and that is a layout
    decision rather than a stylistic one. `.shell--wide .shell__nav` pins itself with
-   `top: var(--header-h, 57px)`, and nothing in the app ever sets --header-h — 57px
-   is a measured constant wearing a custom property's clothes. Growing the border to
-   2px would make the real header 58px and leave the sidebar one pixel out of
-   register on every wide screen, for a colour. A shadow paints inside the box and
-   costs no height. */
+   `top: var(--header-h, …)`, so anything that changes the header's real height
+   moves the sidebar out of register. A shadow paints inside the box and costs no
+   height; a 2px border would cost one pixel, for a colour.
+
+   --header-h is now MEASURED: AppShell observes this element and writes the value
+   onto `.shell`. The 57px literal below is only the cold-start default for the
+   frame before the observer fires. It is no longer a number to maintain by hand,
+   and the header's contents can change without anybody re-measuring. */
 .shell__header {
   grid-area: header;
   position: sticky;
@@ -324,6 +327,93 @@
 
 .nav__link[aria-current='page'] .nav__count {
   background: var(--card);
+}
+
+/* ---- sync badge ---------------------------------------------------------- */
+
+/*
+ * FIXED, BECAUSE ITS TEXT CHANGES WHILE SOMEBODY IS TYPING.
+ *
+ * Every keystroke in a capture answer re-saves the row, which flips its
+ * sync_status and makes the pending count and the "Send now" button appear and
+ * vanish several times a second. This used to sit in `.shell__identity`, a flex
+ * child of the sticky, content-height header, so each of those flips resized the
+ * header and shoved the page up and down under the person typing. Out of the flow
+ * it can say whatever it likes and nothing else on the screen moves.
+ *
+ * Bottom RIGHT: devfeedback's floating button owns bottom-left (bottom 16px, left
+ * 16px), and two things in one corner is how a control ends up unclickable.
+ *
+ * No transition and no animation, on purpose. motion.css's own rule is that a
+ * width change from live data should settle rather than slide, and an animation
+ * here would also owe test/motion.test.ts a reduced-motion counterpart.
+ */
+.syncbadge {
+  position: fixed;
+  right: var(--s-3);
+  bottom: calc(var(--s-3) + env(safe-area-inset-bottom, 0px));
+  /* Under the header (30), the drawer (40) and the setup modal (60): this is the
+     least important thing on the screen and must never sit over a dialog. */
+  z-index: 25;
+  max-width: min(22rem, calc(100vw - 2 * var(--s-3)));
+  padding: var(--s-1) var(--s-3);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--card);
+  box-shadow: var(--e-1);
+  font-size: var(--t--1);
+  line-height: var(--lh-tight);
+  /* It floats over other people's controls — the workbench approve bar is sticky
+     to this same edge, and the capture page's submit button ends up under it on a
+     phone — so it must NEVER intercept a tap. Its own button takes them back
+     below, and that is the only exception, in every state. The stranded variant is
+     the one that would be tempting to make selectable: it is a paragraph, and a
+     paragraph invites a pointer. It does not get one, because it is also the
+     widest the badge ever gets and it would swallow the button underneath. Those
+     words are readable on /sync-health, where nothing is floating over anything. */
+  pointer-events: none;
+}
+
+.syncbadge__line {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  white-space: nowrap;
+}
+
+.syncbadge button {
+  pointer-events: auto;
+}
+
+/* Stranded is a paragraph, not a pill: the one state where this has to be READ
+   rather than glanced at, because the app cannot send anything at all. So it wraps
+   and squares off. It still takes no pointer events (see above). */
+.syncbadge--stranded {
+  border-radius: 10px;
+  padding: var(--s-2) var(--s-3);
+}
+
+.syncbadge--stranded .syncbadge__line {
+  white-space: normal;
+  flex-wrap: wrap;
+}
+
+.syncbadge__alert {
+  margin-top: var(--s-2);
+  margin-bottom: 0;
+}
+
+/* On a phone the badge is nearly as wide as the screen, so "bottom right" and
+   "bottom left" are the same strip and it lands on top of devfeedback's floating
+   button. That button is off for evaluators but ON for Joshua, who reaches it with
+   ?dev=1 and is the person reporting these bugs in the first place. So below the
+   sidebar breakpoint the badge sits a row higher and the two stack instead of
+   colliding. The measurement is devfeedback's own: bottom 16px plus roughly 38px of
+   button. */
+@media (max-width: 899px) {
+  .syncbadge {
+    bottom: calc(var(--s-3) + 3.4rem + env(safe-area-inset-bottom, 0px));
+  }
 }
 
 /* ---- drawer (structural sibling of devfeedback's, with its own classes) --- */

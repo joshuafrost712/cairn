@@ -20,8 +20,19 @@ import { useOnline } from './useOnline'
  * So: all three queues, the age of the oldest item, and a real warning when the
  * app cannot send. No backend vocabulary — an evaluator is told their work has
  * not been sent, not that a Supabase push failed (tl-03's copy rule).
+ *
+ * IT IS FIXED TO A CORNER, AND THAT IS A CORRECTNESS RULE RATHER THAN A TASTE.
+ * This element's text changes on every keystroke of a capture: `saveAnswers`
+ * flips the row from `synced` back to `queued` and pushes, `pushOutbox` sets it
+ * to `synced` again, and the live query below sees both. So the pending count
+ * and the "Send now" button appear and vanish several times a second while
+ * somebody types. While this lived in `.shell__identity` — a flex child of the
+ * sticky, content-height header — each of those flips changed the header's
+ * height and shoved the whole page up and down, on the app's most-used screen.
+ * Anything whose content updates per keystroke must be OUT of the document flow.
+ * Do not move it back into the header, and do not give it a width transition.
  */
-export function SyncStatusBar() {
+export function SyncStatusBadge() {
   const online = useOnline()
   const pending = useLiveQuery(
     async () => {
@@ -39,9 +50,15 @@ export function SyncStatusBar() {
   const total = pending?.total ?? 0
   const stranded = pending?.stranded ?? false
 
+  // No `role="status"` and no `aria-live`, deliberately. A polite live region on
+  // an element that rewrites itself per keystroke would read a fresh sentence
+  // for every letter typed — worse for a screen-reader user than the layout
+  // shift was for a sighted one. The stranded block below keeps `role="alert"`
+  // because that state is a property of the BUILD and announces once; and
+  // /sync-health remains the readable, unhurried account of the same numbers.
   return (
-    <>
-      <div className="row small">
+    <div className={`syncbadge${stranded ? ' syncbadge--stranded' : ''}`}>
+      <div className="syncbadge__line">
         <span className={`offline-dot ${online ? 'on' : 'off'}`} aria-hidden />
         <span className="muted">{online ? c('sync.online') : c('sync.offline')}</span>
         {total > 0 && (
@@ -59,10 +76,10 @@ export function SyncStatusBar() {
         )}
       </div>
       {stranded && (
-        <div className="banner warn" role="alert">
+        <div className="banner warn syncbadge__alert" role="alert">
           <Copy id="sync.stranded" />
         </div>
       )}
-    </>
+    </div>
   )
 }

@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Link, Outlet, useLocation } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
 import { Mark } from '../components/Mark'
-import { SyncStatusBar } from '../components/SyncStatusBar'
+import { SyncStatusBadge } from '../components/SyncStatusBadge'
 import { WorkshopSwitcher } from '../components/WorkshopSwitcher'
 import { c } from '../lib/content/chrome'
 import { MobileNav } from './MobileNav'
@@ -54,9 +54,32 @@ export function AppShell({ mode }: { mode: 'narrow' | 'wide' }) {
     el.classList.add('shell__content--enter')
   }, [loc.pathname])
 
+  // --header-h stops being a lie here.
+  //
+  // The wide sidebar pins itself with `top: var(--header-h, 57px)` and sizes
+  // itself with `calc(100dvh - var(--header-h, 57px))`, and until now nothing in
+  // the app set that property — 57px was a number somebody measured once. Any
+  // change to the header's contents (this file just took a line out of
+  // `.shell__identity`) silently put the sidebar out of register, which is a bug
+  // you can only find by noticing a few stray pixels. Measuring it is cheap and
+  // it can never go stale. `contentRect` excludes the header's 1px bottom
+  // border, so add it back or the sidebar overlaps the rule by a pixel.
+  const headerRef = useRef<HTMLElement | null>(null)
+  const shellRef = useRef<HTMLDivElement | null>(null)
+  useEffect(() => {
+    const header = headerRef.current
+    const shell = shellRef.current
+    if (!header || !shell) return
+    const ro = new ResizeObserver(([entry]) => {
+      shell.style.setProperty('--header-h', `${Math.round(entry.contentRect.height) + 1}px`)
+    })
+    ro.observe(header)
+    return () => ro.disconnect()
+  }, [])
+
   return (
-    <div className={`shell shell--${mode}`}>
-      <header className="shell__header">
+    <div className={`shell shell--${mode}`} ref={shellRef}>
+      <header className="shell__header" ref={headerRef}>
         <div className="shell__headerbar">
           <button
             className="ghost shell__menu-btn"
@@ -85,7 +108,6 @@ export function AppShell({ mode }: { mode: 'narrow' | 'wide' }) {
           </div>
           <span className="spacer" />
           <div className="shell__identity">
-            <SyncStatusBar />
             {/* tl-17. Renders nothing on a single membership, so a one-workshop
                 evaluator's header is unchanged. Beside the role rather than
                 below it because the two are one sentence: which workshop, and
@@ -117,6 +139,12 @@ export function AppShell({ mode }: { mode: 'narrow' | 'wide' }) {
       </main>
 
       <MobileNav open={menuOpen} onClose={() => setMenuOpen(false)} />
+
+      {/* Last, and a sibling of the header rather than a child of it. Its text
+          changes on every keystroke of a capture, so in the header's flow it
+          resized the header and moved the page under whoever was typing. See the
+          long comment in SyncStatusBadge. */}
+      <SyncStatusBadge />
     </div>
   )
 }
