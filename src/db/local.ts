@@ -462,6 +462,66 @@ class CairnDB extends Dexie {
 
 export const db = new CairnDB()
 
+/**
+ * Why the on-device store is unusable, when it is.
+ *
+ * This exists because of a real incident on 2026-08-20: every list in the app went
+ * empty on one device and stayed empty, with nothing on screen saying why. Every
+ * page reads Dexie through `useLiveQuery` with an empty default, so a database that
+ * never opened renders as "you have captured nothing" rather than as a fault. The
+ * two states are opposites and they looked identical.
+ *
+ * `blocked` is the likelier of the two and the one worth naming separately: another
+ * tab holding an older version keeps `open()` waiting indefinitely rather than
+ * failing, so there is no error to catch and no timeout to hit. The user's way out
+ * is to close the other tab, which they cannot guess and the app can simply say.
+ */
+export type DbFault =
+  | { kind: 'blocked' }
+  | { kind: 'failed'; name: string; message: string }
+
+let dbFault: DbFault | null = null
+const faultListeners = new Set<(fault: DbFault | null) => void>()
+
+export function getDbFault(): DbFault | null {
+  return dbFault
+}
+
+/** Subscribe to database-level faults. Returns an unsubscribe fn. */
+export function subscribeDbFault(fn: (fault: DbFault | null) => void): () => void {
+  faultListeners.add(fn)
+  return () => {
+    faultListeners.delete(fn)
+  }
+}
+
+function setDbFault(fault: DbFault | null): void {
+  dbFault = fault
+  for (const fn of faultListeners) fn(fault)
+}
+
+// Opened eagerly rather than on first query, so the fault is known before a page
+// renders an empty list built from it. Guarded on `indexedDB` because the unit
+// suite imports this module in Node, where opening is neither possible nor needed.
+if (typeof indexedDB !== 'undefined') {
+  db.on('blocked', () => {
+    console.warn('[honest-eval] database upgrade blocked by another open tab')
+    setDbFault({ kind: 'blocked' })
+  })
+  void db
+    .open()
+    .then(() => setDbFault(null))
+    .catch((err: unknown) => {
+      const e = err as { name?: string; message?: string }
+      console.error('[honest-eval] database failed to open', err)
+      setDbFault({
+        kind: 'failed',
+        name: e?.name ?? 'Error',
+        message: e?.message ?? String(err),
+      })
+    })
+}
+
 /** A client-generated id (UUID where available). Shared by the roster + builder writers. */
 export function newId(): string {
   if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) return crypto.randomUUID()

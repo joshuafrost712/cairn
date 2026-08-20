@@ -33,6 +33,59 @@ async function hasSession(): Promise<boolean> {
 }
 
 /**
+ * Whether the destructive reference pull must be skipped.
+ *
+ * The guard exists to protect UNSYNCED LOCAL AUTHORING: the pull clears eight
+ * tables and rewrites them from the server, so running it while a Scenario Builder
+ * or roster edit is still queued would discard that edit. Pending > 0 therefore
+ * means "keep the cache".
+ *
+ * The bootstrap override is the 2026-08-20 fix. An empty cache holds no authoring
+ * to protect, so skipping buys nothing and costs everything: `syncNow()` pulls per
+ * workshop from `db.workshops`, so a device with zero workshops runs every loop
+ * body zero times and can never refill itself. One stuck entry then means no
+ * workshops, no roster, no activities and no questions on that device, for good,
+ * with only a console warning to say so. types.ts already predicted this shape
+ * (see ReferenceOutboxEntry.attempts); this is the same failure reached through
+ * the front door rather than through a foreign-key violation.
+ *
+ * Pure so the decision is testable without a database, matching how the rest of
+ * this codebase separates arithmetic from IO.
+ */
+export function shouldSkipReferencePull(input: {
+  /** Entries still worth retrying (set-aside ones are already excluded upstream). */
+  pending: number
+  /** Workshops currently in the local cache. */
+  cachedWorkshops: number
+}): boolean {
+  if (input.pending <= 0) return false
+  return input.cachedWorkshops > 0
+}
+
+/**
+ * Set when the pull was skipped to protect queued authoring, so the UI can say so
+ * rather than presenting a stale cache as current. Zero means "not stalled".
+ */
+let referenceStalled = 0
+const stalledListeners = new Set<(pending: number) => void>()
+
+export function getReferenceStalled(): number {
+  return referenceStalled
+}
+
+export function subscribeReferenceStalled(fn: (pending: number) => void): () => void {
+  stalledListeners.add(fn)
+  return () => {
+    stalledListeners.delete(fn)
+  }
+}
+
+function setReferenceStalled(pending: number): void {
+  referenceStalled = pending
+  for (const fn of stalledListeners) fn(pending)
+}
+
+/**
  * Load reference data (workshops, activities, KSAs, etc.) into the local cache.
  * - Supabase configured + online + AUTHENTICATED: fetch fresh and overwrite the cache.
  * - Otherwise: if the cache is empty, prime it from the local seed so the app works.
@@ -55,10 +108,21 @@ export async function loadReferenceData(): Promise<void> {
     // push error), SKIP the overwrite entirely and keep the local cache — losing
     // unsynced authoring would be worse than serving a slightly stale remote.
     const { pending } = await pushReferenceOutbox()
-    if (pending > 0) {
-      console.warn('[cairn] reference outbox has unsynced entries; keeping local cache')
+    if (shouldSkipReferencePull({ pending, cachedWorkshops: await db.workshops.count() })) {
+      console.warn('[honest-eval] reference outbox has unsynced entries; keeping local cache')
+      // Raised to the UI, not just the console. A device in this state serves a
+      // cache that quietly stops tracking the server, and the only previous signal
+      // was a warning nobody reads.
+      setReferenceStalled(pending)
       return
     }
+    if (pending > 0) {
+      console.warn(
+        `[honest-eval] reference outbox has ${pending} unsynced entr${pending === 1 ? 'y' : 'ies'}, ` +
+          'but the local cache is empty; pulling anyway so this device can recover',
+      )
+    }
+    setReferenceStalled(0)
     try {
       const [w, t, p, a, g, k, ak, st, ra, sp, ac, ir] = await Promise.all([
         supabase.from('workshop').select('*'),

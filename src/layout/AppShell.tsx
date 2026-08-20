@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Link, Outlet, useLocation } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
 import { Mark } from '../components/Mark'
+import { StoreHealthBanner } from '../components/StoreHealthBanner'
 import { SyncStatusBadge } from '../components/SyncStatusBadge'
 import { WorkshopSwitcher } from '../components/WorkshopSwitcher'
 import { c } from '../lib/content/chrome'
@@ -134,6 +135,10 @@ export function AppShell({ mode }: { mode: 'narrow' | 'wide' }) {
 
       <main className="shell__main">
         <div className="shell__content" ref={contentRef}>
+          {/* Above the page, not inside it: when the store is down EVERY page
+              renders an empty list, so the explanation belongs to the frame
+              rather than to whichever page happens to be open. */}
+          <StoreHealthBanner />
           <Outlet />
         </div>
       </main>

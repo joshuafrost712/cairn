@@ -557,6 +557,18 @@
       "label": "No evaluations yet. Start one from the home screen."
     },
     {
+      "id": "store.blocked",
+      "label": "Another tab has this app open on an older version, so this device cannot finish updating its storage. Close the other tab, then reload this one."
+    },
+    {
+      "id": "store.failed",
+      "label": "This device's storage did not open, so nothing listed here is complete. Your submitted work is safe on the server. Reload the page, and if that does not help, tell Joshua before clearing site data."
+    },
+    {
+      "id": "store.stalled",
+      "label": "{count} unsent setup change(s) are holding back this device's refresh, so the roster and questions here may be behind the server. Capturing still works and still saves."
+    },
+    {
       "id": "myeval.no-one-tagged",
       "label": "No one tagged"
     },

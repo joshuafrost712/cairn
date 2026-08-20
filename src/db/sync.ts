@@ -828,8 +828,50 @@ async function syncObservationsAndVerdicts(): Promise<void> {
 export async function syncNow(): Promise<void> {
   await pushOutbox()
   await pushMentoringOutbox()
+  // Before any per-workshop pull, because every one of them iterates
+  // `db.workshops` and a device with an empty cache would otherwise run each loop
+  // body zero times and call it a successful cycle. See ensureReferenceCache.
+  await ensureReferenceCache()
   await syncMentoringConversations()
   await syncObservationsAndVerdicts()
+  await syncCaptures()
+}
+
+/**
+ * Refill the reference cache when it is empty (2026-08-20).
+ *
+ * `loadReferenceData()` is otherwise called from exactly one place, on an
+ * auth-state change, so a device that lost its cache mid-session had no way back
+ * short of signing out and in. Every pull below it is keyed on `db.workshops`,
+ * which made the empty state self-sustaining rather than self-healing.
+ *
+ * Guarded on the count rather than run every cycle: the pull is destructive and
+ * refetches twelve tables, which is not something to do every thirty seconds. The
+ * import is dynamic to keep the module graph acyclic, matching how db/people.ts
+ * reaches the same function.
+ */
+async function ensureReferenceCache(): Promise<void> {
+  if (!canReachBackend()) return
+  if ((await db.workshops.count()) > 0) return
+  console.warn('[honest-eval] reference cache is empty; reloading it')
+  const { loadReferenceData } = await import('./reference')
+  await loadReferenceData()
+}
+
+/**
+ * Pull submitted captures for every cached workshop.
+ *
+ * Added to the loop on 2026-08-20. `pullPendingCaptures` existed but was reachable
+ * only from the Routing page, so a device whose cache had been rebuilt showed the
+ * evaluator an empty "My evaluations" even though their work was safe on the
+ * server. RLS decides what comes back, so this grants nobody anything: a
+ * non-administrator receives their own rows and stops there.
+ */
+async function syncCaptures(): Promise<void> {
+  if (!canReachBackend()) return
+  for (const w of await db.workshops.toArray()) {
+    await pullPendingCaptures(w.id)
+  }
 }
 
 /**
