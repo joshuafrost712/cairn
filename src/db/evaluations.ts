@@ -88,6 +88,47 @@ export async function saveAnswers(
   if (existing.sync_status === 'synced') void pushOutbox()
 }
 
+/**
+ * Re-point a SUBMITTED capture at different people, and fix coverage in the same
+ * breath.
+ *
+ * `saveAnswers` cannot do this job, and the fact that it was doing it is half of
+ * why the original defect was invisible from the inside. It writes the scope and
+ * stops, so the coverage row keyed on this client_id goes on naming whoever the
+ * capture used to be about: the grid keeps a green tick against a person no
+ * submitted evaluation mentions, and the person now named shows none, until
+ * "Save changes" happens to be pressed. Coverage is only ever refreshed by
+ * `submitEvaluation`, so a re-point that was never re-submitted left the display
+ * lying in the other direction.
+ *
+ * `aggregateCoverage` recomputes from whole rows, so replacing this row's
+ * participant_ids correctly lowers the old person's count as well as raising the
+ * new one's.
+ *
+ * No edit_history snapshot: EditHistoryEntry holds prevAnswers only, so
+ * `undoLastEdit` cannot restore a scope and must not appear to. Scope-undo would
+ * be a schema change.
+ */
+export async function repointEvaluation(
+  clientId: string,
+  next: {
+    participant_scope: ParticipantScopeEntry[]
+    focus_participant_id: string | null
+  },
+): Promise<void> {
+  const existing = await db.evaluations.get(clientId)
+  if (!existing) return
+  await db.evaluations.update(clientId, {
+    participant_scope: next.participant_scope,
+    focus_participant_id: next.focus_participant_id,
+    updated_at: new Date().toISOString(),
+    sync_status: existing.sync_status === 'synced' ? 'queued' : existing.sync_status,
+  })
+  const updated = await db.evaluations.get(clientId)
+  void upsertCoverage(coverageRowFromEvaluation(updated))
+  void pushOutbox()
+}
+
 /** Undo the most recent recorded edit, restoring the prior answers. Returns them. */
 export async function undoLastEdit(clientId: string): Promise<Record<string, string> | null> {
   const existing = await db.evaluations.get(clientId)

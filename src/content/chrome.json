@@ -255,7 +255,7 @@
     },
     {
       "id": "capture.submitted-banner",
-      "label": "Submitted. You can edit, add to, or correct this evaluation; changes save instantly."
+      "label": "Submitted. This evaluation is read-only now. Tap Correct this evaluation if something in it needs changing."
     },
     {
       "id": "capture.dictation-hint",
@@ -344,6 +344,62 @@
     {
       "id": "capture.undo",
       "label": "Undo last edit"
+    },
+    {
+      "id": "capture.correcting-banner",
+      "label": "You are correcting a submitted evaluation. Tap Save changes when you are done."
+    },
+    {
+      "id": "capture.unlock",
+      "label": "Correct this evaluation"
+    },
+    {
+      "id": "capture.locked-roster-help",
+      "label": "Who this evaluation is about is fixed. Correct the evaluation first if it names the wrong person."
+    },
+    {
+      "id": "capture.next-person",
+      "label": "Evaluate someone else in this session"
+    },
+    {
+      "id": "capture.next-instructor",
+      "label": "Review someone else"
+    },
+    {
+      "id": "capture.next-help",
+      "label": "Starts a new, empty evaluation. This one stays as it is."
+    },
+    {
+      "id": "capture.see-evaluations",
+      "label": "See my evaluations"
+    },
+    {
+      "id": "capture.repoint.focus-set",
+      "label": "This says the submitted evaluation is about {to}. The text stays as it is."
+    },
+    {
+      "id": "capture.repoint.focus-replace",
+      "label": "This changes who this submitted evaluation is about, from {from} to {to}. The text stays as it is, so read it first and check it describes {to}."
+    },
+    {
+      "id": "capture.repoint.instructor-replace",
+      "label": "This moves a submitted review from {from} to {to}. {to} will be able to read it and {from} will not. The text stays as it is."
+    },
+    {
+      "id": "capture.repoint.tag-add",
+      "label": "This adds {to} to a submitted evaluation. {to} will count as evaluated for this session, from this text."
+    },
+    {
+      "id": "capture.repoint.tag-remove",
+      "label": "This removes {from} from a submitted evaluation. {from} goes back to not evaluated for this session."
+    },
+    {
+      "id": "capture.repoint.confirm",
+      "label": "Change who this is about"
+    },
+    {
+      "id": "capture.repoint.cancel",
+      "label": "Leave it as it is"
     },
     {
       "id": "rating.quick-read",
@@ -550,7 +606,15 @@
     },
     {
       "id": "myeval.intro",
-      "label": "Everything you have captured. Tap one to edit or correct it."
+      "label": "Everything you have captured, newest first. Tap one to read it or correct it. To evaluate somebody new, start from the session on the home screen."
+    },
+    {
+      "id": "myeval.state.submitted",
+      "label": "submitted"
+    },
+    {
+      "id": "myeval.state.unsubmitted",
+      "label": "not submitted"
     },
     {
       "id": "myeval.empty",

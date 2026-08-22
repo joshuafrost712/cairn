@@ -93,6 +93,16 @@ a { color: var(--accent); text-decoration: none; }
 .pill.synced,
 .pill.ok { color: var(--ok); border-color: #bbf7d0; background: #f0fdf4; }
 .pill.error { color: var(--danger); border-color: #fecaca; background: #fef2f2; }
+/* Submitted is ink on a hairline, deliberately NOT green. `.pill.synced` above is
+   green, and "the server has this" and "the evaluator finished this" are different
+   claims that sit side by side on the same row: making them look alike is the
+   confusion the two pills exist to end. */
+.pill.submitted { color: var(--ink); border-color: var(--line-strong); }
+.pill.unsubmitted { color: var(--warn); border-color: #fde68a; background: #fffbeb; }
+
+/* A locked capture reads back rather than greys out: see the textarea comment in
+   pages/CaptureForm.tsx for why readOnly and not disabled. */
+textarea:read-only { background: var(--surface-2); cursor: default; }
 
 .activity-item {
   display: flex;

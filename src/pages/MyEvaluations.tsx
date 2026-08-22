@@ -31,17 +31,31 @@ export function MyEvaluations() {
         <Copy id="myeval.intro" as="p" className="muted small" />
       </div>
       {(evals ?? []).length === 0 && <Copy id="myeval.empty" as="div" className="banner info" />}
+      {/* Headlined by the person, not by the session, since the Bali report. The
+          session title on top meant the row of the capture you had just submitted
+          read as "the session you are in", so an evaluator wanting the next person
+          opened it and typed over work that was already filed. The person's name is
+          what tells you which of two rows for one session you are looking at.
+
+          The state pill is separate from the sync pill because they are different
+          claims. "synced" says the server has it; "submitted" says the evaluator
+          finished it. A row can be synced and unsubmitted. */}
       {(evals ?? []).map((e) => (
         <Link key={e.client_id} to={`/capture/${e.client_id}`} className="activity-item">
           <span>
-            <strong>{titleFor(e.activity_id)}</strong>
+            <strong>{e.participant_scope.map((s) => s.name).join(', ') || c('myeval.no-one-tagged')}</strong>
             <br />
             <span className="muted small">
-              {e.participant_scope.map((s) => s.name).join(', ') || c('myeval.no-one-tagged')} ·{' '}
+              {titleFor(e.activity_id)} ·{' '}
               {new Date(e.updated_at).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}
             </span>
           </span>
-          <span className={`pill ${e.sync_status}`}>{statusLabel(e.sync_status)}</span>
+          <span className="row" style={{ gap: '0.35rem' }}>
+            <span className={`pill ${e.attestation ? 'submitted' : 'unsubmitted'}`}>
+              {c(e.attestation ? 'myeval.state.submitted' : 'myeval.state.unsubmitted')}
+            </span>
+            <span className={`pill ${e.sync_status}`}>{statusLabel(e.sync_status)}</span>
+          </span>
         </Link>
       ))}
     </>

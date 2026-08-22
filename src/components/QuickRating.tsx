@@ -26,11 +26,17 @@ export function QuickRating({
   ksaId,
   levels,
   value,
+  disabled = false,
   onChange,
 }: {
   ksaId: string
   levels: EvidenceLevels | null
   value: number | undefined
+  /**
+   * Set on a submitted capture. The chips and the clear button go dead; "All
+   * levels" stays live, because reading the rubric back is not editing.
+   */
+  disabled?: boolean
   onChange: (next: number | undefined) => void
 }) {
   const scale = useScale()
@@ -58,6 +64,7 @@ export function QuickRating({
             className={`rating-chip ${value === p.value ? 'primary' : ''}`}
             data-trigger={p.is_low_trigger || undefined}
             aria-pressed={value === p.value}
+            disabled={disabled}
             title={anchor(p.value) ?? p.description ?? p.label}
             onMouseDown={(e) => e.preventDefault()}
             onClick={() => onChange(value === p.value ? undefined : p.value)}
@@ -65,7 +72,7 @@ export function QuickRating({
             {p.value}
           </button>
         ))}
-        {value !== undefined && (
+        {value !== undefined && !disabled && (
           <button
             type="button"
             className="ghost small muted"
