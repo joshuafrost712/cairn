@@ -14,7 +14,11 @@ import {
   type ActivityKsaResolved,
   type ResolvedKsa,
 } from '../lib/goals'
-import { instructorReviewPk } from '../lib/instructors'
+import {
+  instructorReviewPk,
+  isInstructorActivity,
+  participantFacingQuestions,
+} from '../lib/instructors'
 import type { Activity, ActivityKsa, Goal, InstructorReviewPair, Ksa } from '../lib/types'
 
 /**
@@ -369,4 +373,78 @@ export async function ksasForActivity(activityId: string): Promise<ActivityKsaRe
 /** Activities for a workshop, ordered. */
 export async function activitiesForWorkshop(workshopId: string): Promise<Activity[]> {
   return db.activities.where('workshop_id').equals(workshopId).sortBy('sort_order')
+}
+
+/**
+ * Every question a trainee capture in this workshop may reach (tl-36).
+ *
+ * The workshop's full set minus the instructor-only ones, which
+ * `participantFacingQuestions` decides from the wiring. `activityKsas` is read
+ * whole and selected in JS, which is this file's established pattern for that
+ * table and the reason `workshopScoping.test.ts` exempts it.
+ */
+export async function participantFacingKsasForWorkshop(
+  workshopId: string,
+): Promise<ResolvedKsa[]> {
+  const [ksas, activities, links] = await Promise.all([
+    ksasForWorkshop(workshopId),
+    activitiesForWorkshop(workshopId),
+    db.activityKsas.toArray(),
+  ])
+  const activityIds = new Set(activities.map((a) => a.id))
+  return participantFacingQuestions(
+    ksas,
+    links.filter((l) => activityIds.has(l.activity_id)),
+    activities,
+  )
+}
+
+/** What `ksasInScopeFor` resolved, and which of the two rules produced it. */
+export interface CaptureScope {
+  ksas: ResolvedKsa[]
+  /**
+   * True when the questions came from the workshop rather than from one event, so
+   * the capture is one box of prose rather than a form.
+   */
+  freeWrite: boolean
+}
+
+/**
+ * THE ONE RESOLUTION SITE for "which questions is this capture about" (tl-36).
+ *
+ * There are now two answers and they must not be computed twice. The capture
+ * screen decides which body to render from this; `captureFileFor` decides what to
+ * inline in `ksas_in_scope` from the same call. If they disagreed, the app would
+ * print "we will file it against the right questions for you" over a box whose
+ * routed file offered the router nothing to file it against, and the failure would
+ * be silent: the routing contract declares an empty result valid for an empty
+ * scope, so the capture would come back with zero observations and no error.
+ *
+ * The rule, in order:
+ *
+ *   an instructor review  -> the event's questions, always, even if none are wired.
+ *                            Its three questions are the whole point of the event,
+ *                            and a Psalms instructor event with nothing wired must
+ *                            not fall through to the trainee set.
+ *   the event has questions -> the event's questions. Unchanged behaviour, which is
+ *                            what every capture in a live workshop is doing today.
+ *   otherwise             -> the workshop's participant-facing set, free-write.
+ *
+ * That last line covers both cases the spec asks for with one rule: a capture
+ * started with no event at all, and a capture on one of the events nothing is
+ * wired to. Three of the crash course's nineteen events were in the second state,
+ * where the old form rendered no textarea at all and nothing could be captured.
+ */
+export async function ksasInScopeFor(
+  capture: { activity_id: string | null; workshop_id: string | null },
+): Promise<CaptureScope> {
+  const activity = capture.activity_id
+    ? (await db.activities.get(capture.activity_id)) ?? null
+    : null
+  const fromActivity = capture.activity_id ? await ksasForActivity(capture.activity_id) : []
+  if (isInstructorActivity(activity) || fromActivity.length > 0) {
+    return { ksas: fromActivity, freeWrite: false }
+  }
+  if (!capture.workshop_id) return { ksas: [], freeWrite: true }
+  return { ksas: await participantFacingKsasForWorkshop(capture.workshop_id), freeWrite: true }
 }

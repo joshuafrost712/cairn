@@ -8,7 +8,7 @@
 //     Claude returns. No credentials, no API spend.
 
 import { db } from '../db/local'
-import { ksasForActivity } from '../db/reference'
+import { ksasInScopeFor } from '../db/reference'
 import { isOnScale, validateObservation } from '../ai/contract'
 import { excerptIsGrounded } from '../ai/provenance'
 import { scaleForWorkshop } from '../db/scale'
@@ -180,7 +180,10 @@ export async function listPendingCaptures(): Promise<EvaluationRecord[]> {
 export async function captureFileFor(e: EvaluationRecord): Promise<CaptureFile> {
   const workshop = e.workshop_id ? (await db.workshops.get(e.workshop_id)) ?? null : null
   const activity = e.activity_id ? (await db.activities.get(e.activity_id)) ?? null : null
-  const ksasInScope = e.activity_id ? await ksasForActivity(e.activity_id) : []
+  // tl-36: the same resolution the capture screen used, not a second copy of it.
+  // A free-write capture inlines the workshop's participant-facing questions; the
+  // activity stays attached where there is one, as provenance rather than a filter.
+  const { ksas: ksasInScope } = await ksasInScopeFor(e)
   // The CAPTURE's workshop, not the active one: routing is a queue and a queue
   // outlives a workshop switch.
   const scale = await scaleForWorkshop(e.workshop_id ?? null)

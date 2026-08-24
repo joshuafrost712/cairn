@@ -1,7 +1,7 @@
 import { db } from './local'
 import { pushOutbox } from './sync'
 import { coverageRowFromEvaluation, upsertCoverage } from './coverage'
-import { RULESET_VERSION } from '../lib/ruleset'
+import { FREE_WRITE_RULESET_VERSION, RULESET_VERSION } from '../lib/ruleset'
 import { subjectKindFor } from '../lib/instructors'
 import type { EvaluationRecord, ParticipantScopeEntry, QuickRatings } from '../lib/types'
 
@@ -114,12 +114,20 @@ export async function submitEvaluation(
     source_language: string
     quick_ratings?: QuickRatings
     focus_participant_id?: string | null
+    /**
+     * Which rules this evaluator actually attested to (tl-36). A free-write
+     * capture is shown a different four, two of which replace rules that are false
+     * of it, so stamping the per-question version on it would record an
+     * attestation that never appeared on the screen.
+     */
+    freeWrite?: boolean
   },
 ): Promise<void> {
+  const { freeWrite, ...fields } = patch
   await db.evaluations.update(clientId, {
-    ...patch,
+    ...fields,
     attestation: true,
-    ruleset_version: RULESET_VERSION,
+    ruleset_version: freeWrite ? FREE_WRITE_RULESET_VERSION : RULESET_VERSION,
     sync_status: 'queued',
     updated_at: new Date().toISOString(),
   })

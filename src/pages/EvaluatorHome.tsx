@@ -77,7 +77,7 @@ export function EvaluatorHome() {
     [activities, suggestedId],
   )
 
-  const start = async (activityId: string) => {
+  const start = async (activityId: string | null) => {
     const draft = await createDraft({
       evaluatorEmail: identity?.email ?? null,
       workshopId: workshop?.id ?? null,
@@ -165,6 +165,24 @@ export function EvaluatorHome() {
         <p className="muted small">{workshop.location}</p>
         <Copy id={reviewerOnly ? 'home.reviewer-only' : 'home.pick-activity'} as="p" className="small" />
       </div>
+
+      {/* tl-36. Above the schedule, because the schedule is the thing that was not
+          getting used: seventy-one captures were opened for the crash course and
+          twenty-three carried any text. Picking the right session first is a step
+          an evaluator who has just watched something does not want to take, and
+          the session is recoverable afterwards from the routed observation.
+
+          Hidden from a reviewer-only account. Her whole app is the instructor
+          button, and a free-write from her would route into trainee questions
+          `evaluation_insert` refuses her — after she had dictated into it. */}
+      {!reviewerOnly && (
+        <div className="card free-write-entry">
+          <button className="primary free-write-start" onClick={() => start(null)}>
+            {c('home.free-write-start')}
+          </button>
+          <Copy id="home.free-write-help" as="p" className="muted small" style={{ marginBottom: 0 }} />
+        </div>
+      )}
 
       {instructorEvents.length > 0 && (
         <div className="card instructor-block">

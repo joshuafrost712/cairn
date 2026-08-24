@@ -154,6 +154,14 @@
       "label": "Pick the activity you're evaluating. The suggested one is based on the time now."
     },
     {
+      "id": "home.free-write-start",
+      "label": "Just write what you saw"
+    },
+    {
+      "id": "home.free-write-help",
+      "label": "One box, no questions to work through. Use this when you have just watched something and want it down before you lose it."
+    },
+    {
       "id": "home.suggested-pill",
       "label": "suggested"
     },
@@ -320,6 +328,42 @@
     {
       "id": "capture.tag-help",
       "label": "Tag who an observation is about as you dictate. Whole-group remarks are fine; the AI step (later) distributes them to each individual."
+    },
+    {
+      "id": "capture.free-write-title",
+      "label": "What you saw"
+    },
+    {
+      "id": "capture.free-write-promise",
+      "label": "Write what you saw. Name the people it is about. We will file it against the right participants and the right questions for you."
+    },
+    {
+      "id": "capture.free-write-placeholder",
+      "label": "Dictate or type. One paragraph or ten, several people at once is fine."
+    },
+    {
+      "id": "capture.free-write-watching",
+      "label": "Who is this about?"
+    },
+    {
+      "id": "capture.free-write-tag-help",
+      "label": "Tick everyone your notes mention. Naming them in the writing helps too, and anything we cannot match to a name is flagged for a person to sort out rather than guessed at."
+    },
+    {
+      "id": "capture.free-write-needs-name",
+      "label": "Tick at least one name above, so this evidence reaches somebody."
+    },
+    {
+      "id": "capture.free-write-questions",
+      "label": "What this can be filed against"
+    },
+    {
+      "id": "capture.free-write-no-questions",
+      "label": "This workshop has no questions authored yet, so your words will be stored but cannot be filed against anything. Worth telling the administrator."
+    },
+    {
+      "id": "capture.free-write-rules-short",
+      "label": "Name who you mean, describe what you observed. Several people and several sessions in one capture are fine."
     },
     {
       "id": "capture.answer-placeholder",

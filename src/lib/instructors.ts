@@ -5,7 +5,7 @@
  * hold, and for the same reason: these are decisions that are easy to get subtly
  * wrong and impossible to eyeball afterwards.
  *
- * THREE RESOLUTIONS LIVE HERE, AND NOWHERE ELSE.
+ * FOUR RESOLUTIONS LIVE HERE, AND NOWHERE ELSE.
  *
  *  1. **What kind a roster row is.** `category` is optional on the type and NOT
  *     NULL DEFAULT 'participant' in Postgres, so absent and 'participant' are the
@@ -23,6 +23,10 @@
  *     the capture screen, the coverage summary and the Setup preview cannot
  *     disagree about whether Joshua's name belongs in the grid.
  *
+ *  4. **Which questions a trainee capture may reach.** `participantFacingQuestions()`
+ *     (tl-36), the wiring-derived answer to "is this an instructor question",
+ *     because a question row carries no audience of its own.
+ *
  * **Not a security boundary.** Every rule here is re-derived server-side by RLS
  * from `auth.uid()`, so a client that skips these checks gets an empty result
  * rather than a privilege. Keep them in step anyway: a mirror that drifts either
@@ -39,6 +43,7 @@
 import type {
   Activity,
   ActivityAudience,
+  ActivityKsa,
   InstructorReviewPair,
   Participant,
   ParticipantCategory,
@@ -168,6 +173,59 @@ export function rosterForActivity<
 /** What a capture started on this event records as its `subject_kind`. */
 export function subjectKindFor(a: Pick<Activity, 'audience'> | null | undefined): ParticipantCategory {
   return audienceOf(a)
+}
+
+/**
+ * The questions a trainee capture may reach: everything except the ones that
+ * exist only to review the people teaching (tl-36).
+ *
+ * THE FOURTH RESOLUTION, and it belongs here for the reason the other three do.
+ * A question carries no audience of its own — `audience` is a column on
+ * `activity` — so "is this an instructor question" is answerable only through the
+ * wiring, and answering it in two places is how a trainee brain dump ends up
+ * routed against "Collaborative leadership".
+ *
+ * The rule: a question is instructor-only when it is wired to at least one event
+ * and every event it is wired to has the instructor audience. Two consequences,
+ * both deliberate.
+ *
+ * An UNWIRED question is kept. It carries no evidence either way, and a workshop
+ * mid-setup has plenty; dropping them would make the free-write set silently
+ * narrower than the workshop's own question list, which is the surprise this
+ * function exists to prevent.
+ *
+ * A question wired to BOTH kinds of event is kept, because an administrator who
+ * wired it to a teaching session meant it to be asked there. That is a wiring
+ * mistake if it was one, and it is visible in Setup; a filter that hid it would
+ * not be.
+ *
+ * **Not codes.** tl-36 as written named `CC-INS1`, `CC-INS2` and `CC-INS3`. The
+ * Psalms workshop's three are `INSTR1`, `INSTR2` and `INSTR3`, so a code list
+ * checked against the crash course would have leaked all three of Psalms' into
+ * every free-write capture on the workshop this shipped for.
+ */
+export function participantFacingQuestions<K extends { id: string }>(
+  ksas: readonly K[],
+  links: readonly Pick<ActivityKsa, 'ksa_id' | 'activity_id'>[],
+  activities: readonly Pick<Activity, 'id' | 'audience'>[],
+): K[] {
+  const instructorActivityIds = new Set(
+    activities.filter((a) => isInstructorActivity(a)).map((a) => a.id),
+  )
+  const wired = new Map<string, { any: boolean; participantFacing: boolean }>()
+  for (const link of links) {
+    const seen = wired.get(link.ksa_id) ?? { any: false, participantFacing: false }
+    seen.any = true
+    // An activity this device does not hold is treated as participant-facing: the
+    // safe direction is to keep a question the evaluator might need, not to hide
+    // one because a wiring row outran the activity it points at.
+    if (!instructorActivityIds.has(link.activity_id)) seen.participantFacing = true
+    wired.set(link.ksa_id, seen)
+  }
+  return ksas.filter((k) => {
+    const seen = wired.get(k.id)
+    return !seen || !seen.any || seen.participantFacing
+  })
 }
 
 /**
