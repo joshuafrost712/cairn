@@ -5,7 +5,7 @@
  * hold, and for the same reason: these are decisions that are easy to get subtly
  * wrong and impossible to eyeball afterwards.
  *
- * THREE RESOLUTIONS LIVE HERE, AND NOWHERE ELSE.
+ * FOUR RESOLUTIONS LIVE HERE, AND NOWHERE ELSE.
  *
  *  1. **What kind a roster row is.** `category` is optional on the type and NOT
  *     NULL DEFAULT 'participant' in Postgres, so absent and 'participant' are the
@@ -23,6 +23,10 @@
  *     the capture screen, the coverage summary and the Setup preview cannot
  *     disagree about whether Joshua's name belongs in the grid.
  *
+ *  4. **Which questions a trainee capture may reach.** `participantFacingQuestions()`
+ *     (tl-36), the wiring-derived answer to "is this an instructor question",
+ *     because a question row carries no audience of its own.
+ *
  * **Not a security boundary.** Every rule here is re-derived server-side by RLS
  * from `auth.uid()`, so a client that skips these checks gets an empty result
  * rather than a privilege. Keep them in step anyway: a mirror that drifts either
@@ -39,6 +43,7 @@
 import type {
   Activity,
   ActivityAudience,
+  ActivityKsa,
   InstructorReviewPair,
   Participant,
   ParticipantCategory,
@@ -168,6 +173,82 @@ export function rosterForActivity<
 /** What a capture started on this event records as its `subject_kind`. */
 export function subjectKindFor(a: Pick<Activity, 'audience'> | null | undefined): ParticipantCategory {
   return audienceOf(a)
+}
+
+/**
+ * The questions a trainee capture may reach: everything except the ones that
+ * exist only to review the people teaching (tl-36).
+ *
+ * THE FOURTH RESOLUTION, and it belongs here for the reason the other three do.
+ * A question carries no audience of its own — `audience` is a column on
+ * `activity` — so "is this an instructor question" is answerable only through the
+ * wiring, and answering it in two places is how a trainee brain dump ends up
+ * routed against "Collaborative leadership".
+ *
+ * The rule: a question is instructor-only when it is wired to at least one event
+ * and every event it is wired to has the instructor audience. Two consequences,
+ * both deliberate.
+ *
+ * The rule is stated in terms of what is POSITIVELY known, and the review of this
+ * spec is why. An earlier version asked "is every event it is wired to an
+ * instructor event", treating an activity this device does not hold as evidence
+ * FOR keeping the question. That inverted the answer on most real devices.
+ * `activity_select` hides an instructor-audience event from any member holding
+ * neither an `instructor_reviewer` pair nor `admin`, while `ksa_select` and
+ * `activity_ksa_select` are plain `is_workshop_member` — so an ordinary
+ * evaluator's cache holds `INSTR1`, `INSTR2`, `INSTR3` and their wiring rows and
+ * NOT the event those rows point at. Five of Psalms' seven members are in that
+ * state. Their free-write screen would have offered all three under a promise
+ * that the app will file the words against the right questions, while the
+ * administrator's device, which can see the event, routed without them: the two
+ * surfaces disagreeing, which is the single thing `ksasInScopeFor` exists to make
+ * impossible.
+ *
+ * So a link counts as evidence only when it points at an event this device can
+ * see AND that event's audience is `participant`. A link to an event the device
+ * cannot see is evidence of nothing, which on a trainee capture means the
+ * question is left out.
+ *
+ * An UNWIRED question is kept. It carries no evidence either way, and a workshop
+ * mid-setup has plenty; dropping them would make the free-write set silently
+ * narrower than the workshop's own question list, which is the surprise this
+ * function exists to prevent. "No links at all" and "links this device cannot
+ * resolve" are therefore different answers, and the caller must not collapse them
+ * by pre-filtering the links against the visible activities.
+ *
+ * A question wired to BOTH kinds of event is kept, because an administrator who
+ * wired it to a teaching session meant it to be asked there. That is a wiring
+ * mistake if it was one, and it is visible in Setup; a filter that hid it would
+ * not be.
+ *
+ * **Not codes.** tl-36 as written named `CC-INS1`, `CC-INS2` and `CC-INS3`. The
+ * Psalms workshop's three are `INSTR1`, `INSTR2` and `INSTR3`, so a code list
+ * checked against the crash course would have leaked all three of Psalms' into
+ * every free-write capture on the workshop this shipped for.
+ */
+export function participantFacingQuestions<K extends { id: string }>(
+  ksas: readonly K[],
+  links: readonly Pick<ActivityKsa, 'ksa_id' | 'activity_id'>[],
+  activities: readonly Pick<Activity, 'id' | 'audience'>[],
+): K[] {
+  // `links` may be the WHOLE table; the scoping to these questions happens here
+  // rather than in the caller, and the re-review is why. The caller's version of
+  // this filter is what held the original defect, it was keyed on the activity,
+  // and a regex test over the caller's source could only ever catch that one
+  // spelling of it. Done here it is covered by the tests below and there is
+  // nothing left for a caller to get wrong.
+  const mine = new Set(ksas.map((k) => k.id))
+  const audienceById = new Map(activities.map((a) => [a.id, audienceOf(a)] as const))
+  const wired = new Map<string, boolean>()
+  for (const link of links) {
+    if (!mine.has(link.ksa_id)) continue
+    const participantFacing =
+      (wired.get(link.ksa_id) ?? false) || audienceById.get(link.activity_id) === 'participant'
+    wired.set(link.ksa_id, participantFacing)
+  }
+  // `!wired.has(k.id)` is the unwired case and is kept; `false` means every link
+  // it has is either an instructor event or an event this device cannot read.
+  return ksas.filter((k) => !wired.has(k.id) || wired.get(k.id) === true)
 }
 
 /**

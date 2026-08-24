@@ -87,6 +87,20 @@ export async function coverageForActivity(activityId: string): Promise<Map<strin
   return aggregateCoverage(rows)
 }
 
+/**
+ * The same aggregate for a whole workshop (tl-36).
+ *
+ * Keyed on `workshop_id`, which every coverage row carries, so it also sees the
+ * rows `coverageForActivity` structurally cannot: a free-write capture has no
+ * activity, and IndexedDB does not index a record whose index key is null, so
+ * those rows are invisible to every `where('activity_id')` query ever written.
+ * Read by the free-write capture screen, which has no session to scope to.
+ */
+export async function coverageForWorkshop(workshopId: string): Promise<Map<string, ParticipantCoverage>> {
+  const rows = await db.coverage.where('workshop_id').equals(workshopId).toArray()
+  return aggregateCoverage(rows)
+}
+
 /** Upsert a single coverage row (idempotent on client_id). */
 export async function upsertCoverage(row: CoverageRow | null): Promise<void> {
   if (!row) return

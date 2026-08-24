@@ -8,6 +8,7 @@ import { c } from '../lib/content/chrome'
 import { Copy } from '../components/Copy'
 import { useAuth } from '../auth/AuthContext'
 import { createDraft } from '../db/evaluations'
+import { EVALUATING_ROLES, useHasWorkshopRole } from '../layout/roles'
 import { reviewPairsFor } from '../db/instructors'
 import { isInstructorActivity } from '../lib/instructors'
 import { countIn, formatDay, groupActivitiesByDay, suggestActivity } from '../lib/schedule'
@@ -23,6 +24,10 @@ function fmtTime(iso: string | null): string {
 export function EvaluatorHome() {
   const { identity } = useAuth()
   const navigate = useNavigate()
+
+  // tl-36: the same question the capture screen asks before rendering a trainee
+  // grid, asked here before offering a capture that has no session to justify it.
+  const canEvaluateTrainees = useHasWorkshopRole(EVALUATING_ROLES)
 
   // One shared answer to "which workshop am I showing" (tl-29): the membership-validated
   // selection, else the device's own, else the only workshop here, else nothing.
@@ -77,7 +82,7 @@ export function EvaluatorHome() {
     [activities, suggestedId],
   )
 
-  const start = async (activityId: string) => {
+  const start = async (activityId: string | null) => {
     const draft = await createDraft({
       evaluatorEmail: identity?.email ?? null,
       workshopId: workshop?.id ?? null,
@@ -165,6 +170,30 @@ export function EvaluatorHome() {
         <p className="muted small">{workshop.location}</p>
         <Copy id={reviewerOnly ? 'home.reviewer-only' : 'home.pick-activity'} as="p" className="small" />
       </div>
+
+      {/* tl-36. Above the schedule, because the schedule is the thing that was not
+          getting used: seventy-one captures were opened for the crash course and
+          twenty-three carried any text. Picking the right session first is a step
+          an evaluator who has just watched something does not want to take, and
+          the session is recoverable afterwards from the routed observation.
+
+          Offered only to somebody the insert will accept, and `canEvaluateTrainees`
+          rather than `reviewerOnly` is the review's correction. `reviewerOnly` is
+          "no trainee events and at least one instructor event", which is false for
+          a `participant`-role member holding no pairs at all — both lists empty,
+          so the button would have been offered to the one person `evaluation_insert`
+          refuses. It is also derived from a live query that starts empty, so it
+          read false for a frame on a genuine reviewer's first paint. This is the
+          same predicate the capture screen already refuses on, which is the point:
+          one answer to "may this person evaluate trainees", not two. */}
+      {canEvaluateTrainees && (
+        <div className="card free-write-entry">
+          <button className="primary free-write-start" onClick={() => start(null)}>
+            {c('home.free-write-start')}
+          </button>
+          <Copy id="home.free-write-help" as="p" className="muted small" style={{ marginBottom: 0 }} />
+        </div>
+      )}
 
       {instructorEvents.length > 0 && (
         <div className="card instructor-block">

@@ -208,3 +208,20 @@ a { color: var(--accent); text-decoration: none; }
   color: var(--muted);
 }
 .participant-btn.primary .coverage-count { color: var(--accent-ink); }
+
+/* tl-36: the free-write capture. One box, and the promise printed above it. */
+.free-write-promise {
+  font-weight: 600;
+  margin: 0 0 0.6rem;
+}
+.free-write-box {
+  min-height: 220px;
+}
+.free-write-entry .free-write-start {
+  width: 100%;
+  font-size: 1.05rem;
+  padding: 0.9rem 1rem;
+}
+.free-write-entry p {
+  margin-top: 0.6rem;
+}
