@@ -1,15 +1,8 @@
 import type { ResolvedKsa } from './goals'
+import { FREE_WRITE_RULESET_VERSION } from './ruleset'
 import { getActiveScale, maxValue, type Scale } from './scale'
 import type { QuickRatings } from './types'
 
-/**
- * Compose the readable free-form `source_text` from per-question answers.
- * This is what the (deferred) AI routing step will parse. Each answered question
- * is labeled with its KSA code + prompt so provenance is preserved. When the
- * evaluator left an optional quick read, it is included as a labeled PRIOR
- * (the evaluator's own read, not ground truth — the routing contract tells the
- * AI to weigh it against the text and flag disagreement).
- */
 /**
  * Where a free-write capture's prose lives inside `answers` (tl-36).
  *
@@ -32,6 +25,55 @@ export function freeWriteText(answers: Record<string, string> | null | undefined
   return answers?.[FREE_WRITE_KEY] ?? ''
 }
 
+/** The fields the free-write decision reads off a capture record. */
+export interface CaptureLike {
+  activity_id: string | null
+  workshop_id: string | null
+  answers?: Record<string, string> | null
+  ruleset_version?: string | null
+}
+
+/**
+ * Is this capture a free-write one? (tl-36)
+ *
+ * Pure, and separated from the Dexie reads in `ksasInScopeFor` for two reasons.
+ * It is the decision, so it is the thing worth testing directly rather than
+ * through a regex over a page. And the review of this spec found that the first
+ * version, which derived the answer purely from the reference tables, could
+ * change its mind about a record that had already been submitted.
+ *
+ * **A RECORD THAT CARRIES THE ANSWER IS BELIEVED.** Free-write text under the
+ * reserved key, or the free-write ruleset stamped at submit, are facts about what
+ * the evaluator was actually shown, and no later edit to the reference data can
+ * make them untrue. Without this, wiring a question to a previously bare event
+ * flipped an existing capture back to the per-question form: the prose became
+ * invisible, `hasContent` still read true because the reserved key holds it, and
+ * "Save changes" would have written `composeSourceText`'s empty string over the
+ * real `source_text`. `listPendingCaptures` filters on `source_text.trim()`, so
+ * the capture would then never route and nothing would say why. That is the
+ * sibling of this wave's rule about the state a machine leaves behind: the state
+ * a spec leaves behind in a row outlives the tables it was derived from.
+ *
+ * It also makes two devices agree. `loadReferenceData` deliberately keeps a stale
+ * cache while the reference outbox is unsynced, so the phone that filed a capture
+ * and the administrator's laptop that routes it can hold different wiring. The
+ * marker travels with the row; the wiring does not.
+ *
+ * An instructor review is never free-write, whatever else is true. Its three
+ * questions are the entire point of the event, and a trainee brain dump must not
+ * be able to reach them by arriving on it.
+ */
+export function isFreeWriteCapture(
+  capture: CaptureLike,
+  reference: { isInstructorEvent: boolean; activityQuestions: number },
+): boolean {
+  if (reference.isInstructorEvent) return false
+  if (freeWriteText(capture.answers).trim()) return true
+  if (capture.ruleset_version === FREE_WRITE_RULESET_VERSION) return true
+  if (!capture.activity_id) return true
+  return reference.activityQuestions === 0
+}
+
 /**
  * A free-write capture's `source_text`: the prose, and nothing added (tl-36).
  *
@@ -47,6 +89,14 @@ export function composeFreeWriteSourceText(answers: Record<string, string>): str
   return freeWriteText(answers).trim()
 }
 
+/**
+ * Compose the readable free-form `source_text` from per-question answers.
+ * This is what the (deferred) AI routing step will parse. Each answered question
+ * is labeled with its KSA code + prompt so provenance is preserved. When the
+ * evaluator left an optional quick read, it is included as a labeled PRIOR
+ * (the evaluator's own read, not ground truth — the routing contract tells the
+ * AI to weigh it against the text and flag disagreement).
+ */
 export function composeSourceText(
   answers: Record<string, string>,
   ksas: ResolvedKsa[],

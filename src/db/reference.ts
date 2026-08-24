@@ -19,6 +19,7 @@ import {
   isInstructorActivity,
   participantFacingQuestions,
 } from '../lib/instructors'
+import { isFreeWriteCapture, type CaptureLike } from '../lib/compose'
 import type { Activity, ActivityKsa, Goal, InstructorReviewPair, Ksa } from '../lib/types'
 
 /**
@@ -391,10 +392,16 @@ export async function participantFacingKsasForWorkshop(
     activitiesForWorkshop(workshopId),
     db.activityKsas.toArray(),
   ])
-  const activityIds = new Set(activities.map((a) => a.id))
+  // Scoped by QUESTION, not by activity, and the review of this spec is why. The
+  // first version filtered the links against this workshop's visible activities,
+  // which deleted every link pointing at the instructor event a plain evaluator
+  // cannot read — and `participantFacingQuestions` then saw those three questions
+  // as unwired and kept them. Scoping by `ksa_id` keeps the link, so the decision
+  // can tell "wired to something I cannot see" from "wired to nothing".
+  const mine = new Set(ksas.map((k) => k.id))
   return participantFacingQuestions(
     ksas,
-    links.filter((l) => activityIds.has(l.activity_id)),
+    links.filter((l) => mine.has(l.ksa_id)),
     activities,
   )
 }
@@ -435,14 +442,16 @@ export interface CaptureScope {
  * wired to. Three of the crash course's nineteen events were in the second state,
  * where the old form rendered no textarea at all and nothing could be captured.
  */
-export async function ksasInScopeFor(
-  capture: { activity_id: string | null; workshop_id: string | null },
-): Promise<CaptureScope> {
+export async function ksasInScopeFor(capture: CaptureLike): Promise<CaptureScope> {
   const activity = capture.activity_id
     ? (await db.activities.get(capture.activity_id)) ?? null
     : null
   const fromActivity = capture.activity_id ? await ksasForActivity(capture.activity_id) : []
-  if (isInstructorActivity(activity) || fromActivity.length > 0) {
+  const freeWrite = isFreeWriteCapture(capture, {
+    isInstructorEvent: isInstructorActivity(activity),
+    activityQuestions: fromActivity.length,
+  })
+  if (!freeWrite) {
     return { ksas: fromActivity, freeWrite: false }
   }
   if (!capture.workshop_id) return { ksas: [], freeWrite: true }

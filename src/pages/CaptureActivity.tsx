@@ -4,7 +4,7 @@ import { useNavigate, useParams, Link } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '../db/local'
 import { ksasInScopeFor, type CaptureScope } from '../db/reference'
-import { coverageForActivity } from '../db/coverage'
+import { coverageForActivity, coverageForWorkshop } from '../db/coverage'
 import { saveAnswers, submitEvaluation, undoLastEdit } from '../db/evaluations'
 import {
   composeFreeWriteSourceText,
@@ -87,9 +87,32 @@ export function CaptureActivity() {
   // evaluation, by whom, and how many. Fed by this device's submissions and, via
   // Supabase Realtime, other evaluators' devices (see db/coverage.ts). The
   // live-query repaints the selector automatically when a coverage row lands.
+  /**
+   * Who has already been evaluated, and by whom.
+   *
+   * TWO SCOPES, because a free-write capture has no session to be counted against
+   * (tl-36, from the review). `coverageForActivity` keys on `activity_id`, and a
+   * free-write capture's coverage row carries null there, which IndexedDB does not
+   * index at all — so on the free-write screen the per-session query returns
+   * nothing and every name in the grid would read as never evaluated. Worse, if
+   * free-write becomes the path people actually use, which is this spec's whole
+   * purpose, the cue that spreads twenty-four participants' attention evenly goes
+   * dark.
+   *
+   * So the free-write screen asks the question it can actually answer: has this
+   * person been evaluated in this workshop at all. That is also the more useful
+   * question on a capture that is not about one session. The per-session screens
+   * keep their own scope unchanged, and a free-write capture correctly does not
+   * count toward any session's quota.
+   */
   const coverage = useLiveQuery(
-    () => (record?.activity_id ? coverageForActivity(record.activity_id) : undefined),
-    [record?.activity_id],
+    () =>
+      record?.activity_id
+        ? coverageForActivity(record.activity_id)
+        : record?.workshop_id
+          ? coverageForWorkshop(record.workshop_id)
+          : undefined,
+    [record?.activity_id, record?.workshop_id],
   )
 
   // Local working copy so typing is never clobbered by the live query.
@@ -109,19 +132,40 @@ export function CaptureActivity() {
   const recordId = record?.client_id
   const recordActivityId = record?.activity_id ?? null
   const recordWorkshopId = record?.workshop_id ?? null
+  // The stored markers, so a submitted free-write capture stays one however the
+  // wiring is edited afterwards. `answers` is re-read on every keystroke by the
+  // live query, so the effect keys on whether the RESERVED KEY is set rather than
+  // on the answers object: re-resolving the question set on each character typed
+  // would be both wasteful and a way to lose focus mid-sentence.
+  const recordAnswers = record?.answers
+  const recordHasFreeWriteText = Boolean(freeWriteText(recordAnswers).trim())
+  const recordRuleset = record?.ruleset_version ?? null
   useEffect(() => {
     if (!recordId) return
     let live = true
     void ksasInScopeFor({
       activity_id: recordActivityId,
       workshop_id: recordWorkshopId,
-    }).then((s) => {
-      if (live) setQuestionScope(s)
+      answers: recordAnswers,
+      ruleset_version: recordRuleset,
     })
+      .then((s) => {
+        if (live) setQuestionScope(s)
+      })
+      .catch((e) => {
+        // Never leave the screen unresolved. The body below does not render until
+        // this state is set, and an unhandled rejection here would blank the only
+        // screen an evaluator has. A capture with no session is unambiguously
+        // free-write whatever the reference tables say, so the fallback is honest
+        // rather than a guess.
+        console.error('[honest-eval] could not resolve the capture question set', e)
+        if (live) setQuestionScope({ ksas: [], freeWrite: recordActivityId === null })
+      })
     return () => {
       live = false
     }
-  }, [recordId, recordActivityId, recordWorkshopId])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [recordId, recordActivityId, recordWorkshopId, recordHasFreeWriteText, recordRuleset])
 
   // Seed local state from the record on first load (React's "adjust state during
   // render" pattern — avoids a clobber-prone effect).
@@ -288,6 +332,22 @@ export function CaptureActivity() {
   // A capture with no activity at all resolves the query and falls through here,
   // which is the case the refusal is actually for.
   if (record.activity_id && activity === undefined) {
+    return null
+  }
+
+  /**
+   * The mirror of the flash this spec already fixed, found by its review.
+   *
+   * Until the question set resolves, `freeWrite` reads false, so a free-write
+   * capture would paint the per-session chrome for a frame or two: the coverage
+   * line this commit removed, the focus toggle it hides, and the per-question
+   * input rules including "one activity per capture", which is the rule the box
+   * exists to break. The one-frame version of a screen is still a screen.
+   *
+   * Safe to return null: the effect above always resolves this state, on the error
+   * path too, so there is no way to stay here.
+   */
+  if (!resolved) {
     return null
   }
 

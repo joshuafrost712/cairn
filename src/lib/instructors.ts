@@ -189,10 +189,32 @@ export function subjectKindFor(a: Pick<Activity, 'audience'> | null | undefined)
  * and every event it is wired to has the instructor audience. Two consequences,
  * both deliberate.
  *
+ * The rule is stated in terms of what is POSITIVELY known, and the review of this
+ * spec is why. An earlier version asked "is every event it is wired to an
+ * instructor event", treating an activity this device does not hold as evidence
+ * FOR keeping the question. That inverted the answer on most real devices.
+ * `activity_select` hides an instructor-audience event from any member holding
+ * neither an `instructor_reviewer` pair nor `admin`, while `ksa_select` and
+ * `activity_ksa_select` are plain `is_workshop_member` — so an ordinary
+ * evaluator's cache holds `INSTR1`, `INSTR2`, `INSTR3` and their wiring rows and
+ * NOT the event those rows point at. Five of Psalms' seven members are in that
+ * state. Their free-write screen would have offered all three under a promise
+ * that the app will file the words against the right questions, while the
+ * administrator's device, which can see the event, routed without them: the two
+ * surfaces disagreeing, which is the single thing `ksasInScopeFor` exists to make
+ * impossible.
+ *
+ * So a link counts as evidence only when it points at an event this device can
+ * see AND that event's audience is `participant`. A link to an event the device
+ * cannot see is evidence of nothing, which on a trainee capture means the
+ * question is left out.
+ *
  * An UNWIRED question is kept. It carries no evidence either way, and a workshop
  * mid-setup has plenty; dropping them would make the free-write set silently
  * narrower than the workshop's own question list, which is the surprise this
- * function exists to prevent.
+ * function exists to prevent. "No links at all" and "links this device cannot
+ * resolve" are therefore different answers, and the caller must not collapse them
+ * by pre-filtering the links against the visible activities.
  *
  * A question wired to BOTH kinds of event is kept, because an administrator who
  * wired it to a teaching session meant it to be asked there. That is a wiring
@@ -209,23 +231,16 @@ export function participantFacingQuestions<K extends { id: string }>(
   links: readonly Pick<ActivityKsa, 'ksa_id' | 'activity_id'>[],
   activities: readonly Pick<Activity, 'id' | 'audience'>[],
 ): K[] {
-  const instructorActivityIds = new Set(
-    activities.filter((a) => isInstructorActivity(a)).map((a) => a.id),
-  )
-  const wired = new Map<string, { any: boolean; participantFacing: boolean }>()
+  const audienceById = new Map(activities.map((a) => [a.id, audienceOf(a)] as const))
+  const wired = new Map<string, boolean>()
   for (const link of links) {
-    const seen = wired.get(link.ksa_id) ?? { any: false, participantFacing: false }
-    seen.any = true
-    // An activity this device does not hold is treated as participant-facing: the
-    // safe direction is to keep a question the evaluator might need, not to hide
-    // one because a wiring row outran the activity it points at.
-    if (!instructorActivityIds.has(link.activity_id)) seen.participantFacing = true
-    wired.set(link.ksa_id, seen)
+    const participantFacing =
+      (wired.get(link.ksa_id) ?? false) || audienceById.get(link.activity_id) === 'participant'
+    wired.set(link.ksa_id, participantFacing)
   }
-  return ksas.filter((k) => {
-    const seen = wired.get(k.id)
-    return !seen || !seen.any || seen.participantFacing
-  })
+  // `!wired.has(k.id)` is the unwired case and is kept; `false` means every link
+  // it has is either an instructor event or an event this device cannot read.
+  return ksas.filter((k) => !wired.has(k.id) || wired.get(k.id) === true)
 }
 
 /**

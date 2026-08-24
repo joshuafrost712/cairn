@@ -139,6 +139,34 @@ check(
   instructorOnly.map((k) => k.code).join(', '),
 )
 
+/**
+ * THE SAME DECISION AS AN ORDINARY EVALUATOR'S DEVICE SEES IT.
+ *
+ * This harness reads through the management API as `postgres`, so RLS is bypassed
+ * and every activity is visible. A plain evaluator's device is not in that
+ * position: `activity_select` hides an instructor-audience activity from anybody
+ * holding neither an `instructor_reviewer` pair nor `admin`, while `ksa_select`
+ * and `activity_ksa_select` are plain `is_workshop_member`. So that device caches
+ * the instructor questions AND their wiring rows and NOT the event they point at.
+ *
+ * Five of Psalms' seven members are in that state. Everything above would have
+ * passed while the screen they actually open offered all three. Found by this
+ * spec's stage-6 review, and this is the check that would have found it: the
+ * privileged read minus the rows RLS removes.
+ */
+const asPlainEvaluator = participantFacingQuestions(
+  resolved,
+  linkRows,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  activityRows.filter((a) => (a.audience ?? 'participant') !== 'instructor') as any,
+)
+check(
+  asPlainEvaluator.length === inScope.length &&
+    asPlainEvaluator.every((k) => !instructorOnly.some((i) => i.code === k.code)),
+  'and none is in scope on a device that cannot even SEE the instructor event',
+  `${asPlainEvaluator.length} in scope: ${asPlainEvaluator.map((k) => k.code).join(', ')}`,
+)
+
 // ---- the capture file, built by the shipping builder --------------------------
 
 const dictation = readFileSync(textPath, 'utf8').trim()

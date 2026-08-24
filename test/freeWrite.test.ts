@@ -7,6 +7,7 @@ import {
   composeFreeWriteSourceText,
   composeSourceText,
   freeWriteText,
+  isFreeWriteCapture,
 } from '../src/lib/compose'
 import { findChromeNode } from '../src/lib/content/chrome'
 import {
@@ -95,17 +96,112 @@ describe('which questions a trainee capture may reach', () => {
     expect(kept.map((k) => k.id)).toEqual(['orphan'])
   })
 
-  it('keeps a question whose only wiring points at an event this device does not hold', () => {
-    // The safe direction: show a question the evaluator might need rather than
-    // hide one because a wiring row outran its activity.
-    const kept = participantFacingQuestions([{ id: 'q1' }], [link('q1', 'gone')], [instructorEvent])
-    expect(kept.map((k) => k.id)).toEqual(['q1'])
+  it('DROPS a question whose only wiring points at an event this device cannot read', () => {
+    // The finding that made this a wiring rule rather than an every-check. RLS hides
+    // an instructor-audience activity from a member with no reviewer pair, while the
+    // questions and their wiring rows sync to everybody. So on five of Psalms' seven
+    // devices the three instructor questions are wired to an activity that is not
+    // there. Read as "unwired" they would be offered to a trainee brain dump; read
+    // as "wired to something I cannot see" they are correctly left out.
+    const kept = participantFacingQuestions([{ id: 'q1' }], [link('q1', 'invisible')], [instructorEvent])
+    expect(kept.map((k) => k.id)).toEqual([])
+  })
+
+  it('and that is the difference between an unreadable wiring and no wiring at all', () => {
+    // Both questions have "no visible participant-facing event". Only one of them
+    // has no event at all, and only that one is kept.
+    const kept = participantFacingQuestions(
+      [{ id: 'orphan' }, { id: 'hidden' }],
+      [link('hidden', 'invisible')],
+      [teaching],
+    )
+    expect(kept.map((k) => k.id)).toEqual(['orphan'])
+  })
+
+  it('the caller must not pre-filter the links against the visible activities', () => {
+    // The bug was in the CALLER, not the rule: scoping links by activity id deleted
+    // exactly the rows that distinguish the two cases above, and the questions then
+    // looked unwired. `participantFacingKsasForWorkshop` scopes by ksa_id instead.
+    const reference = readFileSync('src/db/reference.ts', 'utf8')
+    expect(reference).toMatch(/mine\.has\(l\.ksa_id\)/)
+    expect(reference).not.toMatch(/activityIds\.has\(l\.activity_id\)/)
   })
 
   it('treats an activity with no audience column as participant-facing', () => {
     // Every pre-tl-30 event is in that state, and Postgres defaults the column.
     const kept = participantFacingQuestions([{ id: 'q1' }], [link('q1', 'legacy')], [act('legacy')])
     expect(kept.map((k) => k.id)).toEqual(['q1'])
+  })
+})
+
+describe('whether a capture is a free-write one', () => {
+  const noEvent = { activity_id: null, workshop_id: 'w1' }
+  const onEvent = { activity_id: 'a1', workshop_id: 'w1' }
+  const ref = (isInstructorEvent: boolean, activityQuestions: number) => ({
+    isInstructorEvent,
+    activityQuestions,
+  })
+
+  it('a capture with no session is free-write', () => {
+    expect(isFreeWriteCapture(noEvent, ref(false, 0))).toBe(true)
+  })
+
+  it('a capture on a session that has questions is not', () => {
+    expect(isFreeWriteCapture(onEvent, ref(false, 3))).toBe(false)
+  })
+
+  it('a capture on a session with NO questions wired is, which is the three bare events', () => {
+    expect(isFreeWriteCapture(onEvent, ref(false, 0))).toBe(true)
+  })
+
+  it('an instructor review is never free-write, whatever else is true', () => {
+    expect(isFreeWriteCapture(onEvent, ref(true, 0))).toBe(false)
+    expect(isFreeWriteCapture({ ...onEvent, answers: { [FREE_WRITE_KEY]: 'prose' } }, ref(true, 0))).toBe(
+      false,
+    )
+  })
+
+  it('A SUBMITTED FREE-WRITE STAYS ONE AFTER SOMEBODY WIRES A QUESTION TO ITS SESSION', () => {
+    // The blocking finding. Without the stored marker this returns false, the box
+    // stops rendering over prose that is still in the row, and "Save changes" writes
+    // composeSourceText's empty string over a real source_text. The capture then
+    // never routes, because listPendingCaptures filters on source_text.trim().
+    const filed = {
+      ...onEvent,
+      answers: { [FREE_WRITE_KEY]: 'Ada had the pair sort their own songs first.' },
+      ruleset_version: FREE_WRITE_RULESET_VERSION,
+    }
+    expect(isFreeWriteCapture(filed, ref(false, 2))).toBe(true)
+  })
+
+  it('the stamped ruleset alone is enough, so an emptied box does not flip the mode', () => {
+    expect(
+      isFreeWriteCapture({ ...onEvent, ruleset_version: FREE_WRITE_RULESET_VERSION }, ref(false, 2)),
+    ).toBe(true)
+  })
+
+  it('the prose alone is enough, so an unsubmitted draft survives a wiring edit', () => {
+    expect(
+      isFreeWriteCapture({ ...onEvent, answers: { [FREE_WRITE_KEY]: 'half a sentence' } }, ref(false, 2)),
+    ).toBe(true)
+  })
+
+  it('whitespace is not prose', () => {
+    expect(isFreeWriteCapture({ ...onEvent, answers: { [FREE_WRITE_KEY]: '   ' } }, ref(false, 2))).toBe(
+      false,
+    )
+  })
+
+  it('a per-question capture is never mistaken for one', () => {
+    const perQuestion = { ...onEvent, answers: { 'ksa-uuid': 'answered here' }, ruleset_version: RULESET_VERSION }
+    expect(isFreeWriteCapture(perQuestion, ref(false, 2))).toBe(false)
+  })
+
+  it('is what BOTH surfaces call, so the screen and the routed file cannot disagree', () => {
+    const reference = readFileSync('src/db/reference.ts', 'utf8')
+    expect(reference).toContain('isFreeWriteCapture')
+    // captureFileFor passes the whole record, so it gets the markers too.
+    expect(readFileSync('src/routing/operations.ts', 'utf8')).toMatch(/ksasInScopeFor\(e\)/)
   })
 })
 
@@ -234,8 +330,29 @@ describe('the structural invariants, each of which fails on the pre-tl-36 file',
     }
   })
 
-  it('the free-write entry point is hidden from a reviewer-only account', () => {
-    expect(home).toMatch(/!reviewerOnly && \(/)
+  it('the free-write entry point is offered only to somebody the insert will accept', () => {
+    // `reviewerOnly` was the wrong predicate: it is false for a participant-role
+    // member with no pairs, who is exactly the person evaluation_insert refuses.
+    expect(home).toMatch(/\{canEvaluateTrainees && \(/)
+    expect(home).toMatch(/useHasWorkshopRole\(EVALUATING_ROLES\)/)
+  })
+
+  it('the screen renders nothing until it knows which kind of capture it is', () => {
+    // Otherwise the per-session chrome flashes on a free-write capture: the
+    // coverage line, the focus toggle, and "one activity per capture".
+    expect(capture).toMatch(/if \(!resolved\) \{\s*\n\s*return null/)
+    // And it can never stay there: the resolver's error path sets the state too.
+    expect(capture).toMatch(/\.catch\(/)
+    expect(capture).toMatch(/freeWrite: recordActivityId === null/)
+  })
+
+  it('the free-write screen reads coverage it can actually see', () => {
+    // A free-write coverage row carries activity_id null, and IndexedDB does not
+    // index a null key, so where('activity_id') can never return it.
+    expect(capture).toContain('coverageForWorkshop')
+    expect(readFileSync('src/db/coverage.ts', 'utf8')).toMatch(
+      /coverageForWorkshop[\s\S]{0,200}where\('workshop_id'\)/,
+    )
   })
 
   it('the free-write capture attests to its OWN rules, not the per-question four', () => {
