@@ -44,3 +44,12 @@ screenshots/
 # 2026-07-30 fresh start (tl-18). Real participant evidence — kept locally so the
 # delete is recoverable, never committed.
 .pilot-archive/
+
+# Roster scripts. This repo is public and code-searchable, and a roster script
+# names real people with their email addresses in the clear. Applied scripts stay
+# in the working tree, uncommitted, next to their siblings, so the operator can
+# still read what was run. A gitignore rule does not untrack what is already in
+# history: the ones committed before 2026-08-24 (roster-20260818-*, tl25-*,
+# tl30-*, src/data/seed.ts) are a separate backlog decision in the vault. This
+# rule only stops the pile growing while that is decided.
+scripts/roster-*.sql
