@@ -6,6 +6,8 @@ import {
   FREE_WRITE_KEY,
   composeFreeWriteSourceText,
   composeSourceText,
+  canSubmitCapture,
+  captureScopeView,
   freeWriteText,
   hasPerQuestionAnswer,
   isFreeWriteCapture,
@@ -244,6 +246,80 @@ describe('whether a capture is a free-write one', () => {
   })
 })
 
+describe('what the capture screen renders, and whether it may be submitted', () => {
+  const scope = (freeWrite: boolean, n: number) => ({
+    ksas: [...Array(n)].map((_, i) => ({ id: `q${i}` })),
+    freeWrite,
+  })
+
+  it('an unresolved key reads as unresolved, not as an answer', () => {
+    const v = captureScopeView(null, 'k1')
+    expect(v).toEqual({ resolved: false, scopeError: false, ksas: [], freeWrite: false })
+  })
+
+  it('A STALE RESOLUTION READS AS UNRESOLVED, so no capture shows another one\'s mode', () => {
+    // The vault's uselivequery-stale-across-dep-change rule, expressed as a key
+    // rather than as a reset that can happen one frame late.
+    const v = captureScopeView({ key: 'previous', scope: scope(true, 7) }, 'current')
+    expect(v.resolved).toBe(false)
+    expect(v.freeWrite).toBe(false)
+    expect(v.ksas).toEqual([])
+  })
+
+  it('a matching resolution is the answer', () => {
+    const v = captureScopeView({ key: 'k1', scope: scope(true, 7) }, 'k1')
+    expect(v).toMatchObject({ resolved: true, scopeError: false, freeWrite: true })
+    expect(v.ksas).toHaveLength(7)
+  })
+
+  it('a FAILED resolution is neither resolved nor free-write', () => {
+    // The blocking regression: an error that resolved to freeWrite false with no
+    // questions read as "resolved, this session has nothing wired".
+    const v = captureScopeView({ key: 'k1', scope: 'error' }, 'k1')
+    expect(v).toEqual({ resolved: false, scopeError: true, ksas: [], freeWrite: false })
+  })
+
+  it('a failed resolution under a stale key is just unresolved, not an error banner', () => {
+    const v = captureScopeView({ key: 'previous', scope: 'error' }, 'current')
+    expect(v.scopeError).toBe(false)
+  })
+
+  const base = { resolved: true, scopeError: false, hasContent: true, freeWrite: false, namedSomebody: false, hasQuestions: true }
+
+  it('a per-session capture with content and questions may be submitted', () => {
+    expect(canSubmitCapture(base)).toBe(true)
+  })
+
+  it('one question is enough', () => {
+    // The guard must not refuse a legitimate single-question session.
+    expect(canSubmitCapture({ ...base, hasQuestions: true })).toBe(true)
+  })
+
+  it('NO questions and not free-write is never submittable, however it is reached', () => {
+    // composeSourceText over an empty list returns '', which would overwrite a
+    // real source_text and silently stop the capture routing.
+    expect(canSubmitCapture({ ...base, hasQuestions: false })).toBe(false)
+  })
+
+  it('an error refuses the submit even if everything else looks fine', () => {
+    expect(canSubmitCapture({ ...base, scopeError: true })).toBe(false)
+  })
+
+  it('an unresolved screen refuses the submit', () => {
+    expect(canSubmitCapture({ ...base, resolved: false })).toBe(false)
+  })
+
+  it('nothing written refuses the submit', () => {
+    expect(canSubmitCapture({ ...base, hasContent: false })).toBe(false)
+  })
+
+  it('a free-write needs a name and does not need questions', () => {
+    const fw = { ...base, freeWrite: true, hasQuestions: false }
+    expect(canSubmitCapture(fw)).toBe(false)
+    expect(canSubmitCapture({ ...fw, namedSomebody: true })).toBe(true)
+  })
+})
+
 describe('what a free-write capture sends to routing', () => {
   it('sends the prose, trimmed, and nothing else', () => {
     const answers = { [FREE_WRITE_KEY]: '  Ada read the psalm twice before drafting.\n\n' }
@@ -301,6 +377,8 @@ describe('the copy the free-write capture prints', () => {
     'capture.free-write-questions',
     'capture.free-write-no-questions',
     'capture.free-write-rules-short',
+    'capture.coverage-none-workshop',
+    'capture.scope-error',
     'home.free-write-start',
     'home.free-write-help',
   ]
@@ -346,14 +424,15 @@ describe('the structural invariants, each of which fails on the pre-tl-36 file',
   })
 
   it('submit is gated on the question set having resolved', () => {
-    expect(capture).toMatch(/const resolved = questionScope !== null/)
-    expect(capture).toMatch(/canSubmit =\s*\n?\s*resolved && !scopeError && hasContent/)
+    expect(capture).toContain('captureScopeView(resolvedScope, scopeKey)')
+    expect(capture).toContain('canSubmitCapture({')
     expect(capture).toMatch(/disabled=\{!attested \|\| !canSubmit\}/)
   })
 
   it('a free-write submit requires at least one name', () => {
     expect(capture).toMatch(/namedSomebody = scope\.length > 0/)
-    expect(capture).toMatch(/freeWrite \? namedSomebody :/)
+    // The rule itself is executed in `canSubmitCapture`'s own suite above.
+    expect(capture).toMatch(/namedSomebody,/)
   })
 
   it('the free-write box renders instead of the per-question cards, not beside them', () => {
@@ -382,25 +461,20 @@ describe('the structural invariants, each of which fails on the pre-tl-36 file',
     expect(capture).toMatch(/if \(!resolved\) \{\s*\n\s*return null/)
   })
 
-  it('a failed resolution is its own state and never a submittable one', () => {
-    // The re-review's blocking finding, which the first version of the error
-    // handler introduced: resolving the failure to an empty question list made a
-    // per-session capture look resolved-with-no-questions, which enabled submit
-    // and wrote composeSourceText's empty string over real source_text.
+  it('the screen reads its mode through the two pure functions, not from its own state', () => {
+    // The second review's point: the React state machine that fixes its blocking
+    // finding was asserted by regex. It is now executed, in the suite above.
+    expect(capture).toContain('captureScopeView(resolvedScope, scopeKey)')
+    expect(capture).toContain('canSubmitCapture({')
     expect(capture).toMatch(/scope: 'error'/)
-    expect(capture).toMatch(/const scopeError = settled === 'error'/)
-    expect(capture).toMatch(/canSubmit =\s*\n?\s*resolved && !scopeError/)
-    // The second guard, which holds even if a third state is ever added.
-    expect(capture).toMatch(/freeWrite \? namedSomebody : ksas\.length > 0/)
-    // And it says so rather than looking broken.
     expect(findChromeNode('capture.scope-error')?.label).toBeTruthy()
   })
 
-  it('a resolution is keyed to the inputs that produced it', () => {
-    // So a reused component instance cannot render the previous capture's mode,
-    // which is the vault's uselivequery-stale-across-dep-change rule.
-    expect(capture).toMatch(/const scopeKey = /)
-    expect(capture).toMatch(/resolvedScope\?\.key === scopeKey/)
+  it('the prose is not part of the resolution key, so typing cannot re-resolve', () => {
+    // It flipped false to true on the first keystroke, which was the only way a
+    // settled screen could fall into the error banner mid-sentence.
+    expect(capture).toMatch(/const scopeKey = `\$\{recordId \?\? ''\}\|\$\{recordActivityId/)
+    expect(capture).not.toContain('recordHasFreeWriteText')
   })
 
   it('the free-write screen reads coverage it can actually see', () => {

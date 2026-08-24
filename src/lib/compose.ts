@@ -130,3 +130,50 @@ export function composeSourceText(
     })
     .join('\n\n')
 }
+
+/**
+ * What the capture screen should render, given a keyed resolution and the key it
+ * is currently asking about (tl-36, second review).
+ *
+ * Pure, because the alternative was asserting a React state machine with regexes
+ * over its own source file, and the fix this encodes was the blocking regression
+ * of the second review: a failed read that resolved to "no questions, not
+ * free-write" left submit enabled and let `composeSourceText` write an empty
+ * string over real prose. That is worth executing in a test rather than
+ * pattern-matching.
+ *
+ * A resolution carries the key of the inputs that produced it. A key that no
+ * longer matches reads as unresolved rather than as an answer about a different
+ * capture, which is the `uselivequery-stale-across-dep-change` rule: nothing here
+ * has to be cleared, so nothing can be cleared late.
+ */
+export function captureScopeView<T>(
+  resolved: { key: string; scope: { ksas: T[]; freeWrite: boolean } | 'error' } | null,
+  key: string,
+): { resolved: boolean; scopeError: boolean; ksas: T[]; freeWrite: boolean } {
+  const settled = resolved?.key === key ? resolved.scope : null
+  if (settled === 'error') return { resolved: false, scopeError: true, ksas: [], freeWrite: false }
+  if (settled === null) return { resolved: false, scopeError: false, ksas: [], freeWrite: false }
+  return { resolved: true, scopeError: false, ksas: settled.ksas, freeWrite: settled.freeWrite }
+}
+
+/**
+ * May this capture be submitted? (tl-36, second review)
+ *
+ * Two guards on one failure, deliberately. `scopeError` refuses the state that
+ * caused it; `hasQuestions` refuses the SHAPE of it, so a future rescue path
+ * cannot re-open the same hole by inventing a fourth state. `composeSourceText`
+ * over an empty question list returns an empty string, so "there are no questions
+ * and this is not free-write" must never be submittable however it is arrived at.
+ */
+export function canSubmitCapture(input: {
+  resolved: boolean
+  scopeError: boolean
+  hasContent: boolean
+  freeWrite: boolean
+  namedSomebody: boolean
+  hasQuestions: boolean
+}): boolean {
+  if (!input.resolved || input.scopeError || !input.hasContent) return false
+  return input.freeWrite ? input.namedSomebody : input.hasQuestions
+}

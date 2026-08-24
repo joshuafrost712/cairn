@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 import { useNavigate, useParams, Link } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
@@ -7,6 +7,8 @@ import { ksasInScopeFor, type CaptureScope } from '../db/reference'
 import { coverageForActivity, coverageForWorkshop } from '../db/coverage'
 import { saveAnswers, submitEvaluation, undoLastEdit } from '../db/evaluations'
 import {
+  canSubmitCapture,
+  captureScopeView,
   composeFreeWriteSourceText,
   composeSourceText,
   freeWriteText,
@@ -145,27 +147,25 @@ export function CaptureActivity() {
   const recordId = record?.client_id
   const recordActivityId = record?.activity_id ?? null
   const recordWorkshopId = record?.workshop_id ?? null
-  // The stored markers, so a submitted free-write capture stays one however the
-  // wiring is edited afterwards. `answers` is re-read on every keystroke by the
-  // live query, so the effect keys on whether the RESERVED KEY is set rather than
-  // on the answers object: re-resolving the question set on each character typed
-  // would be both wasteful and a way to lose focus mid-sentence.
-  const recordAnswers = record?.answers
-  const recordHasFreeWriteText = Boolean(freeWriteText(recordAnswers).trim())
+  // The stored marker, so a submitted free-write capture stays one however the
+  // wiring is edited afterwards. Read off the record inside the resolver; see the
+  // note on `scopeKey` for why the prose itself is not part of the key.
   const recordRuleset = record?.ruleset_version ?? null
-  const scopeKey = `${recordId ?? ''}|${recordActivityId ?? ''}|${recordWorkshopId ?? ''}|${recordHasFreeWriteText}|${recordRuleset ?? ''}`
-  const settled = resolvedScope?.key === scopeKey ? resolvedScope.scope : null
-  const scopeError = settled === 'error'
-  const questionScope = settled === 'error' ? null : settled
-  const ksas = questionScope?.ksas ?? []
-  const freeWrite = questionScope?.freeWrite ?? false
+  // Whether the box already holds prose is deliberately NOT in this key, and the second review
+  // is why. It flips false to true on the first keystroke into the box, which would
+  // re-run the resolver mid-sentence for an answer that cannot change: the screen is
+  // already free-write, and the marker exists to KEEP that mode at the next mount,
+  // where it is read at first paint anyway. Its only effect here would be to give a
+  // settled screen one way to fall into the error banner while somebody is typing.
+  const scopeKey = `${recordId ?? ''}|${recordActivityId ?? ''}|${recordWorkshopId ?? ''}|${recordRuleset ?? ''}`
+  const { resolved, scopeError, ksas, freeWrite } = captureScopeView(resolvedScope, scopeKey)
   useEffect(() => {
     if (!recordId) return
     let live = true
     void ksasInScopeFor({
       activity_id: recordActivityId,
       workshop_id: recordWorkshopId,
-      answers: recordAnswers,
+      answers: record?.answers,
       ruleset_version: recordRuleset,
     })
       .then((s) => {
@@ -303,10 +303,9 @@ export function CaptureActivity() {
    * rule, unchanged, because a whole-group remark under a named question is a
    * legitimate thing an evaluator has been doing all week.
    */
-  const hasContent = useMemo(() => {
-    if (freeWrite) return freeWriteText(answers).trim().length > 0
-    return Object.values(answers).some((v) => v.trim().length > 0)
-  }, [answers, freeWrite])
+  const hasContent = freeWrite
+    ? freeWriteText(answers).trim().length > 0
+    : Object.values(answers).some((v) => v.trim().length > 0)
   const namedSomebody = scope.length > 0
   /**
    * Submit waits for the question set, and that is not caution.
@@ -317,15 +316,14 @@ export function CaptureActivity() {
    * would succeed, `listPendingCaptures` filters on `source_text.trim()`, and the
    * capture would simply never route. Nothing would report an error.
    */
-  const resolved = questionScope !== null
-  /**
-   * The second guard on the same failure, kept even though the error state above
-   * makes it unreachable today. `composeSourceText` over an empty question list
-   * returns an empty string, so "there are no questions and this is not
-   * free-write" must never be a submittable state however it is arrived at.
-   */
-  const canSubmit =
-    resolved && !scopeError && hasContent && (freeWrite ? namedSomebody : ksas.length > 0)
+  const canSubmit = canSubmitCapture({
+    resolved,
+    scopeError,
+    hasContent,
+    freeWrite,
+    namedSomebody,
+    hasQuestions: ksas.length > 0,
+  })
 
   const submit = async () => {
     const a = answers
@@ -379,8 +377,9 @@ export function CaptureActivity() {
    * input rules including "one activity per capture", which is the rule the box
    * exists to break. The one-frame version of a screen is still a screen.
    *
-   * Safe to return null: the effect above always resolves this state, on the error
-   * path too, so there is no way to stay here.
+   * Safe to return null: the effect always settles, and a settlement that FAILED
+   * is handled by the branch directly above rather than by this one. So the only
+   * way to sit here is the moment before the two Dexie reads come back.
    */
   if (scopeError) {
     return (
