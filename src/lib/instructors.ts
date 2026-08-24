@@ -231,9 +231,17 @@ export function participantFacingQuestions<K extends { id: string }>(
   links: readonly Pick<ActivityKsa, 'ksa_id' | 'activity_id'>[],
   activities: readonly Pick<Activity, 'id' | 'audience'>[],
 ): K[] {
+  // `links` may be the WHOLE table; the scoping to these questions happens here
+  // rather than in the caller, and the re-review is why. The caller's version of
+  // this filter is what held the original defect, it was keyed on the activity,
+  // and a regex test over the caller's source could only ever catch that one
+  // spelling of it. Done here it is covered by the tests below and there is
+  // nothing left for a caller to get wrong.
+  const mine = new Set(ksas.map((k) => k.id))
   const audienceById = new Map(activities.map((a) => [a.id, audienceOf(a)] as const))
   const wired = new Map<string, boolean>()
   for (const link of links) {
+    if (!mine.has(link.ksa_id)) continue
     const participantFacing =
       (wired.get(link.ksa_id) ?? false) || audienceById.get(link.activity_id) === 'participant'
     wired.set(link.ksa_id, participantFacing)

@@ -49,14 +49,27 @@ export function CaptureActivity() {
   // so this screen shows exactly what the Setup preview and the routing capture file
   // show. That is the point of there being one resolution site (tl-08, tl-36).
   //
-  // `null` means NOT YET RESOLVED, and the distinction is load-bearing. Free-write
-  // mode is "this capture has no questions of its own", and an empty array is what
-  // the first paint of every capture holds, so an initial `[]` would flash the
-  // free-write box onto a per-event capture on every open. This is the flashing
-  // refusal tl-30's review had to fix, in a new place.
-  const [questionScope, setQuestionScope] = useState<CaptureScope | null>(null)
-  const ksas = questionScope?.ksas ?? []
-  const freeWrite = questionScope?.freeWrite ?? false
+  // UNRESOLVED IS ITS OWN STATE, and the distinction is load-bearing in both
+  // directions. Free-write mode means "this capture has no questions of its own",
+  // and an empty list is also what the first paint holds, so treating the two the
+  // same flashes the free-write box onto a per-event capture and the per-event
+  // chrome onto a free-write one. That is the flashing refusal tl-30's review had
+  // to fix, twice over.
+  //
+  // KEYED, rather than reset when the inputs change, which is the same fix the
+  // vault's `uselivequery-stale-across-dep-change` note prescribes and the one the
+  // lint rule against setState-in-an-effect leaves available. A resolution is
+  // stored with the exact inputs that produced it, so a stale one is simply not
+  // "resolved" and there is no window in which this screen renders a mode that
+  // belongs to a different capture. Clearing it in the effect would have been a
+  // synchronous setState in an effect body, and would still have painted one frame
+  // of the old mode first.
+  //
+  // 'error' is a THIRD state, not a resolved scope: see the resolver's catch.
+  const [resolvedScope, setResolvedScope] = useState<{
+    key: string
+    scope: CaptureScope | 'error'
+  } | null>(null)
   // tl-30. Which roster this event wants, and — for the Instructor feedback
   // event — which of it this viewer is entitled to. `rosterForActivity` is the
   // one place that decision is made, so the grid, the coverage line and the Setup
@@ -140,6 +153,12 @@ export function CaptureActivity() {
   const recordAnswers = record?.answers
   const recordHasFreeWriteText = Boolean(freeWriteText(recordAnswers).trim())
   const recordRuleset = record?.ruleset_version ?? null
+  const scopeKey = `${recordId ?? ''}|${recordActivityId ?? ''}|${recordWorkshopId ?? ''}|${recordHasFreeWriteText}|${recordRuleset ?? ''}`
+  const settled = resolvedScope?.key === scopeKey ? resolvedScope.scope : null
+  const scopeError = settled === 'error'
+  const questionScope = settled === 'error' ? null : settled
+  const ksas = questionScope?.ksas ?? []
+  const freeWrite = questionScope?.freeWrite ?? false
   useEffect(() => {
     if (!recordId) return
     let live = true
@@ -150,22 +169,31 @@ export function CaptureActivity() {
       ruleset_version: recordRuleset,
     })
       .then((s) => {
-        if (live) setQuestionScope(s)
+        if (live) setResolvedScope({ key: scopeKey, scope: s })
       })
       .catch((e) => {
-        // Never leave the screen unresolved. The body below does not render until
-        // this state is set, and an unhandled rejection here would blank the only
-        // screen an evaluator has. A capture with no session is unambiguously
-        // free-write whatever the reference tables say, so the fallback is honest
-        // rather than a guess.
+        /**
+         * FAILING IS ITS OWN STATE, and the re-review of this spec is why.
+         *
+         * The first version of this handler resolved to `{ksas: [], freeWrite:
+         * false}` so that the screen could never sit blank. On a per-session
+         * capture that reads as "resolved, and this session has no questions",
+         * which renders no question cards while `hasContent` still counts the
+         * stored answers, so submit was ENABLED and "Save changes" would have
+         * written `composeSourceText`'s empty string over a real `source_text`.
+         * `listPendingCaptures` filters on `source_text.trim()`, so the capture
+         * would then never route and nothing would say why. A rescue that permits
+         * a destructive write is worse than the blank screen it replaced, and this
+         * one landed on the path everybody is using this week.
+         */
         console.error('[honest-eval] could not resolve the capture question set', e)
-        if (live) setQuestionScope({ ksas: [], freeWrite: recordActivityId === null })
+        if (live) setResolvedScope({ key: scopeKey, scope: 'error' })
       })
     return () => {
       live = false
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [recordId, recordActivityId, recordWorkshopId, recordHasFreeWriteText, recordRuleset])
+  }, [scopeKey, recordId, recordActivityId, recordWorkshopId])
 
   // Seed local state from the record on first load (React's "adjust state during
   // render" pattern — avoids a clobber-prone effect).
@@ -290,7 +318,14 @@ export function CaptureActivity() {
    * capture would simply never route. Nothing would report an error.
    */
   const resolved = questionScope !== null
-  const canSubmit = resolved && hasContent && (!freeWrite || namedSomebody)
+  /**
+   * The second guard on the same failure, kept even though the error state above
+   * makes it unreachable today. `composeSourceText` over an empty question list
+   * returns an empty string, so "there are no questions and this is not
+   * free-write" must never be a submittable state however it is arrived at.
+   */
+  const canSubmit =
+    resolved && !scopeError && hasContent && (freeWrite ? namedSomebody : ksas.length > 0)
 
   const submit = async () => {
     const a = answers
@@ -347,6 +382,14 @@ export function CaptureActivity() {
    * Safe to return null: the effect above always resolves this state, on the error
    * path too, so there is no way to stay here.
    */
+  if (scopeError) {
+    return (
+      <div className="banner warn">
+        <Copy id="capture.scope-error" /> <Link to="/">{c('capture.not-found.link')}</Link>
+      </div>
+    )
+  }
+
   if (!resolved) {
     return null
   }
@@ -513,7 +556,7 @@ export function CaptureActivity() {
                   count: cov.count,
                   evaluators: evs.join(', ') || c('capture.coverage-unknown'),
                 })
-              : c('capture.coverage-none')
+              : c(freeWrite ? 'capture.coverage-none-workshop' : 'capture.coverage-none')
             return (
               <button
                 key={p.id}

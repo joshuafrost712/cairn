@@ -1,5 +1,5 @@
 import type { ResolvedKsa } from './goals'
-import { FREE_WRITE_RULESET_VERSION } from './ruleset'
+import { FREE_WRITE_RULESET_VERSION, RULESET_VERSION } from './ruleset'
 import { getActiveScale, maxValue, type Scale } from './scale'
 import type { QuickRatings } from './types'
 
@@ -71,7 +71,21 @@ export function isFreeWriteCapture(
   if (freeWriteText(capture.answers).trim()) return true
   if (capture.ruleset_version === FREE_WRITE_RULESET_VERSION) return true
   if (!capture.activity_id) return true
+  // The stickiness has to run BOTH ways, and the re-review is why. A per-question
+  // capture carries its own markers, and believing only the free-write ones left
+  // this returning true for one whose session had momentarily lost its wiring —
+  // an administrator unwiring questions in Setup to re-wire them is enough. Its
+  // answers would then be invisible behind an empty box, and prose typed into that
+  // box would take the marker permanently and drop them from what routes.
+  if (capture.ruleset_version === RULESET_VERSION) return false
+  if (hasPerQuestionAnswer(capture.answers)) return false
   return reference.activityQuestions === 0
+}
+
+/** Any answered question, ignoring the free-write key. */
+export function hasPerQuestionAnswer(answers: Record<string, string> | null | undefined): boolean {
+  if (!answers) return false
+  return Object.entries(answers).some(([k, v]) => k !== FREE_WRITE_KEY && Boolean(v?.trim()))
 }
 
 /**

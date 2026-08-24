@@ -392,18 +392,12 @@ export async function participantFacingKsasForWorkshop(
     activitiesForWorkshop(workshopId),
     db.activityKsas.toArray(),
   ])
-  // Scoped by QUESTION, not by activity, and the review of this spec is why. The
-  // first version filtered the links against this workshop's visible activities,
-  // which deleted every link pointing at the instructor event a plain evaluator
-  // cannot read — and `participantFacingQuestions` then saw those three questions
-  // as unwired and kept them. Scoping by `ksa_id` keeps the link, so the decision
-  // can tell "wired to something I cannot see" from "wired to nothing".
-  const mine = new Set(ksas.map((k) => k.id))
-  return participantFacingQuestions(
-    ksas,
-    links.filter((l) => mine.has(l.ksa_id)),
-    activities,
-  )
+  // The WHOLE link table goes in. `participantFacingQuestions` scopes it to these
+  // questions itself, which is where that filter belongs: the first version of it
+  // lived here, was keyed on the activity rather than the question, and that is
+  // exactly what deleted the links pointing at the instructor event a plain
+  // evaluator cannot read, so those questions read as unwired and were kept.
+  return participantFacingQuestions(ksas, links, activities)
 }
 
 /** What `ksasInScopeFor` resolved, and which of the two rules produced it. */

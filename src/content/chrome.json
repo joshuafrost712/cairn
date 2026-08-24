@@ -306,6 +306,10 @@
       "label": "Not yet evaluated for this activity"
     },
     {
+      "id": "capture.coverage-none-workshop",
+      "label": "Not yet evaluated anywhere in this workshop"
+    },
+    {
       "id": "capture.focus-help",
       "label": "Focus mode: everything you capture is attributed to the one CIT you picked."
     },
@@ -364,6 +368,10 @@
     {
       "id": "capture.free-write-rules-short",
       "label": "Name who you mean, describe what you observed. Several people and several sessions in one capture are fine."
+    },
+    {
+      "id": "capture.scope-error",
+      "label": "This device could not load the workshop's questions, so this capture cannot be filed safely. Reopen it once the app has synced."
     },
     {
       "id": "capture.answer-placeholder",

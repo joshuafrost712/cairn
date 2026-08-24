@@ -7,6 +7,7 @@ import {
   composeFreeWriteSourceText,
   composeSourceText,
   freeWriteText,
+  hasPerQuestionAnswer,
   isFreeWriteCapture,
 } from '../src/lib/compose'
 import { findChromeNode } from '../src/lib/content/chrome'
@@ -118,13 +119,25 @@ describe('which questions a trainee capture may reach', () => {
     expect(kept.map((k) => k.id)).toEqual(['orphan'])
   })
 
-  it('the caller must not pre-filter the links against the visible activities', () => {
-    // The bug was in the CALLER, not the rule: scoping links by activity id deleted
-    // exactly the rows that distinguish the two cases above, and the questions then
-    // looked unwired. `participantFacingKsasForWorkshop` scopes by ksa_id instead.
-    const reference = readFileSync('src/db/reference.ts', 'utf8')
-    expect(reference).toMatch(/mine\.has\(l\.ksa_id\)/)
-    expect(reference).not.toMatch(/activityIds\.has\(l\.activity_id\)/)
+  it('scopes the links to these questions itself, so no caller can get that wrong', () => {
+    // The original defect lived in the CALLER, which filtered links by activity id
+    // and so deleted exactly the rows that distinguish the two cases above. The
+    // filter now lives here, where it is covered by a test rather than by a regex
+    // over somebody else's source: the whole link table can be passed in.
+    const wholeTable = [
+      link('q1', 'teach-1'),
+      link('someone-elses-question', 'teach-1'),
+      link('ins1', 'instr-1'),
+    ]
+    const kept = participantFacingQuestions([{ id: 'q1' }, { id: 'ins1' }], wholeTable, [
+      teaching,
+      instructorEvent,
+    ])
+    expect(kept.map((k) => k.id)).toEqual(['q1'])
+    // And the caller passes it unfiltered, which is the point.
+    expect(readFileSync('src/db/reference.ts', 'utf8')).toMatch(
+      /participantFacingQuestions\(ksas, links, activities\)/,
+    )
   })
 
   it('treats an activity with no audience column as participant-facing', () => {
@@ -195,6 +208,32 @@ describe('whether a capture is a free-write one', () => {
   it('a per-question capture is never mistaken for one', () => {
     const perQuestion = { ...onEvent, answers: { 'ksa-uuid': 'answered here' }, ruleset_version: RULESET_VERSION }
     expect(isFreeWriteCapture(perQuestion, ref(false, 2))).toBe(false)
+  })
+
+  it('AND STAYS ONE while its session has momentarily lost its wiring', () => {
+    // The re-review's finding: the stickiness ran one way only, so an
+    // administrator unwiring a session's questions to re-wire them made every
+    // existing capture on it render as an empty free-write box with the
+    // evaluator's answers invisible. Prose typed into that box would then take the
+    // marker permanently and drop those answers from what routes.
+    const stamped = { ...onEvent, ruleset_version: RULESET_VERSION }
+    expect(isFreeWriteCapture(stamped, ref(false, 0))).toBe(false)
+    const answered = { ...onEvent, answers: { 'ksa-uuid': 'answered here' } }
+    expect(isFreeWriteCapture(answered, ref(false, 0))).toBe(false)
+  })
+
+  it('but a capture with no session at all is still free-write, marker or not', () => {
+    // Nothing could ever have rendered a per-question form there.
+    expect(
+      isFreeWriteCapture({ ...noEvent, ruleset_version: RULESET_VERSION }, ref(false, 0)),
+    ).toBe(true)
+  })
+
+  it('the reserved key alone does not count as a per-question answer', () => {
+    expect(hasPerQuestionAnswer({ [FREE_WRITE_KEY]: 'prose' })).toBe(false)
+    expect(hasPerQuestionAnswer({ 'ksa-uuid': 'answer' })).toBe(true)
+    expect(hasPerQuestionAnswer({ 'ksa-uuid': '  ' })).toBe(false)
+    expect(hasPerQuestionAnswer(null)).toBe(false)
   })
 
   it('is what BOTH surfaces call, so the screen and the routed file cannot disagree', () => {
@@ -308,13 +347,13 @@ describe('the structural invariants, each of which fails on the pre-tl-36 file',
 
   it('submit is gated on the question set having resolved', () => {
     expect(capture).toMatch(/const resolved = questionScope !== null/)
-    expect(capture).toMatch(/canSubmit = resolved && hasContent/)
+    expect(capture).toMatch(/canSubmit =\s*\n?\s*resolved && !scopeError && hasContent/)
     expect(capture).toMatch(/disabled=\{!attested \|\| !canSubmit\}/)
   })
 
   it('a free-write submit requires at least one name', () => {
     expect(capture).toMatch(/namedSomebody = scope\.length > 0/)
-    expect(capture).toMatch(/!freeWrite \|\| namedSomebody/)
+    expect(capture).toMatch(/freeWrite \? namedSomebody :/)
   })
 
   it('the free-write box renders instead of the per-question cards, not beside them', () => {
@@ -341,9 +380,27 @@ describe('the structural invariants, each of which fails on the pre-tl-36 file',
     // Otherwise the per-session chrome flashes on a free-write capture: the
     // coverage line, the focus toggle, and "one activity per capture".
     expect(capture).toMatch(/if \(!resolved\) \{\s*\n\s*return null/)
-    // And it can never stay there: the resolver's error path sets the state too.
-    expect(capture).toMatch(/\.catch\(/)
-    expect(capture).toMatch(/freeWrite: recordActivityId === null/)
+  })
+
+  it('a failed resolution is its own state and never a submittable one', () => {
+    // The re-review's blocking finding, which the first version of the error
+    // handler introduced: resolving the failure to an empty question list made a
+    // per-session capture look resolved-with-no-questions, which enabled submit
+    // and wrote composeSourceText's empty string over real source_text.
+    expect(capture).toMatch(/scope: 'error'/)
+    expect(capture).toMatch(/const scopeError = settled === 'error'/)
+    expect(capture).toMatch(/canSubmit =\s*\n?\s*resolved && !scopeError/)
+    // The second guard, which holds even if a third state is ever added.
+    expect(capture).toMatch(/freeWrite \? namedSomebody : ksas\.length > 0/)
+    // And it says so rather than looking broken.
+    expect(findChromeNode('capture.scope-error')?.label).toBeTruthy()
+  })
+
+  it('a resolution is keyed to the inputs that produced it', () => {
+    // So a reused component instance cannot render the previous capture's mode,
+    // which is the vault's uselivequery-stale-across-dep-change rule.
+    expect(capture).toMatch(/const scopeKey = /)
+    expect(capture).toMatch(/resolvedScope\?\.key === scopeKey/)
   })
 
   it('the free-write screen reads coverage it can actually see', () => {
