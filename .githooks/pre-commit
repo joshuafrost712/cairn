@@ -1,0 +1,24 @@
+#!/bin/sh
+# Refuse to commit real workshop evidence into this repo.
+#
+# This repo is PUBLIC. `.routing-workspace/` holds captures and routed
+# observations built from Postgres: named colleagues and candid assessments of
+# how they taught. `.gitignore` already covers it, and on 2026-08-26 that was not
+# enough — a subagent asked to "write the files" ran `git add -f` and pushed 24
+# observations naming 16 real people to the public remote. A gitignore is advice.
+# This is the gate.
+#
+# Enable once per clone:  git config core.hooksPath .githooks
+
+blocked=$(git diff --cached --name-only | grep -E '^\.routing-workspace/|^\.pilot-archive/|^scripts/roster-.*\.sql$')
+
+if [ -n "$blocked" ]; then
+  echo "pre-commit: refusing to commit real workshop evidence into a public repo." >&2
+  echo "" >&2
+  echo "$blocked" | sed 's/^/  /' >&2
+  echo "" >&2
+  echo "These paths are gitignored on purpose. If something force-added them," >&2
+  echo "unstage it:  git restore --staged <path>" >&2
+  echo "Routed output belongs in the PRIVATE cairn-routing repo, never here." >&2
+  exit 1
+fi
