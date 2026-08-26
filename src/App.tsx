@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect } from 'react'
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate, useParams } from 'react-router-dom'
 import { AuthProvider, useAuth } from './auth/AuthContext'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import { Splash } from './components/Splash'
@@ -92,6 +92,27 @@ function publicRoutes(signedIn: boolean) {
       element={signedIn ? <Navigate to="/" replace /> : <SignIn />}
     />,
   ]
+}
+
+/**
+ * One mount per capture, and the key is what makes it so.
+ *
+ * `/capture/A` to `/capture/B` is the same route with a different param, so React
+ * keeps `CaptureActivity` mounted and every `useState` in it survives the move.
+ * That path used to be unreachable — you got here from Home, one capture at a time
+ * — and "evaluate someone else in this session" makes it a single tap, which turns
+ * three pieces of carried-over state into bugs at once: the post-submit panel would
+ * greet a capture nobody had written yet, `editRecorded` would swallow the new
+ * capture's first undo snapshot, and a ticked attestation box would carry over so
+ * the next Submit went live without anybody attesting to anything.
+ *
+ * Keying on the row id is the fix the vault's `uselivequery-stale-across-dep-change`
+ * note prescribes, and it costs nothing here: every field on this screen is written
+ * to Dexie as it changes, so a remount re-reads rather than loses.
+ */
+function CaptureRoute() {
+  const { clientId = '' } = useParams()
+  return <CaptureActivity key={clientId} />
 }
 
 function Shell() {
@@ -243,7 +264,7 @@ function Shell() {
             activity's audience, because it is a per-record question and a route
             gate cannot see the record. */}
         <Route path="/" element={<EvaluatorHome />} />
-        <Route path="/capture/:clientId" element={<CaptureActivity />} />
+        <Route path="/capture/:clientId" element={<CaptureRoute />} />
         <Route element={<RequireRole roles={EVALUATING_ROLES} />}>
           <Route path="/evaluations" element={<MyEvaluations />} />
           <Route path="/conversations" element={<Conversations />} />

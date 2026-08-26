@@ -177,3 +177,49 @@ export function canSubmitCapture(input: {
   if (!input.resolved || input.scopeError || !input.hasContent) return false
   return input.freeWrite ? input.namedSomebody : input.hasQuestions
 }
+
+/**
+ * Is there anybody left in this session for this evaluator to write about?
+ *
+ * Decides whether the post-submit panel offers "evaluate someone else in this
+ * session". The answer has to be no in two real cases, and a button that is
+ * offered into an empty roster is worse than no button: a reviewer who holds one
+ * instructor pair is finished the moment she submits it, and a workshop whose
+ * roster has not loaded has nobody to offer at all.
+ *
+ * `justCovered` is separate from `coverage` because it has to be. The capture that
+ * has just been submitted writes its coverage row through a `void upsertCoverage`
+ * call, so at the moment this runs the map still does not know about the people
+ * this evaluator has this second finished writing about.
+ *
+ * Emails are compared lowercased. They arrive from two places — this device's own
+ * submissions and other devices over Realtime — and an identity provider is under
+ * no obligation to hand back the same casing twice.
+ *
+ * A free-write capture always says yes. It has no session to exhaust, and the
+ * whole point of it (tl-36) is that you write when you have something to write.
+ *
+ * Pure, so the case that is awkward to reach on a real device — the reviewer with
+ * exactly one pair — is testable without one.
+ */
+export function somebodyLeftToEvaluate(input: {
+  freeWrite: boolean
+  evaluatorEmail: string | null
+  participantIds: string[]
+  justCovered: string[]
+  coverage: Map<string, { evaluators: string[] }> | undefined
+}): boolean {
+  if (input.freeWrite) return true
+  const mine = (input.evaluatorEmail ?? '').toLowerCase()
+  const just = new Set(input.justCovered)
+  return input.participantIds.some((id) => {
+    if (just.has(id)) return false
+    // An evaluator with no email of their own cannot be matched against anybody,
+    // and the empty string is not an identity: comparing it would let a blank in
+    // the coverage list read as "you have already done this one" and retire a name
+    // that nobody has evaluated. `aggregateCoverage` drops falsy emails today, so
+    // this guards the comparison rather than the current caller.
+    if (!mine) return true
+    return !(input.coverage?.get(id)?.evaluators ?? []).some((e) => e.toLowerCase() === mine)
+  })
+}

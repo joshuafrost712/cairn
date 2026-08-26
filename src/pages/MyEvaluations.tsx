@@ -29,6 +29,13 @@ export function MyEvaluations() {
       <div className="card">
         <Copy id="myeval.title" as="h1" />
         <Copy id="myeval.intro" as="p" className="muted small" />
+        {/* A way onward. Every link on this page goes backwards, into a capture
+            that already exists, and `myeval.empty` tells you to start one from the
+            home screen without offering to take you there. Submitting no longer
+            dumps anybody here, but it is still in the nav. */}
+        <p className="small" style={{ marginBottom: 0 }}>
+          <Link to="/">{c('myeval.start-another')}</Link>
+        </p>
       </div>
       {(evals ?? []).length === 0 && <Copy id="myeval.empty" as="div" className="banner info" />}
       {(evals ?? []).map((e) => (

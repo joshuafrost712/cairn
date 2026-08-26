@@ -5,13 +5,14 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '../db/local'
 import { ksasInScopeFor, type CaptureScope } from '../db/reference'
 import { coverageForActivity, coverageForWorkshop } from '../db/coverage'
-import { saveAnswers, submitEvaluation, undoLastEdit } from '../db/evaluations'
+import { createDraft, saveAnswers, submitEvaluation, undoLastEdit } from '../db/evaluations'
 import {
   canSubmitCapture,
   captureScopeView,
   composeFreeWriteSourceText,
   composeSourceText,
   freeWriteText,
+  somebodyLeftToEvaluate,
   FREE_WRITE_KEY,
 } from '../lib/compose'
 import { FREE_WRITE_INPUT_RULES, INPUT_RULES } from '../lib/ruleset'
@@ -140,6 +141,26 @@ export function CaptureActivity() {
   const [attested, setAttested] = useState(false)
   const [seededFor, setSeededFor] = useState<string | null>(null)
   const editRecorded = useRef(false)
+  /**
+   * What just happened on this screen, and whether there is anybody left here.
+   *
+   * Null until this evaluator submits or saves; the submit row is showing then.
+   * Set afterwards, which is what replaced `navigate('/evaluations')`: the old
+   * behaviour threw somebody who had just written something onto a list of what
+   * they had already written, which is the one screen with no way onward.
+   *
+   * `more` is decided ONCE, inside `submit`, and that is not laziness.
+   * `submitEvaluation` fires `upsertCoverage` as a `void` call, so a value
+   * recomputed on render would paint "evaluate someone else" and then take it away
+   * a tick later, under the thumb about to tap it. This is also why the state is
+   * one object rather than two: the kind and the offer are decided together, from
+   * the same instant.
+   *
+   * Local, so it does not survive a remount. The capture route is keyed on the
+   * client id (App.tsx), so opening another capture starts with the panel gone,
+   * which is correct: the choice belongs to the submit that produced it.
+   */
+  const [done, setDone] = useState<{ kind: 'submitted' | 'saved'; more: boolean } | null>(null)
 
   // Keyed on the record's own ids rather than on the record, so typing (which
   // rewrites the row on every keystroke through `persist`) does not re-resolve the
@@ -219,6 +240,11 @@ export function CaptureActivity() {
       focus_participant_id?: string | null
     } = {},
   ) => {
+    // Changing anything is a decision to keep working on THIS capture, so the
+    // "what next" panel gives way and the save button comes back. Every content
+    // mutation on this screen funnels through here, which is why the clear lives
+    // here and not in each of the six handlers.
+    setDone(null)
     // After submission, the first change in this session records an undo snapshot.
     const recordEdit = alreadySubmitted && !editRecorded.current
     if (recordEdit) editRecorded.current = true
@@ -290,6 +316,8 @@ export function CaptureActivity() {
   const onUndo = async () => {
     const restored = await undoLastEdit(clientId)
     if (restored) setAnswers(restored)
+    // Same reading as any other change: they are still working on this one.
+    setDone(null)
   }
 
   /**
@@ -326,6 +354,29 @@ export function CaptureActivity() {
   })
 
   const submit = async () => {
+    // Both decisions are read BEFORE the await, and both have to be.
+    //
+    // `alreadySubmitted` comes off a live query that flips to true the moment the
+    // write lands, so afterwards every submit would look like a save and the panel
+    // would never once say "Submitted".
+    //
+    // `more` is frozen for the same reason from the other direction: the write
+    // fires `upsertCoverage` as a `void` call, so a value recomputed on render
+    // would paint "evaluate someone else in this session" and then take it away a
+    // tick later, under the thumb already moving toward it.
+    const wasSubmitted = alreadySubmitted
+    const more = somebodyLeftToEvaluate({
+      freeWrite,
+      evaluatorEmail: identity?.email ?? null,
+      participantIds: (participants ?? []).map((p) => p.id),
+      // Filtered, not asserted: a scope entry may name somebody with no roster id
+      // at all, which is the same guard `coverageRowFromEvaluation` applies.
+      justCovered: [
+        ...scope.map((s) => s.participant_id).filter((id): id is string => Boolean(id)),
+        ...(focusParticipantId ? [focusParticipantId] : []),
+      ],
+      coverage,
+    })
     const a = answers
     await submitEvaluation(clientId, {
       answers: a,
@@ -336,7 +387,26 @@ export function CaptureActivity() {
       focus_participant_id: focusParticipantId,
       freeWrite,
     })
-    navigate('/evaluations')
+    setDone({ kind: wasSubmitted ? 'saved' : 'submitted', more })
+  }
+
+  /**
+   * Another capture for the session they never left.
+   *
+   * The same two lines as `EvaluatorHome.start`, carrying this record's activity
+   * and workshop rather than making somebody re-pick the session they are sitting
+   * in. `createDraft` re-resolves `subject_kind` from the activity, so an
+   * instructor review produces another instructor review and `evaluation_insert`
+   * accepts it; a free-write capture carries a null activity and produces another
+   * free-write.
+   */
+  const another = async () => {
+    const draft = await createDraft({
+      evaluatorEmail: identity?.email ?? null,
+      workshopId: record?.workshop_id ?? null,
+      activityId: record?.activity_id ?? null,
+    })
+    navigate(`/capture/${draft.client_id}`)
   }
 
   if (!record) {
@@ -711,16 +781,54 @@ export function CaptureActivity() {
         {freeWrite && hasContent && !namedSomebody && (
           <Copy id="capture.free-write-needs-name" as="p" className="muted small" />
         )}
-        <div className="row" style={{ marginTop: 12 }}>
-          <button className="primary" disabled={!attested || !canSubmit} onClick={submit}>
-            {alreadySubmitted ? c('capture.save-changes') : c('capture.submit')}
-          </button>
-          {record.edit_history.length > 0 && (
-            <button className="ghost" onClick={onUndo}>
-              {c('capture.undo')}
+        {/* The choice lands WHERE THE BUTTON WAS, and that is the whole point of
+            doing it inline rather than as a screen of its own. The submit button
+            sits at the bottom of a form that is eleven hundred pixels long on a
+            phone; a confirmation anywhere else is a confirmation nobody scrolls
+            back up to read. The thumb is already here.
+
+            Two lines, not three. The card at the top of the screen has already
+            said the capture can be edited and corrected, and the first draft of
+            this banner said it again — plus "below", pointing down at the end of
+            the page. Found by rendering it at 390px. This one says what happened
+            and lets the buttons say what is on offer. */}
+        {done ? (
+          <div role="status" aria-live="polite" style={{ marginTop: 12 }}>
+            <div className="banner info">
+              <Copy id={done.kind === 'saved' ? 'capture.done.saved' : 'capture.done.submitted'} />
+            </div>
+            <div className="row">
+              {done.more && (
+                <button className="primary" onClick={another}>
+                  {c(freeWrite ? 'capture.done.another-free-write' : 'capture.done.another')}
+                </button>
+              )}
+              <button className="ghost" onClick={() => navigate('/')}>
+                {c('capture.done.home')}
+              </button>
+              {/* Undo survives into this state on purpose: "I have just saved a
+                  change I regret" is a thing somebody thinks while reading the
+                  panel, and it does not go through `persist`, so nothing else
+                  would bring the button back. */}
+              {record.edit_history.length > 0 && (
+                <button className="ghost" onClick={onUndo}>
+                  {c('capture.undo')}
+                </button>
+              )}
+            </div>
+          </div>
+        ) : (
+          <div className="row" style={{ marginTop: 12 }}>
+            <button className="primary" disabled={!attested || !canSubmit} onClick={submit}>
+              {alreadySubmitted ? c('capture.save-changes') : c('capture.submit')}
             </button>
-          )}
-        </div>
+            {record.edit_history.length > 0 && (
+              <button className="ghost" onClick={onUndo}>
+                {c('capture.undo')}
+              </button>
+            )}
+          </div>
+        )}
       </div>
     </>
   )

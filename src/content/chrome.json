@@ -398,6 +398,26 @@
       "label": "Undo last edit"
     },
     {
+      "id": "capture.done.submitted",
+      "label": "Submitted, and syncing."
+    },
+    {
+      "id": "capture.done.saved",
+      "label": "Changes saved."
+    },
+    {
+      "id": "capture.done.another",
+      "label": "Evaluate someone else in this session"
+    },
+    {
+      "id": "capture.done.another-free-write",
+      "label": "Write another"
+    },
+    {
+      "id": "capture.done.home",
+      "label": "Back to home"
+    },
+    {
       "id": "rating.quick-read",
       "label": "Quick read (optional):"
     },
@@ -607,6 +627,10 @@
     {
       "id": "myeval.empty",
       "label": "No evaluations yet. Start one from the home screen."
+    },
+    {
+      "id": "myeval.start-another",
+      "label": "Start another evaluation"
     },
     {
       "id": "store.blocked",
