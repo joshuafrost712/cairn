@@ -7,7 +7,11 @@ function cellTitle(name: string, ksa: string, c: HeatCell, scale: Scale): string
   const bits = [name, ksa]
   bits.push(
     c.value === null
-      ? 'no evidence yet'
+      ? // "No evidence yet" was a lie on any cell holding unconfirmed evidence,
+        // and it was the only thing the tooltip said about it.
+        c.toVerify > 0
+        ? 'evidence awaiting review, no agreed rating yet'
+        : 'no evidence yet'
       : `${c.value}/${maxValue(scale)} ${levelWord(scale, c.value)}`,
   )
   if (c.contributing > 0) bits.push(`${c.contributing} observation${c.contributing === 1 ? '' : 's'}`)
@@ -94,6 +98,13 @@ export function Heatmap({
                   <button
                     className="heat__cell"
                     data-d={cell.value === null ? 'none' : cell.value}
+                    /* A cell with unconfirmed evidence is not an empty cell, and
+                       until this existed the two were indistinguishable: a whole
+                       workshop's routed evidence rendered as a grid of dots
+                       because no one had verified any of it yet. Marked rather
+                       than filled — it still carries no designation, so giving it
+                       a colour from the scale would state a score nobody agreed. */
+                    data-pending={(cell.value === null && cell.toVerify > 0) || undefined}
                     data-conflict={cell.conflict || undefined}
                     data-trigger={
                       (cell.value !== null && isLowTrigger(scale, cell.value)) || undefined
@@ -114,7 +125,7 @@ export function Heatmap({
                     title={cellTitle(row.name, matrix.cols[ci].short_label, cell, scale)}
                     onClick={() => onCell?.(row.participant_id, cell.ksa_code)}
                   >
-                    {cell.value === null ? '·' : cell.value}
+                    {cell.value === null ? (cell.toVerify > 0 ? '?' : '·') : cell.value}
                   </button>
                 </td>
               ))}

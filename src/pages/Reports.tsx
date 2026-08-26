@@ -12,6 +12,7 @@ import { DesignationChip } from '../components/data/DesignationChip'
 import { ADMIN_ROLES, useHasWorkshopRole } from '../layout/roles'
 import { c } from '../lib/content/chrome'
 import { Copy } from '../components/Copy'
+import { UnroutedBanner } from '../components/UnroutedBanner'
 
 /**
  * Per-participant 0–3 rollup with the multi-evaluator gate. A report can be
@@ -108,6 +109,8 @@ export function Reports() {
         title="Reports"
         meta={`${withEvidence.length} with evidence · ${reports.length} on the roster`}
       />
+
+      <UnroutedBanner surface="Reports" />
 
       <p className="small muted">
         Per-participant evidence rolled up from observations. A report is cleared to finalize only

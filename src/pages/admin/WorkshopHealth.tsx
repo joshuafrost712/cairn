@@ -11,6 +11,7 @@ import { Heatmap } from '../../components/viz/Heatmap'
 import { Legend } from '../../components/viz/Legend'
 import { StatTile } from '../../components/data/StatTile'
 import type { HeatSort } from '../../reports/analytics'
+import { UnroutedBanner } from '../../components/UnroutedBanner'
 
 const SORTS: { value: HeatSort; label: string }[] = [
   { value: 'roster', label: 'roster order' },
@@ -41,6 +42,16 @@ export function WorkshopHealth() {
   const evidencedCells = heatmap.cells.flat().filter((c) => c.value !== null).length
   const totalCells = heatmap.rows.length * heatmap.cols.length
   const coverage = totalCells ? Math.round((evidencedCells / totalCells) * 100) : 0
+  /**
+   * Cells that hold evidence nobody has confirmed yet.
+   *
+   * `value` is the representative designation and `isSetAside` keeps a
+   * needs_review observation out of it, so a cell with evidence waiting on a human
+   * reads `value === null` — identical, on screen, to a cell with no evidence at
+   * all. That is how a workshop with 191 routed observations displayed 0% and
+   * looked broken. `toVerify` was already on every cell and unread.
+   */
+  const pendingCells = heatmap.cells.flat().filter((c) => c.value === null && c.toVerify > 0).length
   const conflicts = heatmap.cells.flat().filter((c) => c.conflict).length
   const areasAtRisk = byKsa.filter(
     (k) => k.representative.reportableMean !== null && k.representative.reportableMean < 1.5,
@@ -65,6 +76,8 @@ export function WorkshopHealth() {
         crumbs={[{ label: 'Dashboard', to: '/admin/overview' }, { label: 'Workshop health' }]}
         meta={workshop ? `${workshop.name}${workshop.location ? ` · ${workshop.location}` : ''}` : undefined}
       />
+
+      <UnroutedBanner surface="This grid" />
 
       <FilterBar
         days={bundle.days}
@@ -105,6 +118,13 @@ export function WorkshopHealth() {
           label="Evidence coverage"
           value={`${coverage}%`}
           sub={`${evidencedCells} of ${totalCells} person-question cells`}
+        />
+        <StatTile
+          label="Awaiting review"
+          value={pendingCells}
+          sub="cells with evidence nobody has confirmed"
+          attention={pendingCells > 0}
+          to="/inbox"
         />
         <StatTile
           label="Areas at risk"

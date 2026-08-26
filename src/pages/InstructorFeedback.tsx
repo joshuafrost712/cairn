@@ -8,6 +8,7 @@ import { EmptyState } from '../components/data/EmptyState'
 import { DesignationChip } from '../components/data/DesignationChip'
 import { Copy } from '../components/Copy'
 import { c } from '../lib/content/chrome'
+import { UnroutedBanner } from '../components/UnroutedBanner'
 
 /**
  * What colleagues said about the people teaching (tl-30).
@@ -80,6 +81,8 @@ export function InstructorFeedback() {
         title={c('instructor-report.title')}
         meta={`${withEvidence.length} of ${instructorRoster.length} · ${workshopName}`}
       />
+      <UnroutedBanner surface="This page" />
+
       <div className="banner info">
         <Copy id="instructor-report.confidentiality" />
       </div>

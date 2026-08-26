@@ -435,6 +435,20 @@ button.tile:hover {
 .heat__cell[data-d='none'] { background: var(--d-empty); color: var(--d-empty-ink); }
 .heat__cell[data-deemph='true'] { background: var(--deemph); color: var(--ink); }
 
+/* Evidence exists here, nobody has confirmed it. Hatched rather than filled: a
+   fill from the scale would state a designation no one has agreed, and an empty
+   cell would deny that anything was written. Declared after [data-d='none'] so it
+   wins on a cell whose designation is genuinely still null. */
+.heat__cell[data-pending='true'] {
+  background:
+    repeating-linear-gradient(
+      -45deg,
+      var(--d-empty) 0 4px,
+      color-mix(in srgb, var(--ink) 12%, var(--d-empty)) 4px 8px
+    );
+  color: var(--d-empty-ink);
+}
+
 .heat__cell[data-conflict='true']::after {
   content: '';
   position: absolute;

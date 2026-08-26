@@ -16,6 +16,7 @@ import {
   type WorkshopCard,
 } from '../reports/workshopOverview'
 import type { WorkshopMember } from '../lib/types'
+import { UnroutedBanner } from '../components/UnroutedBanner'
 
 /**
  * The cross-workshop cockpit (tl-17).
@@ -54,6 +55,8 @@ export function Workshops() {
         crumbs={[{ label: c('workshops.crumb') }]}
         meta={c('workshops.meta', 'label', { count: memberships.length })}
       />
+
+      <UnroutedBanner surface="These figures" />
 
       <p className="small muted">{c('workshops.help')}</p>
 
