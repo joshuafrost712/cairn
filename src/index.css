@@ -188,6 +188,16 @@ a { color: var(--accent); text-decoration: none; }
 .participant-btn.covered { border-color: #bbf7d0; background: #f0fdf4; }
 .participant-btn.covered.primary { background: var(--accent); border-color: var(--accent); }
 
+/* Unscoped = a free-write capture names this person, but it belongs to no session,
+   so it must not read as coverage for the one on screen. Neutral rather than green,
+   and a dot rather than a tick: the tick is the claim "evaluated for this activity"
+   and that claim stays false here. */
+.participant-btn.covered-unscoped { border-color: var(--line); background: var(--surface-2, #f8fafc); }
+.participant-btn.covered-unscoped.primary { background: var(--accent); border-color: var(--accent); }
+.coverage-badge.unscoped .coverage-check { color: var(--muted); }
+.coverage-badge.unscoped .coverage-count { background: transparent; color: var(--muted); }
+.participant-btn.primary .coverage-badge.unscoped .coverage-check { color: var(--accent-ink); }
+
 .coverage-badge { display: inline-flex; align-items: center; gap: 0.25rem; }
 .coverage-check { color: var(--ok); font-weight: 700; }
 .participant-btn.primary .coverage-check { color: var(--accent-ink); }

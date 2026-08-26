@@ -310,6 +310,10 @@
       "label": "Not yet evaluated anywhere in this workshop"
     },
     {
+      "id": "capture.coverage-free-write",
+      "label": "{count} free-write capture(s) name this person, not tied to any session. Does not count toward this session."
+    },
+    {
       "id": "capture.focus-help",
       "label": "Focus mode: everything you capture is attributed to the one CIT you picked."
     },

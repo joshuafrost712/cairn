@@ -4,7 +4,7 @@ import { useNavigate, useParams, Link } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '../db/local'
 import { ksasInScopeFor, type CaptureScope } from '../db/reference'
-import { coverageForActivity, coverageForWorkshop } from '../db/coverage'
+import { coverageForActivity, coverageForFreeWrites, coverageForWorkshop } from '../db/coverage'
 import { createDraft, saveAnswers, submitEvaluation, undoLastEdit } from '../db/evaluations'
 import {
   canSubmitCapture,
@@ -128,6 +128,33 @@ export function CaptureActivity() {
         : record?.workshop_id
           ? coverageForWorkshop(record.workshop_id)
           : undefined,
+    [record?.activity_id, record?.workshop_id],
+  )
+
+  /**
+   * Free-write coverage, as a SECOND map rather than merged into the first.
+   *
+   * A free-write capture has no activity, and IndexedDB does not index a null
+   * key, so `coverageForActivity` structurally cannot see one. That is correct for
+   * the session quota — a free-write is not about this session — but it left those
+   * captures invisible on every session screen, so an evaluator could write about
+   * Joemar in the morning and see no sign of it while picking names in the
+   * afternoon. Two people evaluate him twice and nobody else at all.
+   *
+   * Kept separate because the merge is the trap: `coverageForWorkshop` aggregates
+   * every row in the workshop, so unioning it in would mark somebody covered for
+   * THIS session because they were covered in a different one, and the merged map
+   * has no provenance left to tell them apart. The count below stays on `coverage`
+   * alone; this only ever adds a second, differently-labelled badge.
+   *
+   * Not queried on the free-write screen itself, where `coverage` is already the
+   * whole-workshop answer and a second badge would double-count the same rows.
+   */
+  const freeWriteCoverage = useLiveQuery(
+    () =>
+      record?.activity_id && record?.workshop_id
+        ? coverageForFreeWrites(record.workshop_id)
+        : undefined,
     [record?.activity_id, record?.workshop_id],
   )
 
@@ -620,17 +647,23 @@ export function CaptureActivity() {
             const on = focusMode ? focusParticipantId === p.id : scope.some((s) => s.participant_id === p.id)
             const cov = coverage?.get(p.id)
             const evs = cov?.evaluators ?? []
+            // Only shown when this session has no coverage of its own for them:
+            // once a real session badge is there, a second one competes with the
+            // number the evaluator is scanning for.
+            const fw = !cov ? freeWriteCoverage?.get(p.id) : undefined
             const title = cov
               ? c('capture.coverage-evaluated', 'label', {
                   count: cov.count,
                   evaluators: evs.join(', ') || c('capture.coverage-unknown'),
                 })
-              : c(freeWrite ? 'capture.coverage-none-workshop' : 'capture.coverage-none')
+              : fw
+                ? c('capture.coverage-free-write', 'label', { count: fw.count })
+                : c(freeWrite ? 'capture.coverage-none-workshop' : 'capture.coverage-none')
             return (
               <button
                 key={p.id}
                 type="button"
-                className={`participant-btn${on ? ' primary' : ''}${cov ? ' covered' : ''}`}
+                className={`participant-btn${on ? ' primary' : ''}${cov ? ' covered' : ''}${fw ? ' covered-unscoped' : ''}`}
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={() => (focusMode ? selectFocus(p) : toggleParticipant(p))}
                 title={title}
@@ -648,6 +681,18 @@ export function CaptureActivity() {
                     ))}
                     {evs.length > 2 && <span className="coverage-initials more">+{evs.length - 2}</span>}
                     {cov.count > 1 && <span className="coverage-count">{cov.count}</span>}
+                  </span>
+                )}
+                {/* A different mark, not a fainter tick, because it answers a
+                    different question: somebody wrote about this person outside
+                    any session. A tick here would read as "covered for this
+                    activity", which is the claim that must stay false. */}
+                {fw && (
+                  <span className="coverage-badge unscoped" aria-label={title}>
+                    <span className="coverage-check" aria-hidden="true">
+                      &#8226;
+                    </span>
+                    {fw.count > 1 && <span className="coverage-count">{fw.count}</span>}
                   </span>
                 )}
               </button>
