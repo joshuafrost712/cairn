@@ -45,6 +45,13 @@ screenshots/
 # delete is recoverable, never committed.
 .pilot-archive/
 
+# Routing workspaces built from REAL workshop data by scripts/routing-batch.ts.
+# Same reasoning as .pilot-archive/ above: a capture is an evaluator's candid
+# assessment of a named colleague, and this repo is public. `routing/` is the
+# committed workspace and holds synthetic captures only; anything generated from
+# Postgres lands here and is moved to the PRIVATE routing repo by hand.
+.routing-workspace/
+
 # Roster scripts. This repo is public and code-searchable, and a roster script
 # names real people with their email addresses in the clear. Applied scripts are
 # archived in the private vault instead, under `Projects/OBT/OBT Consultant
