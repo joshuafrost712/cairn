@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { readFileSync } from 'node:fs'
 
 import { participantFacingQuestions } from '../src/lib/instructors'
+import { captureScopeSource } from '../src/lib/captureScope'
 import {
   FREE_WRITE_KEY,
   composeFreeWriteSourceText,
@@ -136,9 +137,15 @@ describe('which questions a trainee capture may reach', () => {
       instructorEvent,
     ])
     expect(kept.map((k) => k.id)).toEqual(['q1'])
-    // And the caller passes it unfiltered, which is the point.
+    // And the caller passes it unfiltered, which is the point. The resolution moved
+    // to lib/captureScope.ts so a Node script can share it, so there are two links
+    // in that chain now and both have to stay unfiltered: reference.ts hands the
+    // whole table to the shared resolver, and the resolver hands it straight on.
     expect(readFileSync('src/db/reference.ts', 'utf8')).toMatch(
-      /participantFacingQuestions\(ksas, links, activities\)/,
+      /resolveParticipantFacingKsas\(ksas, links, activities\)/,
+    )
+    expect(readFileSync('src/lib/captureScope.ts', 'utf8')).toMatch(
+      /participantFacingQuestions\(workshopKsas, allLinks, activities\)/,
     )
   })
 
@@ -239,10 +246,60 @@ describe('whether a capture is a free-write one', () => {
   })
 
   it('is what BOTH surfaces call, so the screen and the routed file cannot disagree', () => {
-    const reference = readFileSync('src/db/reference.ts', 'utf8')
-    expect(reference).toContain('isFreeWriteCapture')
+    // The branching moved to `captureScopeSource` in lib/captureScope.ts, so that a
+    // batch rebuilding capture files outside a browser shares the decision instead
+    // of re-implementing it. `ksasInScopeFor` is now that decision's Dexie loader,
+    // so the chain to assert is: reference.ts -> captureScopeSource ->
+    // isFreeWriteCapture. Anything that skips a link is the drift this guards.
+    expect(readFileSync('src/db/reference.ts', 'utf8')).toContain('captureScopeSource')
+    expect(readFileSync('src/lib/captureScope.ts', 'utf8')).toContain('isFreeWriteCapture')
     // captureFileFor passes the whole record, so it gets the markers too.
     expect(readFileSync('src/routing/operations.ts', 'utf8')).toMatch(/ksasInScopeFor\(e\)/)
+  })
+})
+
+describe('where a capture gets its questions from', () => {
+  // `captureScopeSource` is the branching half of what `ksasInScopeFor` used to do
+  // in one Dexie-shaped function. It is tested here because it is now the decision
+  // two loaders share: the app's Dexie one and the Supabase one a batch uses to
+  // rebuild capture files for a workshop that is already on the server.
+  const onEvent = { activity_id: 'a1', workshop_id: 'w1' }
+  const noEvent = { activity_id: null, workshop_id: 'w1' }
+
+  it('takes the event\'s questions when the event has some', () => {
+    expect(
+      captureScopeSource(onEvent, { activity: act('a1'), activityQuestions: 4 }),
+    ).toBe('activity')
+  })
+
+  it('takes them for an instructor review even when none are wired', () => {
+    // The event's three questions are the whole point of it, and falling through
+    // to the trainee set would file a colleague's review against Psalms exegesis.
+    expect(
+      captureScopeSource(onEvent, { activity: act('a1', 'instructor'), activityQuestions: 0 }),
+    ).toBe('activity')
+  })
+
+  it('falls back to the workshop when the capture is free-write', () => {
+    expect(
+      captureScopeSource(noEvent, { activity: null, activityQuestions: 0 }),
+    ).toBe('workshop')
+    // An event nothing is wired to is the same case, which is the rule that made
+    // three of the crash course's nineteen events capturable at all.
+    expect(
+      captureScopeSource(onEvent, { activity: act('a1'), activityQuestions: 0 }),
+    ).toBe('workshop')
+  })
+
+  it('scopes to nothing when there is no workshop to fall back to', () => {
+    // A draft started before sign-in. Returning 'workshop' here would send the
+    // loader looking up questions for a null id.
+    expect(
+      captureScopeSource(
+        { activity_id: null, workshop_id: null },
+        { activity: null, activityQuestions: 0 },
+      ),
+    ).toBe('none')
   })
 })
 

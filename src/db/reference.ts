@@ -8,19 +8,17 @@ import { cacheAssignmentRows } from './assignments'
 import { cacheAiConfigRows, refreshPlatformSettings } from './aiConfig'
 import { getActiveWorkshopId } from '../lib/activeWorkshop'
 import * as seed from '../data/seed'
+import { type ActivityKsaResolved, type ResolvedKsa } from '../lib/goals'
+import { instructorReviewPk } from '../lib/instructors'
 import {
-  resolveForActivity,
-  withGoalTitles,
-  type ActivityKsaResolved,
-  type ResolvedKsa,
-} from '../lib/goals'
-import {
-  instructorReviewPk,
-  isInstructorActivity,
-  participantFacingQuestions,
-} from '../lib/instructors'
-import { isFreeWriteCapture, type CaptureLike } from '../lib/compose'
-import type { Activity, ActivityKsa, Goal, InstructorReviewPair, Ksa } from '../lib/types'
+  captureScopeSource,
+  resolveActivityKsas,
+  resolveParticipantFacingKsas,
+  resolveWorkshopKsas,
+  type CaptureScope,
+} from '../lib/captureScope'
+import { type CaptureLike } from '../lib/compose'
+import type { Activity, ActivityKsa, Goal, InstructorReviewPair } from '../lib/types'
 
 /**
  * Whether there is a session to read reference data with. Never throws: no
@@ -333,10 +331,7 @@ export async function ksasForWorkshop(workshopId: string): Promise<ResolvedKsa[]
     db.ksas.where('workshop_id').equals(workshopId).toArray(),
     goalsForWorkshop(workshopId),
   ])
-  return withGoalTitles(
-    ksas.sort((a, b) => a.code.localeCompare(b.code, undefined, { numeric: true })),
-    goals,
-  )
+  return resolveWorkshopKsas(ksas, goals)
 }
 
 /**
@@ -354,21 +349,12 @@ export async function ksasForWorkshop(workshopId: string): Promise<ResolvedKsa[]
 export async function ksasForActivity(activityId: string): Promise<ActivityKsaResolved[]> {
   const links = await db.activityKsas.where('activity_id').equals(activityId).sortBy('sort_order')
   const rows = await db.ksas.bulkGet(links.map((l) => l.ksa_id))
-  const present = links
-    .map((link, i) => ({ link, ksa: rows[i] }))
-    .filter((pair): pair is { link: (typeof links)[number]; ksa: Ksa } => Boolean(pair.ksa))
   // Goals come from the questions' own workshops rather than the active one: a
   // wiring row can outlive a workshop switch, and a question should carry its own
   // workshop's group heading wherever it is rendered.
-  const workshopIds = [...new Set(present.map((p) => p.ksa.workshop_id).filter(Boolean))]
-  const goals = (
-    await Promise.all(workshopIds.map((id) => goalsForWorkshop(id)))
-  ).flat()
-  const resolvedKsas = withGoalTitles(
-    present.map((p) => p.ksa),
-    goals,
-  )
-  return present.map((p, i) => resolveForActivity(resolvedKsas[i], p.link))
+  const workshopIds = [...new Set(rows.filter(Boolean).map((k) => k!.workshop_id).filter(Boolean))]
+  const goals = (await Promise.all(workshopIds.map((id) => goalsForWorkshop(id)))).flat()
+  return resolveActivityKsas(links, rows, goals)
 }
 
 /** Activities for a workshop, ordered. */
@@ -397,18 +383,12 @@ export async function participantFacingKsasForWorkshop(
   // lived here, was keyed on the activity rather than the question, and that is
   // exactly what deleted the links pointing at the instructor event a plain
   // evaluator cannot read, so those questions read as unwired and were kept.
-  return participantFacingQuestions(ksas, links, activities)
+  return resolveParticipantFacingKsas(ksas, links, activities)
 }
 
-/** What `ksasInScopeFor` resolved, and which of the two rules produced it. */
-export interface CaptureScope {
-  ksas: ResolvedKsa[]
-  /**
-   * True when the questions came from the workshop rather than from one event, so
-   * the capture is one box of prose rather than a form.
-   */
-  freeWrite: boolean
-}
+// `CaptureScope` now lives in lib/captureScope.ts with the decision that produces
+// it. Re-exported here because every existing caller imports it from this module.
+export type { CaptureScope }
 
 /**
  * THE ONE RESOLUTION SITE for "which questions is this capture about" (tl-36).
@@ -441,13 +421,18 @@ export async function ksasInScopeFor(capture: CaptureLike): Promise<CaptureScope
     ? (await db.activities.get(capture.activity_id)) ?? null
     : null
   const fromActivity = capture.activity_id ? await ksasForActivity(capture.activity_id) : []
-  const freeWrite = isFreeWriteCapture(capture, {
-    isInstructorEvent: isInstructorActivity(activity),
-    activityQuestions: fromActivity.length,
-  })
-  if (!freeWrite) {
-    return { ksas: fromActivity, freeWrite: false }
+  // The branching is `captureScopeSource`; this function is only its loader. The
+  // workshop arm stays behind the switch because it reads the whole wiring table
+  // and no per-question capture should pay for it.
+  switch (captureScopeSource(capture, { activity, activityQuestions: fromActivity.length })) {
+    case 'activity':
+      return { ksas: fromActivity, freeWrite: false }
+    case 'none':
+      return { ksas: [], freeWrite: true }
+    case 'workshop':
+      return {
+        ksas: await participantFacingKsasForWorkshop(capture.workshop_id!),
+        freeWrite: true,
+      }
   }
-  if (!capture.workshop_id) return { ksas: [], freeWrite: true }
-  return { ksas: await participantFacingKsasForWorkshop(capture.workshop_id), freeWrite: true }
 }
