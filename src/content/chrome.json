@@ -5112,6 +5112,218 @@
     {
       "id": "agent-brief.reason.unsupported_quotation",
       "label": "quotes something that is not in what the evaluator said:"
+    },
+    {
+      "id": "nav.briefing",
+      "label": "Briefing"
+    },
+    {
+      "id": "briefing.title",
+      "label": "Briefing"
+    },
+    {
+      "id": "briefing.intro",
+      "label": "What this workshop needs today, read from the shared database rather than from this device. That matters for one number in particular: a capture an evaluator has written but not submitted never reaches anybody else’s phone, so it can only be counted here."
+    },
+    {
+      "id": "briefing.refresh",
+      "label": "Refresh"
+    },
+    {
+      "id": "briefing.refresh.busy",
+      "label": "Reading…"
+    },
+    {
+      "id": "briefing.copy",
+      "label": "Copy as markdown"
+    },
+    {
+      "id": "briefing.copied",
+      "label": "Copied"
+    },
+    {
+      "id": "briefing.copy-failed",
+      "label": "The clipboard refused. Select the report text and copy it by hand."
+    },
+    {
+      "id": "briefing.fetched",
+      "label": "Read from the server at {when}."
+    },
+    {
+      "id": "briefing.stale",
+      "label": "Showing a saved copy from {when}. The server could not be reached just now, so these numbers are that old."
+    },
+    {
+      "id": "briefing.refused",
+      "label": "You do not have permission to read this workshop’s briefing. It is available to a workshop’s administrators and chief evaluators. Nothing is wrong with the workshop; this page simply cannot answer for you."
+    },
+    {
+      "id": "briefing.offline-no-cache",
+      "label": "No briefing has been read on this device yet, and the server cannot be reached. Reconnect and refresh."
+    },
+    {
+      "id": "briefing.error",
+      "label": "The briefing could not be read: {message}"
+    },
+    {
+      "id": "briefing.no-workshop",
+      "label": "Choose a workshop first. The briefing describes one workshop at a time."
+    },
+    {
+      "id": "briefing.worklist.title",
+      "label": "What to do next"
+    },
+    {
+      "id": "briefing.worklist.intro",
+      "label": "Smallest job first, because this is read at the start of a day by somebody with ten minutes. Each line links to the screen that does the work; this page does none of it."
+    },
+    {
+      "id": "briefing.worklist.empty",
+      "label": "Nothing is stuck, nobody has gone quiet, and every participant has been watched at least once."
+    },
+    {
+      "id": "briefing.action.unseen-participants",
+      "label": "Nobody has watched {count} participant(s) yet"
+    },
+    {
+      "id": "briefing.action.silent-devices",
+      "label": "{count} evaluator device(s) have sent nothing for over {hours}h"
+    },
+    {
+      "id": "briefing.action.unsubmitted-drafts",
+      "label": "{count} capture(s) hold content but were never submitted"
+    },
+    {
+      "id": "briefing.action.name-variants",
+      "label": "{count} scope name(s) match no roster row"
+    },
+    {
+      "id": "briefing.action.route-queue",
+      "label": "{count} submitted capture(s) are waiting to be routed"
+    },
+    {
+      "id": "briefing.action.unverified",
+      "label": "{count} observation(s) have no verification verdict"
+    },
+    {
+      "id": "briefing.volume.title",
+      "label": "Volume"
+    },
+    {
+      "id": "briefing.stat.captures",
+      "label": "Captures"
+    },
+    {
+      "id": "briefing.stat.captures.sub",
+      "label": "from {evaluators} evaluators, submitted and not"
+    },
+    {
+      "id": "briefing.stat.queue",
+      "label": "Waiting to route"
+    },
+    {
+      "id": "briefing.stat.queue.sub",
+      "label": "submitted, has content, no observations yet"
+    },
+    {
+      "id": "briefing.stat.observations",
+      "label": "Routed observations"
+    },
+    {
+      "id": "briefing.stat.observations.sub",
+      "label": "across {people} people, mean evidence {mean}"
+    },
+    {
+      "id": "briefing.stat.verdicts",
+      "label": "Verification verdicts"
+    },
+    {
+      "id": "briefing.stat.verdicts.sub",
+      "label": "a designation counts once it is confirmed"
+    },
+    {
+      "id": "briefing.coverage.title",
+      "label": "Coverage by participant"
+    },
+    {
+      "id": "briefing.coverage.intro",
+      "label": "Routed observations plus mentions sitting in the routing queue. Counting both is what stops a routing backlog reading as a person nobody has watched."
+    },
+    {
+      "id": "briefing.coverage.empty",
+      "label": "This workshop has no participants on its roster yet."
+    },
+    {
+      "id": "briefing.col.participant",
+      "label": "Participant"
+    },
+    {
+      "id": "briefing.col.team",
+      "label": "Team"
+    },
+    {
+      "id": "briefing.col.routed",
+      "label": "Routed"
+    },
+    {
+      "id": "briefing.col.pending",
+      "label": "Pending"
+    },
+    {
+      "id": "briefing.col.total",
+      "label": "Total"
+    },
+    {
+      "id": "briefing.goals.title",
+      "label": "Coverage by goal"
+    },
+    {
+      "id": "briefing.goals.intro",
+      "label": "Routed observations only, grouped by the workshop’s goals. A goal low here may simply be waiting in the queue."
+    },
+    {
+      "id": "briefing.unresolved.title",
+      "label": "Names matching no roster row"
+    },
+    {
+      "id": "briefing.unresolved.intro",
+      "label": "Typed into a participant picker and never matched. Usually a spelling variant of somebody who is on the roster."
+    },
+    {
+      "id": "briefing.footer",
+      "label": "The same evidence, seen three other ways:"
+    },
+    {
+      "id": "briefing.footer.sync-health",
+      "label": "Sync health"
+    },
+    {
+      "id": "briefing.footer.workshop",
+      "label": "Workshop heatmap"
+    },
+    {
+      "id": "briefing.footer.routing",
+      "label": "Routing"
+    },
+    {
+      "id": "least-watched.title",
+      "label": "Least watched so far"
+    },
+    {
+      "id": "least-watched.intro",
+      "label": "How many submitted captures name each of these participants. It counts what has reached this device, so it will not match the administrator’s briefing exactly. Treat it as a nudge before your next session, not a score."
+    },
+    {
+      "id": "least-watched.count",
+      "label": "{count} capture(s)"
+    },
+    {
+      "id": "briefing.counts-inline",
+      "label": "{routed} routed, {pending} pending"
+    },
+    {
+      "id": "briefing.unattributed",
+      "label": "{count} observation(s) are attributed to a name that is not on the roster."
     }
   ]
 }

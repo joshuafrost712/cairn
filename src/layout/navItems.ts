@@ -116,6 +116,12 @@ export const NAV_GROUPS: NavGroup[] = [
     roles: CHIEF_ROLES,
     items: [
       { labelId: 'nav.overview', to: '/admin/overview' },
+      // tl-38. First in the group after the overview because it is the page that
+      // answers "what does today need", and CHIEF_ROLES because that is exactly
+      // the role set `workshop_health` permits. If one of these two lists is ever
+      // widened, the other has to move with it or the nav offers a page the
+      // server refuses.
+      { labelId: 'nav.briefing', to: '/admin/briefing' },
       { labelId: 'nav.progress', to: '/admin/progress' },
       { labelId: 'nav.workshop-health', to: '/admin/workshop' },
       // tl-18. ADMIN_ROLES rather than the group's CHIEF_ROLES: the page names

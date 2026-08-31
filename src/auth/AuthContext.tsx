@@ -6,6 +6,7 @@ import { supabase, isSupabaseConfigured } from '../lib/supabase'
 import { refreshMemberships, synthesizeLocalMembership, cachedMemberships } from '../db/membership'
 import { activeWorkshopNeedsCorrection, resolveActiveWorkshopId } from './membership'
 import { getActiveWorkshopId, setActiveWorkshopId } from '../lib/activeWorkshop'
+import { clearAllCachedHealth } from '../db/health'
 
 // ---------------------------------------------------------------------------
 // Identity shape (shared by both auth paths)
@@ -613,6 +614,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     }
     localStorage.removeItem(STORAGE_KEY)
+    // tl-38. The briefing snapshot is keyed by workshop and carries no user, so on
+    // a shared browser profile it would otherwise outlive the session that earned
+    // it and greet the next person with the last workshop report.
+    clearAllCachedHealth()
     setIdentity(null)
     setStatus('signedOut')
     setLoaded({ id: null, rows: [] })

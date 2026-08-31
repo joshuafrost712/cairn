@@ -4,7 +4,7 @@ import { myCaptures } from '../src/db/evaluations'
 import { shouldClearRoutingToken } from '../src/routing/config'
 import { AI_MODES, DEFAULT_AI_MODE } from '../src/lib/aiConfig'
 import { NAV_GROUPS } from '../src/layout/navItems'
-import { ADMIN_ROLES } from '../src/layout/roles'
+import { ADMIN_ROLES, CHIEF_ROLES } from '../src/layout/roles'
 import chrome from '../src/content/chrome.json'
 import type { EvaluationRecord } from '../src/lib/types'
 
@@ -170,6 +170,20 @@ describe('the routing surface is administrator-only', () => {
     expect(syncHealth.roles).toEqual(ADMIN_ROLES)
   })
 
+  it('gates the briefing on the dashboard group, which is CHIEF_ROLES', () => {
+    // Load-bearing for the copy audit below, which exempts every `briefing.`
+    // string. tl-38's page has to name the Routing screen because linking to it
+    // is most of what the page does, and it sits behind the chief gate, which is
+    // the same footing the discrepancy inbox already stands on. The exemption is
+    // only honest while this holds: the entry takes no `roles` of its own, so it
+    // inherits the dashboard group's CHIEF_ROLES, and that group must stay chief.
+    const dashboard = NAV_GROUPS.find((g) => g.labelId === 'nav.group.dashboard')!
+    expect(dashboard.roles).toEqual(CHIEF_ROLES)
+    const briefing = items.find((i) => i.to === '/admin/briefing')!
+    expect(briefing).toBeDefined()
+    expect(briefing.roles).toBeUndefined()
+  })
+
   it('leaves nothing routing-shaped in the capture group', () => {
     const capture = NAV_GROUPS.find((g) => g.labelId === 'nav.group.capture')!
     expect(capture.roles).toBeUndefined() // still everyone's, which is why this matters
@@ -225,8 +239,19 @@ describe('the evaluator-facing copy names no mechanism', () => {
   // (see the display-strings-versus-storage-ids rule in the README). Every other
   // `setup.templates.` string stays under audit, including all the labels and all the
   // error sentences, so a string reused on an evaluator's screen would still be caught.
+  // tl-38 adds `briefing.` and `nav.briefing`, on the same earned footing as the
+  // rest. The Briefing page's whole job is to say where evidence is stuck and to
+  // link to the surface that unsticks it, and the largest of those surfaces is the
+  // Routing page, so the page cannot do its job without naming it. It sits in the
+  // dashboard nav group behind CHIEF_ROLES, the same gate the discrepancy inbox
+  // stands on, and the nav test above asserts that group is still chief. If it is
+  // ever widened, that test fails before this exemption becomes a leak.
+  //
+  // NOT exempted, deliberately: `least-watched.`, which is tl-38's one
+  // evaluator-facing string set. It is rendered on EvaluatorHome, so it stays under
+  // audit and must go on naming no mechanism.
   const ADMIN_ONLY =
-    /^(routing\.|sync-health\.|agent-brief\.|nav\.routing|nav\.sync-health|nav\.agent-brief|nav\.discrepancy-inbox|nav\.builder|setup\.ai\.|setup\.impact\.ai\.|setup\.templates\.group\.)/
+    /^(routing\.|sync-health\.|agent-brief\.|briefing\.|nav\.routing|nav\.sync-health|nav\.agent-brief|nav\.briefing|nav\.discrepancy-inbox|nav\.builder|setup\.ai\.|setup\.impact\.ai\.|setup\.templates\.group\.)/
 
   const nodes = (chrome as { nodes: Array<Record<string, unknown>> }).nodes
 

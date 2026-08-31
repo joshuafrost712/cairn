@@ -118,6 +118,7 @@ const ROUTES = [
   // legible on a phone. Auditing the polish without walking the route would have
   // been a gap the harness could not see.
   { path: 'admin/assignments', label: 'admin-assignments', auth: true, owned: true, elevate: true },
+  { path: 'admin/briefing', label: 'admin-briefing', auth: true, owned: true, elevate: true },
   { path: 'admin/sync-health', label: 'admin-sync-health', auth: true, owned: true, elevate: true },
   { path: 'admin/routing', label: 'admin-routing', auth: true, owned: true, elevate: true },
   // tl-15's brief pack, added by the spec that built it rather than by whoever merges

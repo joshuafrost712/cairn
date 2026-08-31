@@ -9,6 +9,7 @@ import { Copy } from '../components/Copy'
 import { useAuth } from '../auth/AuthContext'
 import { createDraft } from '../db/evaluations'
 import { EVALUATING_ROLES, useHasWorkshopRole } from '../layout/roles'
+import { LeastWatched } from '../components/admin/LeastWatched'
 import { reviewPairsFor } from '../db/instructors'
 import { isInstructorActivity } from '../lib/instructors'
 import { countIn, formatDay, groupActivitiesByDay, suggestActivity } from '../lib/schedule'
@@ -193,6 +194,18 @@ export function EvaluatorHome() {
           </button>
           <Copy id="home.free-write-help" as="p" className="muted small" style={{ marginBottom: 0 }} />
         </div>
+      )}
+
+      {/* tl-38. The gap goes in front of the person who can close it in the next
+          session. Gated on `canEvaluateTrainees` for the same reason the button
+          above is: a `participant`-role member evaluates nobody, so a list of who
+          needs watching is not theirs to read. It calls no RPC and shows names and
+          counts only. */}
+      {/* Keyed on the workshop id, per the repo rule that a `useLiveQuery` goes
+          stale across a deps change: without the key the card can paint the
+          previous workshop's names for a frame after a switch. */}
+      {canEvaluateTrainees && (
+        <LeastWatched key={activeWorkshopId ?? 'none'} workshopId={activeWorkshopId} />
       )}
 
       {instructorEvents.length > 0 && (
