@@ -33,6 +33,7 @@ import { InstructorFeedback } from './pages/InstructorFeedback'
 import { DayEmail } from './pages/DayEmail'
 import { Export } from './pages/Export'
 import { AdminOverview } from './pages/admin/AdminOverview'
+import { Briefing } from './pages/admin/Briefing'
 import { WorkshopHealth } from './pages/admin/WorkshopHealth'
 import { SyncHealth } from './pages/admin/SyncHealth'
 import { AgentBrief } from './pages/admin/AgentBrief'
@@ -297,6 +298,10 @@ function Shell() {
           <Route path="/export" element={<Export />} />
 
           <Route path="/admin/overview" element={<AdminOverview />} />
+          {/* tl-38. CHIEF_ROLES here is the client-side mirror of the role array
+              inside `workshop_health`; the server is the authority and refuses
+              anyone this gate would wrongly let through. */}
+          <Route path="/admin/briefing" element={<Briefing />} />
           <Route path="/admin/workshop" element={<WorkshopHealth />} />
           <Route path="/admin/progress" element={<Progress />} />
           {/* CHIEF_ROLES, not ADMIN_ROLES, because that set is exactly the one

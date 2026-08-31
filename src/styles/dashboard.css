@@ -1067,3 +1067,40 @@ button.btn--block-left {
 @media (min-width: 34rem) {
   .ai-fn__meta { text-align: right; }
 }
+
+/* tl-38: the briefing's coverage table, which has five columns and long names.
+
+   THE COLUMN THAT MATTERS IS THE LAST ONE. Rows are ranked on Total, and Total
+   carries the pill that marks a participant nobody has watched. At 390px the
+   five columns needed about 460px, so the table sat in `.dt-wrap`'s horizontal
+   scroller with Pending clipped and Total entirely off screen. Every negative
+   assertion still passed: the body did not overflow, the page threw nothing, the
+   text was all in the DOM. Only the screenshot showed it, which is the build
+   protocol's rule about layout audits earning its keep for the third time in this
+   repo after tl-09's scale editor and tl-13's function toggles.
+
+   The fix is the one that protocol recommends: drop a column rather than scroll
+   it. Dropping Team alone was not enough: four columns still needed more than
+   390px and Total was still off screen, which the second screenshot showed and
+   the body-overflow assertion still did not. So on a narrow screen the table
+   falls to TWO columns, participant and total, while team, routed and pending
+   move under the name as one muted line. Nothing is lost and nothing sits behind
+   a scroller. */
+.briefing-coverage .briefing-narrow-only {
+  display: none;
+}
+
+@media (max-width: 34rem) {
+  .briefing-coverage .dt th:nth-child(2),
+  .briefing-coverage .dt td:nth-child(2),
+  .briefing-coverage .dt th:nth-child(3),
+  .briefing-coverage .dt td:nth-child(3),
+  .briefing-coverage .dt th:nth-child(4),
+  .briefing-coverage .dt td:nth-child(4) {
+    display: none;
+  }
+
+  .briefing-coverage .briefing-narrow-only {
+    display: block;
+  }
+}
