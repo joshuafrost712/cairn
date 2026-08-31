@@ -65,7 +65,9 @@ const pair = (reviewer: string, instructor: string, workshop = CC): InstructorRe
 })
 
 /**
- * The nine Crash Course grants from scripts/tl30-instructor-roster.sql.
+ * The nine Crash Course grants from the tl-30 roster script, which was removed
+ * from the tree on 2026-08-31 because it carried real personal email addresses in
+ * a public repo. Recover it with `git show 3266b6a:scripts/tl30-instructor-roster.sql`.
  *
  * Amended 2026-08-18 with the roster script: Mathew's and Irene's four grants
  * came out when Joshua narrowed the rule to "an evaluator reviews trainees and
@@ -76,10 +78,10 @@ const pair = (reviewer: string, instructor: string, workshop = CC): InstructorRe
 const CC_PAIRS: InstructorReviewPair[] = [
   pair('josh_frost@sil.org', MATHEW.id),
   pair('josh_frost@sil.org', IRENE.id),
-  pair('nikkicm23@gmail.com', JOSH.id),
-  pair('nikkicm23@gmail.com', MATHEW.id),
-  pair('nikkicm23@gmail.com', IRENE.id),
-  pair('nikkicm23@gmail.com', VIJI.id),
+  pair('reviewer-nm@example.org', JOSH.id),
+  pair('reviewer-nm@example.org', MATHEW.id),
+  pair('reviewer-nm@example.org', IRENE.id),
+  pair('reviewer-nm@example.org', VIJI.id),
   pair('viji_mathew@sil.org', JOSH.id),
   pair('viji_mathew@sil.org', MATHEW.id),
   pair('viji_mathew@sil.org', IRENE.id),
@@ -130,14 +132,14 @@ describe('reviewableInstructors: the Bali matrix, not a formula', () => {
   // surfaces: the empty list is the capture picker, and the boolean is what hides
   // the instructor event from their schedule (activity_select calls the SQL twin).
   it('gives the two facilitator-evaluators nobody at all', () => {
-    for (const who of ['mathewtperumal@gmail.com', 'irene@sall.com']) {
+    for (const who of ['evaluator-mt@example.org', 'evaluator-ivr@example.org']) {
       expect(reviewableInstructors(ROSTER, CC_PAIRS, who, CC)).toEqual([])
       expect(reviewsAnyInstructor(CC_PAIRS, who, CC)).toBe(false)
     }
   })
 
   it('gives Nikki all four, including Viji', () => {
-    expect(names(reviewableInstructors(ROSTER, CC_PAIRS, 'nikkicm23@gmail.com', CC))).toEqual([
+    expect(names(reviewableInstructors(ROSTER, CC_PAIRS, 'reviewer-nm@example.org', CC))).toEqual([
       'i-irene',
       'i-josh',
       'i-mathew',
@@ -156,7 +158,7 @@ describe('reviewableInstructors: the Bali matrix, not a formula', () => {
       'i-josh',
       'i-mathew',
     ])
-    for (const who of ['josh_frost@sil.org', 'mathewtperumal@gmail.com', 'irene@sall.com']) {
+    for (const who of ['josh_frost@sil.org', 'evaluator-mt@example.org', 'evaluator-ivr@example.org']) {
       expect(names(reviewableInstructors(ROSTER, CC_PAIRS, who, CC))).not.toContain('i-viji')
     }
   })
@@ -167,36 +169,36 @@ describe('reviewableInstructors: the Bali matrix, not a formula', () => {
   // that derives instructor-review rights from workshop_member.role fails here.
   it('keeps Viji reviewing everybody though he holds the same role as the two who review nobody', () => {
     expect(names(reviewableInstructors(ROSTER, CC_PAIRS, 'viji_mathew@sil.org', CC))).toHaveLength(3)
-    expect(reviewableInstructors(ROSTER, CC_PAIRS, 'mathewtperumal@gmail.com', CC)).toEqual([])
+    expect(reviewableInstructors(ROSTER, CC_PAIRS, 'evaluator-mt@example.org', CC)).toEqual([])
   })
 
   it('gives nothing to somebody holding no pair, and nothing off-workshop', () => {
     expect(reviewableInstructors(ROSTER, CC_PAIRS, 'katie_frost@sil.org', CC)).toEqual([])
-    expect(reviewableInstructors(ROSTER, CC_PAIRS, 'nikkicm23@gmail.com', SONGS)).toEqual([])
+    expect(reviewableInstructors(ROSTER, CC_PAIRS, 'reviewer-nm@example.org', SONGS)).toEqual([])
     expect(reviewableInstructors(ROSTER, CC_PAIRS, null, CC)).toEqual([])
-    expect(reviewableInstructors(ROSTER, CC_PAIRS, 'nikkicm23@gmail.com', null)).toEqual([])
+    expect(reviewableInstructors(ROSTER, CC_PAIRS, 'reviewer-nm@example.org', null)).toEqual([])
   })
 
   it('matches an address case-insensitively, as the server does', () => {
-    expect(names(reviewableInstructors(ROSTER, CC_PAIRS, 'Nikkicm23@Gmail.COM', CC))).toHaveLength(4)
+    expect(names(reviewableInstructors(ROSTER, CC_PAIRS, 'Reviewer-NM@Example.ORG', CC))).toHaveLength(4)
   })
 
   it('never returns a trainee, even if a pair somehow names one', () => {
-    const bogus = [...CC_PAIRS, pair('nikkicm23@gmail.com', MICAH.id)]
-    expect(names(reviewableInstructors(ROSTER, bogus, 'nikkicm23@gmail.com', CC))).not.toContain(
+    const bogus = [...CC_PAIRS, pair('reviewer-nm@example.org', MICAH.id)]
+    expect(names(reviewableInstructors(ROSTER, bogus, 'reviewer-nm@example.org', CC))).not.toContain(
       't-micah',
     )
   })
 
   it('answers reviewsAnyInstructor for exactly the three reviewers', () => {
-    for (const who of ['josh_frost@sil.org', 'nikkicm23@gmail.com', 'viji_mathew@sil.org']) {
+    for (const who of ['josh_frost@sil.org', 'reviewer-nm@example.org', 'viji_mathew@sil.org']) {
       expect(reviewsAnyInstructor(CC_PAIRS, who, CC)).toBe(true)
     }
     expect(reviewsAnyInstructor(CC_PAIRS, 'katie_frost@sil.org', CC)).toBe(false)
     // The two who teach and also evaluate the trainees. Their false here is what
     // takes the instructor event off their schedule, not just the picker.
-    expect(reviewsAnyInstructor(CC_PAIRS, 'mathewtperumal@gmail.com', CC)).toBe(false)
-    expect(reviewsAnyInstructor(CC_PAIRS, 'irene@sall.com', CC)).toBe(false)
+    expect(reviewsAnyInstructor(CC_PAIRS, 'evaluator-mt@example.org', CC)).toBe(false)
+    expect(reviewsAnyInstructor(CC_PAIRS, 'evaluator-ivr@example.org', CC)).toBe(false)
     // Angie is a songs-workshop reviewer and holds nothing here.
     expect(reviewsAnyInstructor(CC_PAIRS, 'angeline_foo@sil.org', CC)).toBe(false)
   })
@@ -217,7 +219,7 @@ describe('rosterForActivity: which names an event puts on screen', () => {
 
   it('shows a teaching event the trainees and no facilitator', () => {
     expect(isInstructorActivity(teaching)).toBe(false)
-    expect(names(rosterForActivity(teaching, ROSTER, CC_PAIRS, 'nikkicm23@gmail.com', CC))).toEqual([
+    expect(names(rosterForActivity(teaching, ROSTER, CC_PAIRS, 'reviewer-nm@example.org', CC))).toEqual([
       't-micah',
     ])
   })
@@ -240,7 +242,7 @@ describe('rosterForActivity: which names an event puts on screen', () => {
   // instructor pairs must not cost Mathew and Irene the trainees they are here to
   // evaluate. Their instructor event is empty; their teaching event is not.
   it('leaves the two facilitator-evaluators their trainees', () => {
-    for (const who of ['mathewtperumal@gmail.com', 'irene@sall.com']) {
+    for (const who of ['evaluator-mt@example.org', 'evaluator-ivr@example.org']) {
       expect(names(rosterForActivity(teaching, ROSTER, CC_PAIRS, who, CC))).toEqual(['t-micah'])
       expect(rosterForActivity(instructorEvent, ROSTER, CC_PAIRS, who, CC)).toEqual([])
     }
@@ -268,12 +270,12 @@ describe('scopeEvidence: instructor evidence never lands in a trainee aggregate'
     needs_review: false,
     origin: 'individual',
     imported_at: '2026-08-19T09:00:00.000Z',
-    evaluator_email: 'nikkicm23@gmail.com',
+    evaluator_email: 'reviewer-nm@example.org',
     ...over,
   })
 
   const evaluation = (over: Partial<EvaluationRecord> & { client_id: string }): EvaluationRecord => ({
-    evaluator_email: 'nikkicm23@gmail.com',
+    evaluator_email: 'reviewer-nm@example.org',
     activity_id: 'a-1',
     workshop_id: CC,
     source_language: 'English',
@@ -343,8 +345,8 @@ describe('scopeEvidence: instructor evidence never lands in a trainee aggregate'
 
 describe('instructorReviewPk', () => {
   it('lowercases the address so one grant cannot become two rows', () => {
-    expect(instructorReviewPk(CC, 'Nikkicm23@Gmail.com', 'i-josh')).toBe(
-      instructorReviewPk(CC, 'nikkicm23@gmail.com', 'i-josh'),
+    expect(instructorReviewPk(CC, 'Reviewer-NM@Example.org', 'i-josh')).toBe(
+      instructorReviewPk(CC, 'reviewer-nm@example.org', 'i-josh'),
     )
   })
 })
