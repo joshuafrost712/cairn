@@ -58,12 +58,39 @@ export function PipelineCard({
     <div className="card">
       <h2>Pipeline</h2>
       <p className="muted small">Where evidence is between capture and report.</p>
-      <Row label="observations" value={attribution.total} />
+
+      {/*
+       * Captures and observations are DIFFERENT UNITS and the rows are grouped to
+       * say so. Read as one flat list they invite a ratio that does not exist: a
+       * reader comparing the workshop's observation count against the unrouted
+       * capture count concludes that most captures failed to route, when one
+       * routed capture routinely yields several observations and an unrouted one
+       * yields none. That misreading is what made a real backlog look like a
+       * different, larger problem than it was.
+       */}
+      <p className="muted small" style={{ marginTop: 'var(--s-3)', marginBottom: 0 }}>
+        Captures — what evaluators submitted
+      </p>
       <Row
         label="captures not yet processed"
         value={summary.capturesNotRouted}
         warn
-        hint="Submitted, but no observations have come back from them yet."
+        hint="Submitted captures that have produced no observations yet. Counted in captures, not observations: routing one capture usually yields several observations, so this number is not comparable to the observation counts below."
+      />
+      <Row
+        label="captures made elsewhere"
+        value={summary.orphanedCaptures}
+        warn
+        hint="Distinct captures referenced by observations but never synced to this device."
+      />
+
+      <p className="muted small" style={{ marginTop: 'var(--s-3)', marginBottom: 0 }}>
+        Observations — what routing produced from them
+      </p>
+      <Row
+        label="observations"
+        value={attribution.total}
+        hint="Individual observations routed from captures. One capture usually produces several, so this is never a like-for-like comparison with the capture counts above."
       />
       <Row
         label="not attributable to a person"
@@ -76,12 +103,6 @@ export function PipelineCard({
         value={attribution.total - attribution.withActivity}
         warn
         hint="The capture that produced these is not on this device, so their event is unknowable here. They still count toward the person."
-      />
-      <Row
-        label="captures made elsewhere"
-        value={summary.orphanedCaptures}
-        warn
-        hint="Distinct captures referenced by observations but never synced to this device."
       />
       {isAdmin && (
         <p className="small" style={{ marginTop: 'var(--s-3)' }}>
